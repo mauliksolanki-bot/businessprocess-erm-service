@@ -1,0 +1,50 @@
+package com.org.erm.service;
+
+import com.org.erm.dto.UserProfileResponse;
+import com.org.erm.model.ErmRole;
+import com.org.erm.model.ErmUser;
+import com.org.erm.repository.ErmRoleRepository;
+import com.org.erm.repository.ErmUserRepository;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.util.Comparator;
+import java.util.List;
+
+@Service
+public class UserService {
+
+    private final ErmUserRepository ermUserRepository;
+    private final ErmRoleRepository ermRoleRepository;
+
+    public UserService(ErmUserRepository ermUserRepository, ErmRoleRepository ermRoleRepository) {
+        this.ermUserRepository = ermUserRepository;
+        this.ermRoleRepository = ermRoleRepository;
+    }
+
+    public UserProfileResponse getCurrentUserProfile(String username) {
+        ErmUser ermUser = ermUserRepository.findByUsernameIgnoreCase(username)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        List<String> roleNames = ermUser.getRoles().stream()
+                .map(ErmRole::getName)
+                .sorted(Comparator.naturalOrder())
+                .toList();
+
+        String designation = ermUser.getPrimaryRoleId() == null
+                ? roleNames.stream().findFirst().orElse("Employee")
+                : ermRoleRepository.findById(ermUser.getPrimaryRoleId())
+                .map(ErmRole::getName)
+                .orElseGet(() -> roleNames.stream().findFirst().orElse("Employee"));
+
+        return new UserProfileResponse(
+                ermUser.getId(),
+                ermUser.getUsername(),
+                ermUser.getEmail(),
+                ermUser.getFullName(),
+                designation,
+                roleNames
+        );
+    }
+}

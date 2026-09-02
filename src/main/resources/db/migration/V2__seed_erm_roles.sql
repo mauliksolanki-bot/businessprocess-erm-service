@@ -1,0 +1,17 @@
+INSERT INTO ERM_ROLES (ROLE_NAME, ROLE_DESCRIPTION) VALUES
+('Super Admin', 'System super administrator'),
+('Admin', 'Administrative user'),
+('CEO', 'Chief Executive Officer'),
+('CFO', 'Chief Financial Officer'),
+('CTO', 'Chief Technology Officer'),
+('CHRO', 'Chief Human Resources Officer'),
+('HR Head', 'Head of Human Resources'),
+('Senior HR', 'Senior HR manager'),
+('Junior HR', 'Junior HR executive'),
+('Project Owner', 'Project owner'),
+('Program Manager', 'Program manager'),
+('Delivery Manager', 'Delivery manager'),
+('Project Manager', 'Project manager'),
+('Team Lead', 'Team lead'),
+('Employee', 'Employee'),
+('Intern', 'Intern');
