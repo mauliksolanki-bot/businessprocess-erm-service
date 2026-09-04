@@ -12,6 +12,7 @@ import {
   ApiError,
   applyLeave,
   getEnabledLeavePolicies,
+  getLeaveApproverVisibility,
   getLeaveApprovalRequests,
   getMyLeaveRequests,
   takeLeaveAction,
@@ -54,6 +55,7 @@ export default function LeavesPage() {
   const [actionType, setActionType] = useState<"APPROVE" | "REJECT">("APPROVE");
   const [actionComment, setActionComment] = useState("");
   const [actioning, setActioning] = useState(false);
+  const [showApproverRequests, setShowApproverRequests] = useState(false);
 
   const accessToken = useMemo(() => loadSession()?.accessToken ?? null, []);
 
@@ -73,6 +75,8 @@ export default function LeavesPage() {
       setPolicies(policyData);
       setMyRequests(requestData);
       setApprovalRequests(approvalsData);
+      const visibility = await getLeaveApproverVisibility(accessToken);
+      setShowApproverRequests(visibility.showApproverRequests);
       if (!form.leaveCategory && policyData.length > 0) {
         setForm((prev) => ({ ...prev, leaveCategory: policyData[0].leaveCategory }));
       }
@@ -87,6 +91,12 @@ export default function LeavesPage() {
   useEffect(() => {
     void loadData();
   }, [loadData]);
+
+  useEffect(() => {
+    if (!showApproverRequests && activeTab === "approvals") {
+      setActiveTab("apply");
+    }
+  }, [activeTab, showApproverRequests]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -169,13 +179,15 @@ export default function LeavesPage() {
         >
           My Requests
         </Button>
-        <Button
-          className={activeTab === "approvals" ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white hover:from-emerald-500 hover:to-teal-500" : ""}
-          onClick={() => setActiveTab("approvals")}
-          variant={activeTab === "approvals" ? "default" : "ghost"}
-        >
-          Approver Requests
-        </Button>
+        {showApproverRequests ? (
+          <Button
+            className={activeTab === "approvals" ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white hover:from-emerald-500 hover:to-teal-500" : ""}
+            onClick={() => setActiveTab("approvals")}
+            variant={activeTab === "approvals" ? "default" : "ghost"}
+          >
+            Approver Requests
+          </Button>
+        ) : null}
       </div>
 
       {activeTab === "apply" ? (
@@ -306,7 +318,7 @@ export default function LeavesPage() {
         </Card>
       ) : null}
 
-      {activeTab === "approvals" ? (
+      {showApproverRequests && activeTab === "approvals" ? (
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <div>

@@ -1,13 +1,15 @@
 package com.org.erm.controller;
 
-import com.org.erm.dto.PagedResponse;
-import com.org.erm.dto.ProjectAllocationActionRequest;
-import com.org.erm.dto.ProjectAllocationCreateRequest;
-import com.org.erm.dto.ProjectAllocationEmployeeOptionResponse;
-import com.org.erm.dto.ProjectAllocationManageRequest;
-import com.org.erm.dto.ProjectAllocationProjectOptionResponse;
-import com.org.erm.dto.ProjectAllocationResponse;
-import com.org.erm.dto.RequestCommentRequest;
+import com.org.erm.dto.response.PagedResponse;
+import com.org.erm.dto.request.ProjectAllocationActionRequest;
+import com.org.erm.dto.request.ProjectAllocationBatchCreateRequest;
+import com.org.erm.dto.request.ProjectAllocationCreateRequest;
+import com.org.erm.dto.request.ProjectAllocationBulkActionRequest;
+import com.org.erm.dto.response.ProjectAllocationEmployeeOptionResponse;
+import com.org.erm.dto.request.ProjectAllocationManageRequest;
+import com.org.erm.dto.response.ProjectAllocationProjectOptionResponse;
+import com.org.erm.dto.response.ProjectAllocationResponse;
+import com.org.erm.dto.request.RequestCommentRequest;
 import com.org.erm.service.ProjectAllocationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -41,8 +43,8 @@ public class ProjectAllocationController {
 
     @PostMapping
     @Operation(summary = "Create project allocation request")
-    public ResponseEntity<ProjectAllocationResponse> create(@Valid @RequestBody ProjectAllocationCreateRequest request,
-                                                            Authentication authentication) {
+    public ResponseEntity<List<ProjectAllocationResponse>> create(@Valid @RequestBody ProjectAllocationBatchCreateRequest request,
+                                                                  Authentication authentication) {
         return ResponseEntity.status(HttpStatus.CREATED).body(allocationService.create(request, authentication));
     }
 
@@ -69,6 +71,13 @@ public class ProjectAllocationController {
                                                                 @Valid @RequestBody ProjectAllocationActionRequest request,
                                                                 Authentication authentication) {
         return ResponseEntity.ok(allocationService.takeAction(id, request, authentication));
+    }
+
+    @PatchMapping("/bulk-actions")
+    @Operation(summary = "Bulk approve/reject/refer-back allocations")
+    public ResponseEntity<List<ProjectAllocationResponse>> takeBulkAction(@Valid @RequestBody ProjectAllocationBulkActionRequest request,
+                                                                          Authentication authentication) {
+        return ResponseEntity.ok(allocationService.takeBulkAction(request, authentication));
     }
 
     @PatchMapping("/{id}/resubmit")

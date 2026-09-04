@@ -1,8 +1,8 @@
 package com.org.erm.controller;
 
-import com.org.erm.dto.LoginRequest;
-import com.org.erm.dto.LoginResponse;
-import com.org.erm.dto.MessageResponse;
+import com.org.erm.dto.request.LoginRequest;
+import com.org.erm.dto.response.LoginResponse;
+import com.org.erm.dto.response.MessageResponse;
 import com.org.erm.service.AuthService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;

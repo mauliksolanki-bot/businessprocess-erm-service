@@ -1,14 +1,16 @@
 package com.org.erm.service;
 
-import com.org.erm.dto.OnboardingApprovalTrailItem;
-import com.org.erm.dto.PagedResponse;
-import com.org.erm.dto.ProjectAllocationActionRequest;
-import com.org.erm.dto.ProjectAllocationCreateRequest;
-import com.org.erm.dto.ProjectAllocationEmployeeOptionResponse;
-import com.org.erm.dto.ProjectAllocationManageRequest;
-import com.org.erm.dto.ProjectAllocationProjectOptionResponse;
-import com.org.erm.dto.ProjectAllocationResponse;
-import com.org.erm.dto.RequestCommentRequest;
+import com.org.erm.dto.response.OnboardingApprovalTrailItem;
+import com.org.erm.dto.response.PagedResponse;
+import com.org.erm.dto.request.ProjectAllocationActionRequest;
+import com.org.erm.dto.request.ProjectAllocationBatchCreateRequest;
+import com.org.erm.dto.request.ProjectAllocationCreateRequest;
+import com.org.erm.dto.request.ProjectAllocationBulkActionRequest;
+import com.org.erm.dto.response.ProjectAllocationEmployeeOptionResponse;
+import com.org.erm.dto.request.ProjectAllocationManageRequest;
+import com.org.erm.dto.response.ProjectAllocationProjectOptionResponse;
+import com.org.erm.dto.response.ProjectAllocationResponse;
+import com.org.erm.dto.request.RequestCommentRequest;
 import com.org.erm.model.ErmProjectAllocation;
 import com.org.erm.model.ErmProjectAllocationComment;
 import com.org.erm.model.ErmProjectRequest;
@@ -34,7 +36,12 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Objects;
 
 @Service
 public class ProjectAllocationService {
@@ -62,25 +69,25 @@ public class ProjectAllocationService {
     }
 
     @Transactional
-    public ProjectAllocationResponse create(ProjectAllocationCreateRequest request, Authentication authentication) {
+    public List<ProjectAllocationResponse> create(ProjectAllocationBatchCreateRequest request, Authentication authentication) {
         ensureProjectManager(authentication);
         String actor = authentication.getName();
+        ErmUser actorUser = userRepository.findByUsernameIgnoreCase(authentication.getName())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
-        ErmProjectRequest projectRequest = resolveProjectRequest(request.projectRequestId(), actor);
-        ErmUser employee = resolveActiveEmployee(request.employeeUserId());
+        ErmProjectRequest projectRequest = resolveProjectRequest(request.projectRequestId(), actorUser, authentication);
         validateDates(request.startDate(), request.endDate());
         BigDecimal percent = normalizePercent(request.allocationPercent());
-        ensureEmployeeCapacity(employee.getId(), request.startDate(), request.endDate(), percent, null);
+        List<Long> employeeIds = normalizeEmployeeIds(request.employeeUserIds());
+        List<ProjectAllocationResponse> responses = new ArrayList<>();
 
-        ErmProjectAllocation entity = new ErmProjectAllocation();
-        applyEditableFields(entity, projectRequest, employee, request, percent);
-        entity.setAllocationCode(buildAllocationCode(projectRequest.getId(), employee.getId(), LocalDateTime.now()));
-        entity.setCreatedByUsername(actor);
-        entity.setStatus(ProjectAllocationStatus.PENDING_DM_APPROVAL);
-        entity = allocationRepository.save(entity);
+        for (Long employeeId : employeeIds) {
+            ErmUser employee = resolveActiveEmployee(employeeId);
+            ensureEmployeeCapacity(employee.getId(), request.startDate(), request.endDate(), percent, null);
+            responses.add(createAllocation(projectRequest, employee, request.allocationType(), percent, request.startDate(), request.endDate(), normalizeOptional(request.comment()), actor));
+        }
 
-        appendTrail(entity, "Allocation Submission", actor, "Submitted", normalizeOptional(request.comment()), LocalDateTime.now());
-        return toResponse(entity);
+        return responses;
     }
 
     @Transactional(readOnly = true)
@@ -111,31 +118,44 @@ public class ProjectAllocationService {
         ensureDeliveryManager(authentication);
         ErmProjectAllocation entity = allocationRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Project allocation not found"));
-        if (entity.getStatus() != ProjectAllocationStatus.PENDING_DM_APPROVAL) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only pending allocations can be actioned");
-        }
-        String comment = normalizeRequired(request.comment(), "Comment is required");
+        String comment = normalizeRequired(request.comment());
         String actor = authentication.getName();
-        LocalDateTime now = LocalDateTime.now();
+        return applyAction(entity, request.decision(), comment, actor, List.of());
+    }
 
-        entity.setDmActionBy(actor);
-        entity.setDmActionAt(now);
-        entity.setDmComment(comment);
-        if (request.decision() == OnboardingActionDecision.APPROVE) {
-            ensureEmployeeCapacity(entity.getEmployeeUserId(), entity.getStartDate(), entity.getEndDate(), entity.getAllocationPercent(), entity.getId());
-            entity.setStatus(ProjectAllocationStatus.ACTIVE);
-        } else if (request.decision() == OnboardingActionDecision.REJECT) {
-            entity.setStatus(ProjectAllocationStatus.REJECTED);
-        } else {
-            entity.setStatus(ProjectAllocationStatus.REFER_BACK);
-            entity.setReferBackBy(actor);
-            entity.setReferBackAt(now);
-            entity.setReferBackComment(comment);
+    @Transactional
+    public List<ProjectAllocationResponse> takeBulkAction(ProjectAllocationBulkActionRequest request, Authentication authentication) {
+        ensureDeliveryManager(authentication);
+        String comment = normalizeRequired(request.comment());
+        String actor = authentication.getName();
+        List<Long> allocationIds = normalizeAllocationIds(request.allocationIds());
+        List<ErmProjectAllocation> allocations = new ArrayList<>();
+        for (ErmProjectAllocation allocation : allocationRepository.findAllById(allocationIds)) {
+            allocations.add(allocation);
+        }
+        if (allocations.size() != allocationIds.size()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "One or more allocations were not found");
         }
 
-        entity = allocationRepository.save(entity);
-        appendTrail(entity, "Delivery Manager Review", actor, decisionLabel(request.decision()), comment, now);
-        return toResponse(entity);
+        Map<Long, ErmProjectAllocation> allocationsById = new LinkedHashMap<>();
+        for (ErmProjectAllocation allocation : allocations) {
+            allocationsById.put(allocation.getId(), allocation);
+        }
+
+        List<ErmProjectAllocation> projectedApprovals = new ArrayList<>();
+        List<ProjectAllocationResponse> responses = new ArrayList<>();
+        for (Long allocationId : allocationIds) {
+            ErmProjectAllocation entity = allocationsById.get(allocationId);
+            if (entity == null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "One or more allocations were not found");
+            }
+            responses.add(applyAction(entity, request.decision(), comment, actor, projectedApprovals));
+            if (request.decision() == OnboardingActionDecision.APPROVE) {
+                projectedApprovals.add(entity);
+            }
+        }
+
+        return responses;
     }
 
     @Transactional
@@ -151,7 +171,9 @@ public class ProjectAllocationService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only requester can resubmit this allocation");
         }
 
-        ErmProjectRequest projectRequest = resolveProjectRequest(request.projectRequestId(), actor);
+        ErmUser actorUser = userRepository.findByUsernameIgnoreCase(authentication.getName())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        ErmProjectRequest projectRequest = resolveProjectRequest(request.projectRequestId(), actorUser, authentication);
         ErmUser employee = resolveActiveEmployee(request.employeeUserId());
         validateDates(request.startDate(), request.endDate());
         BigDecimal percent = normalizePercent(request.allocationPercent());
@@ -174,7 +196,7 @@ public class ProjectAllocationService {
         }
 
         String actor = authentication.getName();
-        String comment = normalizeRequired(request.comment(), "Comment is required");
+        String comment = normalizeRequired(request.comment());
         LocalDateTime now = LocalDateTime.now();
         entity.setDmActionBy(actor);
         entity.setDmActionAt(now);
@@ -228,7 +250,7 @@ public class ProjectAllocationService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Comments are disabled for closed allocations");
         }
         String actor = authentication.getName();
-        appendTrail(entity, "Comment", actor, "Commented", normalizeRequired(request.comment(), "Comment is required"), LocalDateTime.now());
+        appendTrail(entity, "Comment", actor, "Commented", normalizeRequired(request.comment()), LocalDateTime.now());
         return toResponse(entity);
     }
 
@@ -243,12 +265,16 @@ public class ProjectAllocationService {
 
     @Transactional(readOnly = true)
     public List<ProjectAllocationProjectOptionResponse> projectOptions(Authentication authentication) {
-        String actor = authentication.getName();
-        List<ErmProjectRequest> projects = hasAnyAuthority(authentication, ROLE_DM)
-                ? projectRequestRepository.findAllByWorkflowStageOrderByProjectNameAsc(ProjectWorkflowStage.SUPER_ADMIN_APPROVED)
-                : projectRequestRepository.findAllByWorkflowStageAndCreatedByUsernameIgnoreCaseOrderByProjectNameAsc(
-                ProjectWorkflowStage.SUPER_ADMIN_APPROVED, actor
-        );
+        ErmUser actorUser = userRepository.findByUsernameIgnoreCase(authentication.getName())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        List<ErmProjectRequest> projects;
+        if (hasAnyAuthority(authentication, ROLE_DM, "ROLE_SUPER_ADMIN", "ROLE_ADMIN")) {
+            projects = projectRequestRepository.findAllByWorkflowStageOrderByProjectNameAsc(ProjectWorkflowStage.SUPER_ADMIN_APPROVED);
+        } else if (hasAnyAuthority(authentication, ROLE_PM, ROLE_TEAM_LEAD, ROLE_IT_SUPPORT_MANAGER, ROLE_IT_SUPPORT_LEAD, "ROLE_PROJECT_OWNER", "ROLE_DIRECTOR", "ROLE_DELIVERY_MANAGER")) {
+            projects = projectRequestRepository.findAssociatedProjects(actorUser.getId());
+        } else {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not authorized");
+        }
         return projects.stream()
                 .map(project -> new ProjectAllocationProjectOptionResponse(project.getId(), project.getProjectCode(), project.getProjectName()))
                 .toList();
@@ -264,21 +290,38 @@ public class ProjectAllocationService {
                         user.getId(),
                         user.getUsername(),
                         user.getFullName(),
-                        user.getRoles().stream().findFirst().map(role -> role.getName()).orElse("NA")
+                        user.getRoles().stream().findFirst().map(com.org.erm.model.ErmRole::getName).orElse("NA")
                 ))
                 .toList();
     }
 
-    private ErmProjectRequest resolveProjectRequest(Long requestId, String actor) {
+    private ErmProjectRequest resolveProjectRequest(Long requestId, ErmUser actorUser, Authentication authentication) {
         ErmProjectRequest projectRequest = projectRequestRepository.findById(requestId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Project request not found"));
         if (projectRequest.getWorkflowStage() != ProjectWorkflowStage.SUPER_ADMIN_APPROVED) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Allocations are allowed only for fully approved projects");
         }
-        if (!actor.equalsIgnoreCase(projectRequest.getCreatedByUsername())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You can allocate only your own approved projects");
+        if (!canAccessProjectAllocation(authentication, actorUser, projectRequest)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You can allocate only projects associated with you");
         }
         return projectRequest;
+    }
+
+    private boolean canAccessProjectAllocation(Authentication authentication, ErmUser actorUser, ErmProjectRequest projectRequest) {
+        if (hasAnyAuthority(authentication, ROLE_DM, "ROLE_SUPER_ADMIN", "ROLE_ADMIN")) {
+            return true;
+        }
+        if (hasAnyAuthority(authentication, ROLE_PM, ROLE_TEAM_LEAD, ROLE_IT_SUPPORT_MANAGER, ROLE_IT_SUPPORT_LEAD)) {
+            return Objects.equals(projectRequest.getProjectManagerUserId(), actorUser.getId())
+                    || authentication.getName().equalsIgnoreCase(projectRequest.getCreatedByUsername());
+        }
+        if (hasAnyAuthority(authentication, "ROLE_PROJECT_OWNER")) {
+            return Objects.equals(projectRequest.getProjectOwnerUserId(), actorUser.getId());
+        }
+        if (hasAnyAuthority(authentication, "ROLE_DIRECTOR")) {
+            return Objects.equals(projectRequest.getProjectDirectorUserId(), actorUser.getId());
+        }
+        return false;
     }
 
     private ErmUser resolveActiveEmployee(Long employeeUserId) {
@@ -300,11 +343,38 @@ public class ProjectAllocationService {
         entity.setProjectCode(projectRequest.getProjectCode());
         entity.setEmployeeUserId(employee.getId());
         entity.setEmployeeName(resolveDisplayName(employee));
-        entity.setEmployeeRoleName(employee.getRoles().stream().findFirst().map(role -> role.getName()).orElse(null));
+        entity.setEmployeeRoleName(employee.getRoles().stream().findFirst().map(com.org.erm.model.ErmRole::getName).orElse(null));
         entity.setAllocationType(request.allocationType());
         entity.setAllocationPercent(percent);
         entity.setStartDate(request.startDate());
         entity.setEndDate(request.endDate());
+    }
+
+    private ProjectAllocationResponse createAllocation(ErmProjectRequest projectRequest,
+                                                       ErmUser employee,
+                                                       com.org.erm.model.ProjectAllocationType allocationType,
+                                                       BigDecimal percent,
+                                                       LocalDate startDate,
+                                                       LocalDate endDate,
+                                                       String comment,
+                                                       String actor) {
+        ErmProjectAllocation entity = new ErmProjectAllocation();
+        entity.setProjectRequestId(projectRequest.getId());
+        entity.setProjectName(projectRequest.getProjectName());
+        entity.setProjectCode(projectRequest.getProjectCode());
+        entity.setEmployeeUserId(employee.getId());
+        entity.setEmployeeName(resolveDisplayName(employee));
+        entity.setEmployeeRoleName(employee.getRoles().stream().findFirst().map(com.org.erm.model.ErmRole::getName).orElse(null));
+        entity.setAllocationType(allocationType);
+        entity.setAllocationPercent(percent);
+        entity.setStartDate(startDate);
+        entity.setEndDate(endDate);
+        entity.setAllocationCode(buildAllocationCode(projectRequest.getId(), employee.getId(), LocalDateTime.now()));
+        entity.setCreatedByUsername(actor);
+        entity.setStatus(ProjectAllocationStatus.PENDING_DM_APPROVAL);
+        entity = allocationRepository.save(entity);
+        appendTrail(entity, "Allocation Submission", actor, "Submitted", comment, LocalDateTime.now());
+        return toResponse(entity);
     }
 
     private void ensureEmployeeCapacity(Long employeeUserId,
@@ -328,6 +398,36 @@ public class ProjectAllocationService {
         }
     }
 
+    private ProjectAllocationResponse applyAction(ErmProjectAllocation entity,
+                                                  OnboardingActionDecision decision,
+                                                  String comment,
+                                                  String actor,
+                                                  List<ErmProjectAllocation> projectedApprovals) {
+        if (entity.getStatus() != ProjectAllocationStatus.PENDING_DM_APPROVAL) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only pending allocations can be actioned");
+        }
+        LocalDateTime now = LocalDateTime.now();
+        entity.setDmActionBy(actor);
+        entity.setDmActionAt(now);
+        entity.setDmComment(comment);
+
+        if (decision == OnboardingActionDecision.APPROVE) {
+            ensureEmployeeCapacity(entity.getEmployeeUserId(), entity.getStartDate(), entity.getEndDate(), entity.getAllocationPercent(), entity.getId(), projectedApprovals);
+            entity.setStatus(ProjectAllocationStatus.ACTIVE);
+        } else if (decision == OnboardingActionDecision.REJECT) {
+            entity.setStatus(ProjectAllocationStatus.REJECTED);
+        } else {
+            entity.setStatus(ProjectAllocationStatus.REFER_BACK);
+            entity.setReferBackBy(actor);
+            entity.setReferBackAt(now);
+            entity.setReferBackComment(comment);
+        }
+
+        entity = allocationRepository.save(entity);
+        appendTrail(entity, "Delivery Manager Review", actor, decisionLabel(decision), comment, now);
+        return toResponse(entity);
+    }
+
     private void validateDates(LocalDate startDate, LocalDate endDate) {
         if (startDate == null || endDate == null || endDate.isBefore(startDate)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "End date must be on or after start date");
@@ -341,15 +441,78 @@ public class ProjectAllocationService {
         return value.setScale(2, RoundingMode.HALF_UP);
     }
 
-    private String normalizeRequired(String value, String message) {
+    private String normalizeRequired(String value) {
         if (!StringUtils.hasText(value)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, message);
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Comment is required");
         }
         return value.trim();
     }
 
     private String normalizeOptional(String value) {
         return StringUtils.hasText(value) ? value.trim() : null;
+    }
+
+    private List<Long> normalizeEmployeeIds(List<Long> employeeUserIds) {
+        if (employeeUserIds == null || employeeUserIds.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "At least one employee is required");
+        }
+        LinkedHashSet<Long> uniqueIds = new LinkedHashSet<>();
+        for (Long employeeUserId : employeeUserIds) {
+            if (employeeUserId == null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Employee is required");
+            }
+            if (!uniqueIds.add(employeeUserId)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Employee selection contains duplicates");
+            }
+        }
+        return new ArrayList<>(uniqueIds);
+    }
+
+    private List<Long> normalizeAllocationIds(List<Long> allocationIds) {
+        if (allocationIds == null || allocationIds.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "At least one allocation is required");
+        }
+        LinkedHashSet<Long> uniqueIds = new LinkedHashSet<>();
+        for (Long allocationId : allocationIds) {
+            if (allocationId == null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Allocation is required");
+            }
+            if (!uniqueIds.add(allocationId)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Allocation selection contains duplicates");
+            }
+        }
+        return new ArrayList<>(uniqueIds);
+    }
+
+    private void ensureEmployeeCapacity(Long employeeUserId,
+                                        LocalDate startDate,
+                                        LocalDate endDate,
+                                        BigDecimal requestedPercent,
+                                        Long excludeId,
+                                        List<ErmProjectAllocation> projectedApprovals) {
+        BigDecimal activePercent = allocationRepository.sumAllocationPercentForOverlap(
+                employeeUserId,
+                ProjectAllocationStatus.ACTIVE,
+                startDate,
+                endDate,
+                excludeId
+        );
+        BigDecimal projectedPercent = projectedApprovals.stream()
+                .filter(allocation -> Objects.equals(allocation.getEmployeeUserId(), employeeUserId))
+                .filter(allocation -> datesOverlap(allocation.getStartDate(), allocation.getEndDate(), startDate, endDate))
+                .map(ErmProjectAllocation::getAllocationPercent)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal total = activePercent.add(projectedPercent).add(requestedPercent);
+        if (total.compareTo(new BigDecimal("100.00")) > 0) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Allocation exceeds employee capacity. Overlapping active allocation would become " + total.stripTrailingZeros().toPlainString() + "%"
+            );
+        }
+    }
+
+    private boolean datesOverlap(LocalDate firstStart, LocalDate firstEnd, LocalDate secondStart, LocalDate secondEnd) {
+        return !firstEnd.isBefore(secondStart) && !secondEnd.isBefore(firstStart);
     }
 
     private String resolveDisplayName(ErmUser user) {
@@ -383,7 +546,7 @@ public class ProjectAllocationService {
 
     private boolean hasAnyAuthority(Authentication authentication, String... authorities) {
         return authentication.getAuthorities().stream()
-                .map(grantedAuthority -> grantedAuthority.getAuthority())
+                .map(org.springframework.security.core.GrantedAuthority::getAuthority)
                 .anyMatch(authority -> List.of(authorities).contains(authority));
     }
 

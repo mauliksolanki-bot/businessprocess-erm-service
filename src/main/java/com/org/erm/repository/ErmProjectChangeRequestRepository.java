@@ -19,5 +19,7 @@ public interface ErmProjectChangeRequestRepository extends JpaRepository<ErmProj
 
     List<ErmProjectChangeRequest> findAllByProjectOwnerUserIdOrderByCreatedAtDesc(Long projectOwnerUserId);
 
+    List<ErmProjectChangeRequest> findAllByProjectDirectorUserIdOrderByCreatedAtDesc(Long projectDirectorUserId);
+
     List<ErmProjectChangeRequest> findAllByProjectRequestIdOrderByCreatedAtDesc(Long projectRequestId);
 }

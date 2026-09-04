@@ -1,7 +1,7 @@
 package com.org.erm.service;
 
-import com.org.erm.dto.LoginRequest;
-import com.org.erm.dto.LoginResponse;
+import com.org.erm.dto.request.LoginRequest;
+import com.org.erm.dto.response.LoginResponse;
 import com.org.erm.model.ErmRole;
 import com.org.erm.model.ErmTokenBlacklist;
 import com.org.erm.model.ErmUser;

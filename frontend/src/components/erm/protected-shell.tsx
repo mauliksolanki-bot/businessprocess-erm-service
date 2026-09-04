@@ -73,6 +73,8 @@ export function ProtectedShell({ children }: ProtectedShellProps) {
       email: "",
       fullName: session.username,
       designation: "",
+      reportingManagerFullName: null,
+      reportingManagerRoleName: null,
       roles: session.roles,
     });
   }, []);

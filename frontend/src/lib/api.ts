@@ -17,6 +17,8 @@ export type UserProfile = {
   email: string;
   fullName: string;
   designation: string;
+  reportingManagerFullName: string | null;
+  reportingManagerRoleName: string | null;
   roles: string[];
 };
 
@@ -387,6 +389,30 @@ export type TeamLeadDashboard = {
   teamProjects: TeamLeadProjectSummary[];
 };
 
+export type SelfProjectAssignment = {
+  allocationId: number;
+  allocationCode: string;
+  projectRequestId: number;
+  projectName: string;
+  projectCode: string;
+  allocationType: string;
+  allocationPercent: number;
+  startDate: string;
+  endDate: string;
+  status: string;
+  updatedAt: string;
+};
+
+export type SelfDashboard = {
+  userId: number;
+  username: string;
+  fullName: string;
+  designation: string;
+  reportingManagerFullName: string | null;
+  reportingManagerRoleName: string | null;
+  currentProjects: SelfProjectAssignment[];
+};
+
 export type LeavePolicy = {
   id: number;
   leaveCategory: string;
@@ -415,6 +441,81 @@ export type LeaveRequest = {
   approverActionAt: string | null;
   createdAt: string;
   updatedAt: string;
+};
+
+export type SupportCategoryOption = {
+  categoryCode: string;
+  categoryTitle: string;
+  ticketType: string;
+  parentCategoryCode: string | null;
+};
+
+export type SupportQueueSummary = {
+  queueId: number;
+  queueCode: string;
+  queueTitle: string;
+  queueType: string;
+  memberCount: number;
+  openTicketCount: number;
+};
+
+export type SupportTicketComment = {
+  id: number;
+  actorUsername: string;
+  actionType: string;
+  commentText: string | null;
+  createdAt: string;
+};
+
+export type SupportTicket = {
+  id: number;
+  ticketNumber: string;
+  ticketType: "SUPPORT_TICKET" | "INCIDENT" | "SECURITY_INCIDENT";
+  categoryCode: string;
+  categoryTitle: string;
+  subcategoryCode: string | null;
+  subcategoryTitle: string | null;
+  impactLevel: string;
+  urgencyLevel: string;
+  priorityCode: "P1" | "P2" | "P3" | "P4";
+  queueId: number;
+  queueCode: string;
+  queueTitle: string;
+  assigneeUserId: number | null;
+  assigneeUsername: string | null;
+  assigneeFullName: string | null;
+  status:
+    | "NEW"
+    | "ASSIGNED"
+    | "IN_PROGRESS"
+    | "PENDING_EMPLOYEE"
+    | "RESOLVED"
+    | "CLOSED"
+    | "REOPENED"
+    | "CANCELLED"
+    | "SECURITY_ESCALATED";
+  source: string;
+  shortDescription: string;
+  description: string;
+  securityIncident: boolean;
+  responseDueAt: string | null;
+  resolutionDueAt: string | null;
+  firstResponseAt: string | null;
+  resolvedAt: string | null;
+  closedAt: string | null;
+  createdByUsername: string;
+  updatedByUsername: string;
+  comments: SupportTicketComment[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type SupportCatalog = {
+  ticketTypes: string[];
+  impactLevels: string[];
+  urgencyLevels: string[];
+  categories: SupportCategoryOption[];
+  queues: SupportQueueSummary[];
 };
 
 export class ApiError extends Error {
@@ -494,6 +595,15 @@ export async function getDashboardSummary(accessToken: string) {
 
 export async function getTeamLeadDashboard(accessToken: string) {
   return request<TeamLeadDashboard>("/api/dashboard/team-lead", {
+    headers: {
+      Authorization: "Bearer " + accessToken,
+    },
+    cache: "no-store",
+  });
+}
+
+export async function getSelfDashboard(accessToken: string) {
+  return request<SelfDashboard>("/api/dashboard/self", {
     headers: {
       Authorization: "Bearer " + accessToken,
     },
@@ -820,6 +930,15 @@ export async function getManagedProjects(accessToken: string) {
   });
 }
 
+export async function getProjectMasterProjects(accessToken: string) {
+  return request<ProjectRequest[]>("/api/project-requests/project-master", {
+    headers: {
+      Authorization: "Bearer " + accessToken,
+    },
+    cache: "no-store",
+  });
+}
+
 export async function createProjectChangeRequest(
   accessToken: string,
   projectId: number,
@@ -933,7 +1052,7 @@ export async function createProjectAllocationRequest(
   accessToken: string,
   payload: {
     projectRequestId: number;
-    employeeUserId: number;
+    employeeUserIds: number[];
     allocationType: ProjectAllocationType;
     allocationPercent: number;
     startDate: string;
@@ -941,7 +1060,7 @@ export async function createProjectAllocationRequest(
     comment?: string;
   }
 ) {
-  return request<ProjectAllocation>("/api/project-allocations", {
+  return request<ProjectAllocation[]>("/api/project-allocations", {
     method: "POST",
     headers: {
       Authorization: "Bearer " + accessToken,
@@ -1282,6 +1401,15 @@ export async function getLeaveApprovalRequests(accessToken: string) {
   });
 }
 
+export async function getLeaveApproverVisibility(accessToken: string) {
+  return request<{ showApproverRequests: boolean }>("/api/leaves/approver-visibility", {
+    headers: {
+      Authorization: "Bearer " + accessToken,
+    },
+    cache: "no-store",
+  });
+}
+
 export async function takeLeaveAction(
   accessToken: string,
   requestId: number,
@@ -1338,5 +1466,125 @@ export async function updateLeavePolicy(
       Authorization: "Bearer " + accessToken,
     },
     body: JSON.stringify(payload),
+  });
+}
+
+export async function getSupportCatalog(accessToken: string) {
+  return request<SupportCatalog>("/api/support/catalog/options", {
+    headers: {
+      Authorization: "Bearer " + accessToken,
+    },
+    cache: "no-store",
+  });
+}
+
+export async function createSupportTicket(
+  accessToken: string,
+  payload: {
+    ticketType: string;
+    categoryCode: string;
+    subcategoryCode?: string;
+    impactLevel: string;
+    urgencyLevel: string;
+    shortDescription: string;
+    description: string;
+    source?: string;
+  }
+) {
+  return request<SupportTicket>("/api/support/tickets", {
+    method: "POST",
+    headers: {
+      Authorization: "Bearer " + accessToken,
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function getSupportTickets(
+  accessToken: string,
+  filters?: { scope?: string; queueCode?: string; status?: string }
+) {
+  const params = new URLSearchParams();
+  if (filters?.scope?.trim()) {
+    params.set("scope", filters.scope.trim());
+  }
+  if (filters?.queueCode?.trim()) {
+    params.set("queueCode", filters.queueCode.trim());
+  }
+  if (filters?.status?.trim()) {
+    params.set("status", filters.status.trim());
+  }
+  return request<SupportTicket[]>(`/api/support/tickets?${params.toString()}`, {
+    headers: {
+      Authorization: "Bearer " + accessToken,
+    },
+    cache: "no-store",
+  });
+}
+
+export async function getSupportTicketById(accessToken: string, ticketId: number) {
+  return request<SupportTicket>(`/api/support/tickets/${ticketId}`, {
+    headers: {
+      Authorization: "Bearer " + accessToken,
+    },
+    cache: "no-store",
+  });
+}
+
+export async function addSupportTicketComment(accessToken: string, ticketId: number, payload: { comment: string }) {
+  return request<SupportTicket>(`/api/support/tickets/${ticketId}/comments`, {
+    method: "POST",
+    headers: {
+      Authorization: "Bearer " + accessToken,
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateSupportTicketStatus(
+  accessToken: string,
+  ticketId: number,
+  payload: { status: SupportTicket["status"]; comment?: string }
+) {
+  return request<SupportTicket>(`/api/support/tickets/${ticketId}/status`, {
+    method: "PATCH",
+    headers: {
+      Authorization: "Bearer " + accessToken,
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function assignSupportTicket(
+  accessToken: string,
+  ticketId: number,
+  payload: { queueCode?: string; assigneeUserId?: number | null }
+) {
+  return request<SupportTicket>(`/api/support/tickets/${ticketId}/assign`, {
+    method: "PATCH",
+    headers: {
+      Authorization: "Bearer " + accessToken,
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function getSupportWorkbenchQueues(accessToken: string) {
+  return request<SupportQueueSummary[]>("/api/support/workbench/queues", {
+    headers: {
+      Authorization: "Bearer " + accessToken,
+    },
+    cache: "no-store",
+  });
+}
+
+export async function getSupportWorkbenchTickets(accessToken: string, queueCode: string) {
+  const params = new URLSearchParams();
+  params.set("queueCode", queueCode);
+  return request<SupportTicket[]>(`/api/support/workbench/tickets?${params.toString()}`, {
+    headers: {
+      Authorization: "Bearer " + accessToken,
+    },
+    cache: "no-store",
   });
 }

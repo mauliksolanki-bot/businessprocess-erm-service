@@ -1,8 +1,8 @@
 package com.org.erm.service;
 
-import com.org.erm.dto.LeavePolicyCreateRequest;
-import com.org.erm.dto.LeavePolicyResponse;
-import com.org.erm.dto.LeavePolicyUpdateRequest;
+import com.org.erm.dto.request.LeavePolicyCreateRequest;
+import com.org.erm.dto.response.LeavePolicyResponse;
+import com.org.erm.dto.request.LeavePolicyUpdateRequest;
 import com.org.erm.model.ErmLeavePolicy;
 import com.org.erm.repository.ErmLeavePolicyRepository;
 import org.springframework.http.HttpStatus;

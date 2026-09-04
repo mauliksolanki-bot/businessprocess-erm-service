@@ -1,11 +1,11 @@
 package com.org.erm.controller;
 
-import com.org.erm.dto.EmployeeProfileUpdateRequestCreateRequest;
-import com.org.erm.dto.EmployeeProfileUpdateRequestResponse;
-import com.org.erm.dto.OnboardingActionRequest;
-import com.org.erm.dto.PagedResponse;
-import com.org.erm.dto.RequestCancellationRequest;
-import com.org.erm.dto.RequestCommentRequest;
+import com.org.erm.dto.request.EmployeeProfileUpdateRequestCreateRequest;
+import com.org.erm.dto.response.EmployeeProfileUpdateRequestResponse;
+import com.org.erm.dto.request.OnboardingActionRequest;
+import com.org.erm.dto.response.PagedResponse;
+import com.org.erm.dto.request.RequestCancellationRequest;
+import com.org.erm.dto.request.RequestCommentRequest;
 import com.org.erm.service.EmployeeProfileUpdateRequestService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -21,8 +21,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/employee-profile-update-requests")

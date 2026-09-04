@@ -1,9 +1,9 @@
 package com.org.erm.service;
 
-import com.org.erm.dto.EmployeeDesignationUpdateRequestCreateRequest;
-import com.org.erm.dto.EmployeeDesignationUpdateRequestResponse;
-import com.org.erm.dto.OnboardingActionRequest;
-import com.org.erm.dto.OnboardingApprovalTrailItem;
+import com.org.erm.dto.request.EmployeeDesignationUpdateRequestCreateRequest;
+import com.org.erm.dto.response.EmployeeDesignationUpdateRequestResponse;
+import com.org.erm.dto.request.OnboardingActionRequest;
+import com.org.erm.dto.response.OnboardingApprovalTrailItem;
 import com.org.erm.model.ErmDesignationHierarchy;
 import com.org.erm.model.ErmEmployeeDesignationRequest;
 import com.org.erm.model.ErmRole;

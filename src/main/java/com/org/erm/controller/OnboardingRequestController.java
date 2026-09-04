@@ -1,12 +1,12 @@
 package com.org.erm.controller;
 
-import com.org.erm.dto.OnboardingActionRequest;
-import com.org.erm.dto.OnboardingDesignationOptionResponse;
-import com.org.erm.dto.OnboardingManagerOptionsResponse;
-import com.org.erm.dto.OnboardingRequestCreateRequest;
-import com.org.erm.dto.OnboardingRequestResponse;
-import com.org.erm.dto.PagedResponse;
-import com.org.erm.dto.RequestCommentRequest;
+import com.org.erm.dto.request.OnboardingActionRequest;
+import com.org.erm.dto.response.OnboardingDesignationOptionResponse;
+import com.org.erm.dto.response.OnboardingManagerOptionsResponse;
+import com.org.erm.dto.request.OnboardingRequestCreateRequest;
+import com.org.erm.dto.response.OnboardingRequestResponse;
+import com.org.erm.dto.response.PagedResponse;
+import com.org.erm.dto.request.RequestCommentRequest;
 import com.org.erm.service.OnboardingRequestService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;

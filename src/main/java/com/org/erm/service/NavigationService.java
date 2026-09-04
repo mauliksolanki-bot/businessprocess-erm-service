@@ -1,6 +1,6 @@
 package com.org.erm.service;
 
-import com.org.erm.dto.NavigationMenuResponse;
+import com.org.erm.dto.response.NavigationMenuResponse;
 import com.org.erm.model.ErmNavMenu;
 import com.org.erm.repository.ErmNavMenuRepository;
 import org.springframework.stereotype.Service;

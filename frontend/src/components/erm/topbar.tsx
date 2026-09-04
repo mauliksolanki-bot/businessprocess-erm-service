@@ -273,6 +273,10 @@ export function Topbar({ user, onLogout, notifications, notificationError }: Top
                   <DetailRow label="Username" value={user.username} />
                   <DetailRow label="Email" value={user.email} />
                   <DetailRow label="Designation" value={user.designation || "-"} />
+                  <DetailRow
+                    label="Reporting manager"
+                    value={user.reportingManagerFullName || user.reportingManagerRoleName || "-"}
+                  />
                   <div>
                     <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">Assigned roles</p>
                     <div className="flex flex-wrap gap-2">

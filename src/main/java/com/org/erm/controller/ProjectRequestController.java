@@ -1,14 +1,14 @@
 package com.org.erm.controller;
 
-import com.org.erm.dto.OnboardingActionRequest;
-import com.org.erm.dto.ManagedProjectResponse;
-import com.org.erm.dto.PagedResponse;
-import com.org.erm.dto.ProjectChangeRequestCreateRequest;
-import com.org.erm.dto.ProjectChangeRequestResponse;
-import com.org.erm.dto.ProjectManagerOptionResponse;
-import com.org.erm.dto.ProjectRequestCreateRequest;
-import com.org.erm.dto.ProjectRequestResponse;
-import com.org.erm.dto.RequestCommentRequest;
+import com.org.erm.dto.request.OnboardingActionRequest;
+import com.org.erm.dto.response.ManagedProjectResponse;
+import com.org.erm.dto.response.PagedResponse;
+import com.org.erm.dto.request.ProjectChangeRequestCreateRequest;
+import com.org.erm.dto.response.ProjectChangeRequestResponse;
+import com.org.erm.dto.response.ProjectManagerOptionResponse;
+import com.org.erm.dto.request.ProjectRequestCreateRequest;
+import com.org.erm.dto.response.ProjectRequestResponse;
+import com.org.erm.dto.request.RequestCommentRequest;
 import com.org.erm.service.ProjectChangeRequestService;
 import com.org.erm.service.ProjectRequestService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -134,6 +134,13 @@ public class ProjectRequestController {
     @PreAuthorize("hasAnyAuthority('ROLE_PROJECT_OWNER','ROLE_DIRECTOR','ROLE_CTO','ROLE_SUPER_ADMIN','ROLE_ADMIN')")
     public ResponseEntity<List<ManagedProjectResponse>> managedProjects(Authentication authentication) {
         return ResponseEntity.ok(projectChangeRequestService.listManagedProjects(authentication));
+    }
+
+    @GetMapping("/project-master")
+    @Operation(summary = "List approved projects associated with caller")
+    @PreAuthorize("hasAnyAuthority('ROLE_PROJECT_MANAGER','ROLE_PROJECT_OWNER','ROLE_DIRECTOR','ROLE_DELIVERY_MANAGER','ROLE_CTO','ROLE_SUPER_ADMIN','ROLE_ADMIN')")
+    public ResponseEntity<List<ProjectRequestResponse>> projectMaster(Authentication authentication) {
+        return ResponseEntity.ok(projectRequestService.listProjectMaster(authentication));
     }
 
     @PostMapping("/{id}/change-requests")

@@ -85,7 +85,7 @@ export default function EmployeesPage() {
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const roleNames = useMemo(() => (loadSession()?.roles ?? []).map((role) => role.toLowerCase()), []);
   const hasSeniorHrRole = roleNames.includes("senior hr");
-  const canEditEmployees = !(roleNames.includes("junior hr") && !hasSeniorHrRole);
+  const canEditEmployees = hasSeniorHrRole;
 
   function getAccessToken() {
     const session = loadSession();

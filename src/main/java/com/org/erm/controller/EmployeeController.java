@@ -1,10 +1,10 @@
 package com.org.erm.controller;
 
-import com.org.erm.dto.EmployeeDirectReportResponse;
-import com.org.erm.dto.EmployeeResponse;
-import com.org.erm.dto.EmployeeUpdateRequest;
-import com.org.erm.dto.PagedResponse;
-import com.org.erm.dto.OnboardingManagerOptionResponse;
+import com.org.erm.dto.response.EmployeeDirectReportResponse;
+import com.org.erm.dto.response.EmployeeResponse;
+import com.org.erm.dto.request.EmployeeUpdateRequest;
+import com.org.erm.dto.response.PagedResponse;
+import com.org.erm.dto.response.OnboardingManagerOptionResponse;
 import com.org.erm.service.EmployeeService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -27,7 +27,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/employees")
 @Tag(name = "Employees", description = "Employee directory and filtering")
-@PreAuthorize("hasAnyAuthority('ROLE_SUPER_ADMIN','ROLE_ADMIN','ROLE_CHRO','ROLE_HR_HEAD','ROLE_SENIOR_HR','ROLE_JUNIOR_HR')")
+@PreAuthorize("hasAnyAuthority('ROLE_SUPER_ADMIN','ROLE_ADMIN','ROLE_SENIOR_HR')")
 public class EmployeeController {
 
     private final EmployeeService employeeService;
@@ -92,10 +92,10 @@ public class EmployeeController {
                                                    Authentication authentication) {
         boolean seniorHr = authentication.getAuthorities().stream()
                 .anyMatch(authority -> "ROLE_SENIOR_HR".equals(authority.getAuthority()));
-        if (seniorHr) {
+        if (!seniorHr) {
             throw new org.springframework.web.server.ResponseStatusException(
                     org.springframework.http.HttpStatus.FORBIDDEN,
-                    "Senior HR must submit employee update requests for approval"
+                    "Only Senior HR can edit employee details"
             );
         }
         return ResponseEntity.ok(employeeService.updateEmployee(id, request));

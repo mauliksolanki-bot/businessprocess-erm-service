@@ -198,7 +198,7 @@ export default function OnboardingPage() {
     return requests.filter((request) => ["Rejected", "Cancelled"].includes(request.workflowStage));
   }, [requests, trackerStatusFilter]);
 
-  const headerTitle = activeTab === "raise" ? (editingRequestId ? "Update request" : "Raise request") : "Request tracker";
+  const headerTitle = activeTab === "raise" ? (editingRequestId ? "Update request" : "Create On-Boarding Request") : "Track On-Boarding Request";
   const headerDescription =
     activeTab === "raise"
       ? editingRequestId
@@ -575,7 +575,7 @@ export default function OnboardingPage() {
                   }}
                   variant={activeTab === "raise" ? "default" : "ghost"}
               >
-                Raise Request
+                Create On-Boarding Request
               </Button>
           ) : null}
           <Button
@@ -588,7 +588,7 @@ export default function OnboardingPage() {
               }}
               variant={activeTab === "tracker" ? "default" : "ghost"}
           >
-            Request Tracker
+            Track On-Boarding Request
           </Button>
         </div>
 

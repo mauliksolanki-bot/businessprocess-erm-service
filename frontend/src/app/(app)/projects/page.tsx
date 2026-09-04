@@ -1,7 +1,7 @@
 "use client";
 
-import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
-import { Bell, CheckCircle2, CornerUpLeft, Eye, KanbanSquare, Loader2, MessageSquareQuote, PencilLine, PlusCircle, RefreshCcw, Send, ShieldX } from "lucide-react";
+import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Bell, Check, CheckCircle2, ChevronDown, CornerUpLeft, Eye, KanbanSquare, Loader2, MessageSquareQuote, PencilLine, PlusCircle, RefreshCcw, Send, ShieldX } from "lucide-react";
 import { toast } from "sonner";
 
 import { CommentsConversationModal } from "@/components/erm/comments-conversation-modal";
@@ -19,13 +19,13 @@ import {
   createProjectRequest,
   getManagedProjects,
   getProjectAllocationEmployeeOptions,
-  getProjectAllocationPendingApprovals,
   getProjectAllocationProjectOptions,
   getProjectAllocationRequests,
   getProjectChangeRequests,
   getProjectDeliveryManagerOptions,
   getProjectDirectorOptions,
   getProjectManagerOptions,
+  getProjectMasterProjects,
   getProjectOwnerOptions,
   getProjectRequests,
   manageProjectAllocation,
@@ -87,7 +87,7 @@ type ManageProjectForm = {
 
 type AllocationForm = {
   projectRequestId: string;
-  employeeUserId: string;
+  employeeUserIds: string[];
   allocationType: ProjectAllocationType | "";
   allocationPercent: string;
   startDate: string;
@@ -102,7 +102,7 @@ type AllocationManageForm = {
   comment: string;
 };
 
-type ProjectTopTab = "raiseProject" | "projectTracker" | "projectAllocation" | "allocationTracker" | "manageProjects" | "changeTracker";
+type ProjectTopTab = "raiseProject" | "projectTracker" | "projectAllocation" | "allocationTracker" | "manageProjects" | "changeTracker" | "projectMaster";
 
 const initialForm: ProjectForm = {
   projectName: "",
@@ -145,7 +145,7 @@ const initialManageProjectForm: ManageProjectForm = {
 
 const initialAllocationForm: AllocationForm = {
   projectRequestId: "",
-  employeeUserId: "",
+  employeeUserIds: [],
   allocationType: "",
   allocationPercent: "",
   startDate: "",
@@ -190,8 +190,20 @@ function formatReleaseDate(value: string | null) {
   return new Date(value).toLocaleDateString("en-IN");
 }
 
+function normalizeComparisonValue(value: string | number | null | undefined) {
+  if (value === null || value === undefined) {
+    return "-";
+  }
+  const text = String(value).trim();
+  return text.length > 0 ? text : "-";
+}
+
+function formatBudget(currency: string, amount: number) {
+  return `${currency} ${Number(amount).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+}
+
 export default function ProjectsPage() {
-  const [activeTab, setActiveTab] = useState<"requests" | "allocation" | "management" | "changeTracker">("requests");
+  const [activeTab, setActiveTab] = useState<"requests" | "allocation" | "management" | "changeTracker" | "master">("requests");
   const [projectTopTab, setProjectTopTab] = useState<ProjectTopTab>("raiseProject");
   const [requestTab, setRequestTab] = useState<"raise" | "tracker">("raise");
   const [allocationTab, setAllocationTab] = useState<"raise" | "tracker">("tracker");
@@ -205,6 +217,7 @@ export default function ProjectsPage() {
   const [allocationRequests, setAllocationRequests] = useState<ProjectAllocation[]>([]);
   const [managedProjects, setManagedProjects] = useState<ManagedProject[]>([]);
   const [changeRequests, setChangeRequests] = useState<ProjectChangeRequest[]>([]);
+  const [projectMasterProjects, setProjectMasterProjects] = useState<ProjectRequest[]>([]);
   const [manageProject, setManageProject] = useState<ManagedProject | null>(null);
   const [manageProjectForm, setManageProjectForm] = useState<ManageProjectForm>(initialManageProjectForm);
   const [selectedChangeRequest, setSelectedChangeRequest] = useState<ProjectChangeRequest | null>(null);
@@ -214,6 +227,7 @@ export default function ProjectsPage() {
   const [isManageProjectSubmitting, setIsManageProjectSubmitting] = useState(false);
   const [isManagedProjectsLoading, setIsManagedProjectsLoading] = useState(false);
   const [isChangeRequestsLoading, setIsChangeRequestsLoading] = useState(false);
+  const [isProjectMasterLoading, setIsProjectMasterLoading] = useState(false);
   const [commentsManagedProject, setCommentsManagedProject] = useState<ManagedProject | null>(null);
   const [commentsChangeRequest, setCommentsChangeRequest] = useState<ProjectChangeRequest | null>(null);
   const [isCommentingChangeRequest, setIsCommentingChangeRequest] = useState(false);
@@ -230,6 +244,12 @@ export default function ProjectsPage() {
   const [allocationIsSubmitting, setAllocationIsSubmitting] = useState(false);
   const [allocationEditingId, setAllocationEditingId] = useState<number | null>(null);
   const [selectedAllocation, setSelectedAllocation] = useState<ProjectAllocation | null>(null);
+  const [selectedAllocationIds, setSelectedAllocationIds] = useState<number[]>([]);
+  const allocationSelectAllRef = useRef<HTMLInputElement>(null);
+  const [bulkAllocationActionType, setBulkAllocationActionType] = useState<"APPROVE" | "REJECT" | "REFER_BACK">("APPROVE");
+  const [bulkAllocationActionComment, setBulkAllocationActionComment] = useState("");
+  const [bulkAllocationActionOpen, setBulkAllocationActionOpen] = useState(false);
+  const [isBulkAllocationActioning, setIsBulkAllocationActioning] = useState(false);
   const [allocationActionType, setAllocationActionType] = useState<"APPROVE" | "REJECT" | "REFER_BACK">("APPROVE");
   const [allocationActionComment, setAllocationActionComment] = useState("");
   const [isAllocationActioning, setIsAllocationActioning] = useState(false);
@@ -260,21 +280,28 @@ export default function ProjectsPage() {
   const username = useMemo(() => session?.username?.toLowerCase() ?? "", [session]);
   const roleNames = useMemo(() => (session?.roles ?? []).map((role) => role.toLowerCase()), [session]);
 
+  const hasProjectManagerRole = roleNames.includes("project manager");
+  const hasProjectOwnerRole = roleNames.includes("project owner");
+  const hasProjectDirectorRole = roleNames.includes("director");
+  const hasDeliveryManagerRole = roleNames.includes("delivery manager");
+  const hasCtoRole = roleNames.includes("cto");
+  const hasSuperRole = roleNames.includes("super admin") || roleNames.includes("admin");
   const canCreate = roleNames.includes("project owner");
   const canProjectManager =
-    roleNames.includes("project manager") ||
+    hasProjectManagerRole ||
     roleNames.includes("team lead") ||
     roleNames.includes("it support manager") ||
     roleNames.includes("it support lead");
-  const canDmApprove = roleNames.includes("delivery manager");
-  const canProjectOwnerApprove = roleNames.includes("project owner");
-  const canDirectorApprove = roleNames.includes("director");
-  const canCtoApprove = roleNames.includes("cto");
-  const canSuperApprove = roleNames.includes("super admin") || roleNames.includes("admin");
+  const canDmApprove = hasDeliveryManagerRole;
+  const canProjectOwnerApprove = hasProjectOwnerRole;
+  const canDirectorApprove = hasProjectDirectorRole;
+  const canCtoApprove = hasCtoRole;
+  const canSuperApprove = hasSuperRole;
   const canManageAllocation = canDmApprove;
   const canCreateAllocation = canProjectManager;
   const canUseManageProjects = canProjectOwnerApprove || canDirectorApprove || canCtoApprove || canSuperApprove;
   const canViewProjectTrackers = canProjectManager || canProjectOwnerApprove || canDirectorApprove || canCtoApprove || canSuperApprove;
+  const canUseProjectMaster = hasProjectManagerRole || hasProjectOwnerRole || hasProjectDirectorRole || hasDeliveryManagerRole || hasCtoRole || hasSuperRole;
   const visibleProjectTabs = useMemo(
     () =>
       [
@@ -282,11 +309,33 @@ export default function ProjectsPage() {
         canCreate || canViewProjectTrackers ? "projectTracker" : null,
         canCreate ? "manageProjects" : null,
         canUseManageProjects ? "changeTracker" : null,
+        canUseProjectMaster ? "projectMaster" : null,
         canCreateAllocation ? "projectAllocation" : null,
         canCreateAllocation || canManageAllocation ? "allocationTracker" : null,
       ].filter((value): value is ProjectTopTab => value !== null),
-    [canCreate, canCreateAllocation, canManageAllocation, canUseManageProjects, canViewProjectTrackers]
+    [canCreate, canCreateAllocation, canManageAllocation, canUseManageProjects, canUseProjectMaster, canViewProjectTrackers]
   );
+  const projectMasterById = useMemo(() => {
+    const entries = projectMasterProjects.map((item) => [item.id, item] as const);
+    return new Map<number, ProjectRequest>(entries);
+  }, [projectMasterProjects]);
+
+  const pendingAllocationIds = useMemo(
+    () => allocationRequests.filter((allocation) => allocation.status === "Pending DM Approval").map((allocation) => allocation.id),
+    [allocationRequests]
+  );
+  const selectedPendingAllocations = useMemo(
+    () => allocationRequests.filter((allocation) => selectedAllocationIds.includes(allocation.id) && allocation.status === "Pending DM Approval"),
+    [allocationRequests, selectedAllocationIds]
+  );
+  const allPendingSelected = pendingAllocationIds.length > 0 && pendingAllocationIds.every((id) => selectedAllocationIds.includes(id));
+  const somePendingSelected = pendingAllocationIds.some((id) => selectedAllocationIds.includes(id));
+
+  useEffect(() => {
+    if (allocationSelectAllRef.current) {
+      allocationSelectAllRef.current.indeterminate = somePendingSelected && !allPendingSelected;
+    }
+  }, [allPendingSelected, somePendingSelected]);
 
   const accessToken = useCallback(() => {
     const current = loadSession();
@@ -296,6 +345,31 @@ export default function ProjectsPage() {
     }
     return current.accessToken;
   }, []);
+
+  const takeAllocationBulkAction = useCallback(
+    async (
+      token: string,
+      payload: {
+        allocationIds: number[];
+        decision: "APPROVE" | "REJECT" | "REFER_BACK";
+        comment: string;
+      }
+    ) => {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080"}/api/project-allocations/bulk-actions`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        throw new ApiError(await response.text(), response.status);
+      }
+      return (await response.json()) as ProjectAllocation[];
+    },
+    []
+  );
 
   const loadDeliveryManagers = useCallback(async () => {
     const token = accessToken();
@@ -364,6 +438,7 @@ export default function ProjectsPage() {
       setAllocationPage(result.page);
       setAllocationPageSize(result.size);
       setAllocationHasLoaded(true);
+      setSelectedAllocationIds([]);
     } catch (error) {
       if (error instanceof ApiError && error.status === 403) {
         toast.error("You are not authorized to view allocations.");
@@ -406,6 +481,23 @@ export default function ProjectsPage() {
       }
     } finally {
       setIsChangeRequestsLoading(false);
+    }
+  }, [accessToken]);
+
+  const loadProjectMaster = useCallback(async () => {
+    const token = accessToken();
+    if (!token) return;
+    setIsProjectMasterLoading(true);
+    try {
+      setProjectMasterProjects(await getProjectMasterProjects(token));
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 403) {
+        setProjectMasterProjects([]);
+      } else {
+        toast.error("Unable to load Project Master.");
+      }
+    } finally {
+      setIsProjectMasterLoading(false);
     }
   }, [accessToken]);
 
@@ -465,6 +557,13 @@ export default function ProjectsPage() {
         setProjectTopTab("changeTracker");
         setActiveTab("changeTracker");
         if (canUseManageProjects) void loadChangeRequests();
+        if (canUseProjectMaster && projectMasterProjects.length === 0) void loadProjectMaster();
+        return;
+      }
+      if (tab === "projectMaster") {
+        setProjectTopTab("projectMaster");
+        setActiveTab("master");
+        if (canUseProjectMaster) void loadProjectMaster();
         return;
       }
       if (tab === "projectAllocation") {
@@ -485,6 +584,7 @@ export default function ProjectsPage() {
       allocationProjectOptions.length,
       canCreate,
       canUseManageProjects,
+      canUseProjectMaster,
       deliveryManagers.length,
       hasLoaded,
       loadAllocationOptions,
@@ -492,10 +592,12 @@ export default function ProjectsPage() {
       loadChangeRequests,
       loadDeliveryManagers,
       loadManagedProjects,
+      loadProjectMaster,
       loadProjectManagers,
       loadProjectDirectors,
       loadProjectOwners,
       loadRequests,
+      projectMasterProjects.length,
       projectManagers.length,
       projectDirectors.length,
       projectOwners.length,
@@ -584,9 +686,13 @@ export default function ProjectsPage() {
     }
   }
 
-  function validateAllocationForm(current: AllocationForm) {
+  function validateAllocationForm(current: AllocationForm, isEditing: boolean) {
     if (!current.projectRequestId) return "Approved project is required.";
-    if (!current.employeeUserId) return "Employee is required.";
+    if (isEditing) {
+      if (current.employeeUserIds.length !== 1) return "Select exactly one employee to resubmit the allocation.";
+    } else if (current.employeeUserIds.length === 0) {
+      return "Select at least one employee.";
+    }
     if (!current.allocationType) return "Allocation type is required.";
     if (!current.allocationPercent || Number(current.allocationPercent) <= 0 || Number(current.allocationPercent) > 100) {
       return "Allocation percent must be between 0 and 100.";
@@ -600,15 +706,16 @@ export default function ProjectsPage() {
     event.preventDefault();
     const token = accessToken();
     if (!token) return;
-    const message = validateAllocationForm(allocationForm);
+    const isEditing = allocationEditingId !== null;
+    const message = validateAllocationForm(allocationForm, isEditing);
     if (message) {
       toast.error(message);
       return;
     }
 
-    const payload = {
+    const createPayload = {
       projectRequestId: Number(allocationForm.projectRequestId),
-      employeeUserId: Number(allocationForm.employeeUserId),
+      employeeUserIds: allocationForm.employeeUserIds.map((id) => Number(id)),
       allocationType: allocationForm.allocationType as ProjectAllocationType,
       allocationPercent: Number(allocationForm.allocationPercent),
       startDate: allocationForm.startDate,
@@ -619,12 +726,20 @@ export default function ProjectsPage() {
     setAllocationIsSubmitting(true);
     try {
       if (allocationEditingId) {
-        await resubmitProjectAllocationRequest(token, allocationEditingId, payload);
+        await resubmitProjectAllocationRequest(token, allocationEditingId, {
+          projectRequestId: Number(allocationForm.projectRequestId),
+          employeeUserId: Number(allocationForm.employeeUserIds[0]),
+          allocationType: allocationForm.allocationType as ProjectAllocationType,
+          allocationPercent: Number(allocationForm.allocationPercent),
+          startDate: allocationForm.startDate,
+          endDate: allocationForm.endDate,
+          comment: allocationForm.comment.trim() || undefined,
+        });
         toast.success("Allocation resubmitted.");
         setAllocationEditingId(null);
       } else {
-        await createProjectAllocationRequest(token, payload);
-        toast.success("Allocation created.");
+        const created = await createProjectAllocationRequest(token, createPayload);
+        toast.success(created.length > 1 ? `${created.length} allocations created.` : "Allocation created.");
       }
       setAllocationForm(initialAllocationForm);
       await loadAllocations(0, allocationPageSize, allocationQuery, allocationStatusFilter);
@@ -666,6 +781,58 @@ export default function ProjectsPage() {
     } finally {
       setIsAllocationActioning(false);
     }
+  }
+
+  async function submitBulkAllocationAction() {
+    if (selectedPendingAllocations.length === 0) {
+      toast.error("Select at least one pending allocation.");
+      return;
+    }
+    const token = accessToken();
+    if (!token) return;
+    if (!bulkAllocationActionComment.trim()) {
+      toast.error("Comment is required.");
+      return;
+    }
+    setIsBulkAllocationActioning(true);
+    try {
+      await takeAllocationBulkAction(token, {
+        allocationIds: selectedPendingAllocations.map((allocation) => allocation.id),
+        decision: bulkAllocationActionType,
+        comment: bulkAllocationActionComment.trim(),
+      });
+      toast.success(
+        bulkAllocationActionType === "APPROVE"
+          ? "Allocations approved."
+          : bulkAllocationActionType === "REJECT"
+            ? "Allocations rejected."
+            : "Allocations referred back."
+      );
+      setSelectedAllocationIds([]);
+      setBulkAllocationActionOpen(false);
+      setBulkAllocationActionComment("");
+      await loadAllocations();
+    } catch (error) {
+      if (error instanceof ApiError) {
+        toast.error(`Bulk action failed (${error.status}).`);
+      } else {
+        toast.error("Bulk action failed.");
+      }
+    } finally {
+      setIsBulkAllocationActioning(false);
+    }
+  }
+
+  function toggleAllocationSelection(allocationId: number) {
+    setSelectedAllocationIds((current) =>
+      current.includes(allocationId) ? current.filter((id) => id !== allocationId) : [...current, allocationId]
+    );
+  }
+
+  function toggleAllPendingAllocations() {
+    setSelectedAllocationIds((current) =>
+      allPendingSelected ? current.filter((id) => !pendingAllocationIds.includes(id)) : Array.from(new Set([...current, ...pendingAllocationIds]))
+    );
   }
 
   async function submitProjectRequestComment(comment: string) {
@@ -914,7 +1081,7 @@ export default function ProjectsPage() {
     setAllocationEditingId(allocation.id);
     setAllocationForm({
       projectRequestId: String(allocation.projectRequestId),
-      employeeUserId: String(allocation.employeeUserId),
+      employeeUserIds: [String(allocation.employeeUserId)],
       allocationType: allocation.allocationType,
       allocationPercent: String(allocation.allocationPercent),
       startDate: allocation.startDate,
@@ -985,6 +1152,41 @@ export default function ProjectsPage() {
     }
   }
 
+  const currentProjectForChangeRequest = viewChangeRequest
+    ? projectMasterById.get(viewChangeRequest.projectRequestId)
+    : undefined;
+  const changeFieldRows = viewChangeRequest
+    ? [
+        { label: "Project Name", current: currentProjectForChangeRequest?.projectName, requested: viewChangeRequest.projectName },
+        { label: "Project Code", current: currentProjectForChangeRequest?.projectCode, requested: viewChangeRequest.projectCode },
+        { label: "Client Name", current: currentProjectForChangeRequest?.clientName, requested: viewChangeRequest.clientName },
+        { label: "Project Type", current: currentProjectForChangeRequest?.projectType, requested: viewChangeRequest.projectType },
+        { label: "Priority", current: currentProjectForChangeRequest?.priority, requested: viewChangeRequest.priority },
+        { label: "Project Status", current: currentProjectForChangeRequest?.projectStatus, requested: viewChangeRequest.projectStatus },
+        { label: "Planned Start Date", current: currentProjectForChangeRequest?.plannedStartDate, requested: viewChangeRequest.plannedStartDate },
+        { label: "Planned End Date", current: currentProjectForChangeRequest?.plannedEndDate, requested: viewChangeRequest.plannedEndDate },
+        {
+          label: "Budget",
+          current: currentProjectForChangeRequest ? formatBudget(currentProjectForChangeRequest.currency, currentProjectForChangeRequest.budgetAmount) : undefined,
+          requested: formatBudget(viewChangeRequest.currency, viewChangeRequest.budgetAmount),
+        },
+        { label: "Delivery Manager", current: currentProjectForChangeRequest?.deliveryManagerName, requested: viewChangeRequest.deliveryManagerName },
+        { label: "Project Owner", current: currentProjectForChangeRequest?.projectOwnerName, requested: viewChangeRequest.projectOwnerName },
+        { label: "Project Director", current: currentProjectForChangeRequest?.projectDirectorName, requested: viewChangeRequest.projectDirectorName },
+        { label: "Description", current: currentProjectForChangeRequest?.description, requested: viewChangeRequest.description },
+        { label: "Risk Notes", current: currentProjectForChangeRequest?.riskNotes, requested: viewChangeRequest.riskNotes },
+      ].map((item) => {
+        const currentValue = normalizeComparisonValue(item.current);
+        const requestedValue = normalizeComparisonValue(item.requested);
+        return {
+          label: item.label,
+          current: currentValue,
+          requested: requestedValue,
+          changed: currentValue !== requestedValue,
+        };
+      })
+    : [];
+
   return (
     <>
       <div className="mb-5 flex flex-wrap gap-2 rounded-2xl border border-zinc-200 bg-white p-2 shadow-sm">
@@ -994,7 +1196,7 @@ export default function ProjectsPage() {
             onClick={() => activateProjectTab("raiseProject")}
             variant={projectTopTab === "raiseProject" ? "default" : "ghost"}
           >
-            Create Project
+            Request New Project
           </Button>
         ) : null}
         {canCreate || canViewProjectTrackers ? (
@@ -1003,7 +1205,7 @@ export default function ProjectsPage() {
             onClick={() => activateProjectTab("projectTracker")}
             variant={projectTopTab === "projectTracker" ? "default" : "ghost"}
           >
-            Project Tracker
+            Track New Project Request
           </Button>
         ) : null}
         {canCreate ? (
@@ -1012,7 +1214,7 @@ export default function ProjectsPage() {
             onClick={() => activateProjectTab("manageProjects")}
             variant={projectTopTab === "manageProjects" ? "default" : "ghost"}
           >
-            Request Change (Project)
+            Change Request (Project Details)
           </Button>
         ) : null}
         {canUseManageProjects ? (
@@ -1021,7 +1223,16 @@ export default function ProjectsPage() {
             onClick={() => activateProjectTab("changeTracker")}
             variant={projectTopTab === "changeTracker" ? "default" : "ghost"}
           >
-            Project Change Tracker
+            Track Project Update Request
+          </Button>
+        ) : null}
+        {canUseProjectMaster ? (
+          <Button
+            className={projectTopTab === "projectMaster" ? "bg-gradient-to-r from-emerald-700 to-cyan-700 text-white hover:from-emerald-600 hover:to-cyan-600" : ""}
+            onClick={() => activateProjectTab("projectMaster")}
+            variant={projectTopTab === "projectMaster" ? "default" : "ghost"}
+          >
+            Project Master
           </Button>
         ) : null}
         {canCreateAllocation ? (
@@ -1049,7 +1260,7 @@ export default function ProjectsPage() {
           <CardHeader className="min-h-[152px] bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
             <CardTitle className="flex items-center gap-2 text-white">
               <PlusCircle className="h-5 w-5" />
-              {editingRequestId ? `Edit & Resubmit #${editingRequestId}` : "Create Project Request"}
+              {editingRequestId ? `Edit & Resubmit #${editingRequestId}` : "Request New Project"}
             </CardTitle>
             <CardDescription className="text-blue-100">All required validations are enforced before submitting for approval.</CardDescription>
           </CardHeader>
@@ -1182,7 +1393,7 @@ export default function ProjectsPage() {
             <div>
               <CardTitle className="flex items-center gap-2 text-white">
                 <KanbanSquare className="h-5 w-5" />
-                Project Tracker
+                Track New Project Request
               </CardTitle>
               <CardDescription className="text-indigo-100">Track workflow status, pending approvers, and full comment history.</CardDescription>
             </div>
@@ -1472,7 +1683,7 @@ export default function ProjectsPage() {
             <div>
               <CardTitle className="flex items-center gap-2 text-white">
                 <Bell className="h-5 w-5" />
-                Project Change Tracker
+                Track Project Update Request
               </CardTitle>
               <CardDescription className="text-fuchsia-100">Track submitted project changes and approve them when they reach your stage.</CardDescription>
             </div>
@@ -1589,6 +1800,94 @@ export default function ProjectsPage() {
         </Card>
       ) : null}
 
+      {activeTab === "master" ? (
+        <Card className="shadow-md shadow-zinc-100/80">
+          <CardHeader className="flex min-h-[152px] flex-col gap-3 rounded-t-2xl bg-gradient-to-r from-emerald-700 via-cyan-700 to-blue-700 text-white sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-white">
+                <KanbanSquare className="h-5 w-5" />
+                Project Master
+              </CardTitle>
+              <CardDescription className="text-cyan-100">All approved projects associated with your role.</CardDescription>
+            </div>
+            <Button className="gap-2 border-white/30 bg-white/10 text-white hover:bg-white/20" onClick={() => void loadProjectMaster()} variant="outline">
+              <RefreshCcw className="h-4 w-4" />
+              Refresh
+            </Button>
+          </CardHeader>
+          <CardContent className="pt-6">
+            {isProjectMasterLoading ? (
+              <div className="flex justify-center py-10">
+                <Spinner size="md" />
+              </div>
+            ) : projectMasterProjects.length === 0 ? (
+              <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-600">No associated approved projects found.</div>
+            ) : (
+              <div className="overflow-x-auto rounded-2xl border border-zinc-200 bg-white">
+                <table className="w-full min-w-[1240px] text-sm">
+                  <thead className="bg-gradient-to-r from-emerald-50 via-cyan-50 to-blue-50 text-left text-zinc-800">
+                    <tr>
+                      <th className="px-4 py-3 font-medium">Project</th>
+                      <th className="px-4 py-3 font-medium">Leadership</th>
+                      <th className="px-4 py-3 font-medium">Budget & Type</th>
+                      <th className="px-4 py-3 font-medium">Schedule</th>
+                      <th className="px-4 py-3 font-medium">Status</th>
+                      <th className="px-4 py-3 font-medium">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {projectMasterProjects.map((project) => (
+                      <tr className="border-t border-zinc-200 hover:bg-cyan-50/30" key={project.id}>
+                        <td className="px-4 py-3">
+                          <p className="font-semibold text-zinc-900">{project.projectName}</p>
+                          <p className="text-xs text-zinc-600">{project.projectCode}</p>
+                          <p className="text-xs text-zinc-500">{project.clientName}</p>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-zinc-700">
+                          <p>Owner: {project.projectOwnerName}</p>
+                          <p>Director: {project.projectDirectorName || "-"}</p>
+                          <p>Manager: {project.projectManagerName || "-"}</p>
+                          <p>Delivery: {project.deliveryManagerName}</p>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-zinc-700">
+                          <p>{project.projectType}</p>
+                          <p>{project.priority}</p>
+                          <p>
+                            {project.currency} {Number(project.budgetAmount).toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+                          </p>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-zinc-700">
+                          <p>{project.plannedStartDate}</p>
+                          <p>to {project.plannedEndDate}</p>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-wrap gap-2">
+                            <span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${stageClass(project.projectStatus)}`}>{project.projectStatus}</span>
+                            <span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${stageClass(project.workflowStage)}`}>{project.workflowStage}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <Button
+                            aria-label={`View project master details ${project.id}`}
+                            className="h-9 w-9 rounded-full border-zinc-200 bg-zinc-50 p-0 text-zinc-700 hover:bg-zinc-100"
+                            onClick={() => setViewRequest(project)}
+                            size="sm"
+                            title="View"
+                            variant="outline"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      ) : null}
+
       {activeTab === "allocation" ? (
         <>
           {allocationTab === "raise" && canCreateAllocation ? (
@@ -1598,7 +1897,7 @@ export default function ProjectsPage() {
                   <PlusCircle className="h-5 w-5" />
                   {allocationEditingId ? `Edit & Resubmit Allocation #${allocationEditingId}` : "Raise Allocation"}
                 </CardTitle>
-                <CardDescription className="text-cyan-100">Choose an approved project, employee, allocation type, and percentage.</CardDescription>
+                <CardDescription className="text-cyan-100">Choose an approved project, one or more employees, allocation type, and percentage.</CardDescription>
               </CardHeader>
               <CardContent className="pt-6">
                 <form className="grid gap-4 md:grid-cols-2" onSubmit={handleAllocationSubmit}>
@@ -1617,21 +1916,33 @@ export default function ProjectsPage() {
                         </option>
                       ))}
                     </Select>
-                    <Select
-                      label="Employee *"
-                      value={allocationForm.employeeUserId}
-                      onChange={(v) => setAllocationForm((s) => ({ ...s, employeeUserId: v }))}
-                      onFocus={() => {
-                        if (allocationEmployeeOptions.length === 0) void loadAllocationOptions();
-                      }}
-                    >
-                      <option value="">Select employee</option>
-                      {allocationEmployeeOptions.map((item) => (
-                        <option key={item.id} value={String(item.id)}>
-                          {item.fullName} ({item.username}) - {item.roleName}
-                        </option>
-                      ))}
-                    </Select>
+                    {allocationEditingId ? (
+                      <Select
+                        label="Employee *"
+                        value={allocationForm.employeeUserIds[0] ?? ""}
+                        onChange={(v) => setAllocationForm((s) => ({ ...s, employeeUserIds: v ? [v] : [] }))}
+                        onFocus={() => {
+                          if (allocationEmployeeOptions.length === 0) void loadAllocationOptions();
+                        }}
+                      >
+                        <option value="">Select employee</option>
+                        {allocationEmployeeOptions.map((item) => (
+                          <option key={item.id} value={String(item.id)}>
+                            {item.fullName} ({item.username}) - {item.roleName}
+                          </option>
+                        ))}
+                      </Select>
+                    ) : (
+                      <MultiSelect
+                        label="Employees *"
+                        value={allocationForm.employeeUserIds}
+                        onChange={(value) => setAllocationForm((s) => ({ ...s, employeeUserIds: value }))}
+                        options={allocationEmployeeOptions}
+                        onFocus={() => {
+                          if (allocationEmployeeOptions.length === 0) void loadAllocationOptions();
+                        }}
+                      />
+                    )}
                     <Select label="Allocation Type *" value={allocationForm.allocationType} onChange={(v) => setAllocationForm((s) => ({ ...s, allocationType: v as ProjectAllocationType | "" }))}>
                       <option value="">Select allocation type</option>
                       <option value="Billable">Billable</option>
@@ -1706,6 +2017,65 @@ export default function ProjectsPage() {
                     </Button>
                   </div>
                 </div>
+                {canManageAllocation ? (
+                  <div className="mb-4 flex flex-col gap-3 rounded-2xl border border-cyan-200 bg-cyan-50/60 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
+                    <label className="flex items-center gap-3 text-sm font-medium text-cyan-950">
+                      <input
+                        checked={allPendingSelected}
+                        className="h-5 w-5 rounded border-cyan-300 text-cyan-600 focus:ring-cyan-500"
+                        onChange={toggleAllPendingAllocations}
+                        type="checkbox"
+                      />
+                      <span>
+                        Select all pending on this page
+                        <span className="ml-2 text-xs font-normal text-cyan-800">
+                          ({selectedPendingAllocations.length} selected)
+                        </span>
+                      </span>
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        className="gap-2 border-emerald-200 bg-emerald-600 text-white hover:bg-emerald-500"
+                        disabled={selectedPendingAllocations.length === 0}
+                        onClick={() => {
+                          setBulkAllocationActionType("APPROVE");
+                          setBulkAllocationActionComment("");
+                          setBulkAllocationActionOpen(true);
+                        }}
+                        type="button"
+                      >
+                        <CheckCircle2 className="h-4 w-4" />
+                        Approve Selected
+                      </Button>
+                      <Button
+                        className="gap-2 border-violet-200 bg-violet-600 text-white hover:bg-violet-500"
+                        disabled={selectedPendingAllocations.length === 0}
+                        onClick={() => {
+                          setBulkAllocationActionType("REFER_BACK");
+                          setBulkAllocationActionComment("");
+                          setBulkAllocationActionOpen(true);
+                        }}
+                        type="button"
+                      >
+                        <CornerUpLeft className="h-4 w-4" />
+                        Refer Back Selected
+                      </Button>
+                      <Button
+                        className="gap-2 border-rose-200 bg-rose-600 text-white hover:bg-rose-500"
+                        disabled={selectedPendingAllocations.length === 0}
+                        onClick={() => {
+                          setBulkAllocationActionType("REJECT");
+                          setBulkAllocationActionComment("");
+                          setBulkAllocationActionOpen(true);
+                        }}
+                        type="button"
+                      >
+                        <ShieldX className="h-4 w-4" />
+                        Reject Selected
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
                 {!allocationHasLoaded || allocationIsLoading ? (
                   <div className="flex justify-center py-10">
                     <Spinner size="md" />
@@ -1718,6 +2088,17 @@ export default function ProjectsPage() {
                       <table className="w-full min-w-[1200px] text-sm">
                         <thead className="bg-gradient-to-r from-cyan-50 via-blue-50 to-indigo-50 text-left text-zinc-800">
                           <tr>
+                            {canManageAllocation ? (
+                              <th className="w-14 px-4 py-3 font-medium">
+                                <input
+                                  ref={allocationSelectAllRef}
+                                  checked={allPendingSelected}
+                                  className="h-5 w-5 rounded border-zinc-300 text-cyan-600 focus:ring-cyan-500"
+                                  onChange={toggleAllPendingAllocations}
+                                  type="checkbox"
+                                />
+                              </th>
+                            ) : null}
                             <th className="px-4 py-3 font-medium">Allocation</th>
                             <th className="px-4 py-3 font-medium">Project & Employee</th>
                             <th className="px-4 py-3 font-medium">Type & Capacity</th>
@@ -1729,6 +2110,17 @@ export default function ProjectsPage() {
                         <tbody>
                           {allocationRequests.map((allocation) => (
                             <tr className="border-t border-zinc-200 hover:bg-cyan-50/30" key={allocation.id}>
+                              {canManageAllocation ? (
+                                <td className="px-4 py-3 align-top">
+                                  <input
+                                    checked={selectedAllocationIds.includes(allocation.id)}
+                                    className="h-5 w-5 rounded border-zinc-300 text-cyan-600 focus:ring-cyan-500 disabled:cursor-not-allowed disabled:opacity-40"
+                                    disabled={allocation.status !== "Pending DM Approval"}
+                                    onChange={() => toggleAllocationSelection(allocation.id)}
+                                    type="checkbox"
+                                  />
+                                </td>
+                              ) : null}
                               <td className="px-4 py-3">
                                 <p className="font-semibold text-zinc-900">{allocation.allocationCode}</p>
                                 <p className="text-xs text-zinc-500">By {allocation.createdByUsername}</p>
@@ -1849,6 +2241,11 @@ export default function ProjectsPage() {
                         </tbody>
                       </table>
                     </div>
+                    {canManageAllocation && selectedPendingAllocations.length > 0 ? (
+                      <div className="mt-4 rounded-2xl border border-cyan-200 bg-cyan-50/70 px-4 py-3 text-sm text-cyan-950">
+                        {selectedPendingAllocations.length} pending allocation{selectedPendingAllocations.length > 1 ? "s" : ""} selected for bulk action.
+                      </div>
+                    ) : null}
                     <DataTablePagination
                       page={allocationPage}
                       size={allocationPageSize}
@@ -1956,12 +2353,44 @@ export default function ProjectsPage() {
                   <p className="mt-1 font-medium text-zinc-900">{viewRequest.projectManagerName || "-"}</p>
                 </div>
                 <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 text-sm text-zinc-700">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Created By</p>
+                  <p className="mt-1 font-medium text-zinc-900">{viewRequest.createdByUsername}</p>
+                </div>
+                <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 text-sm text-zinc-700">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Version</p>
+                  <p className="mt-1 font-medium text-zinc-900">{viewRequest.version}</p>
+                </div>
+                <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 text-sm text-zinc-700">
                   <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Planned Start Date</p>
                   <p className="mt-1 font-medium text-zinc-900">{viewRequest.plannedStartDate}</p>
                 </div>
                 <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 text-sm text-zinc-700">
                   <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Planned End Date</p>
                   <p className="mt-1 font-medium text-zinc-900">{viewRequest.plannedEndDate}</p>
+                </div>
+                <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 text-sm text-zinc-700">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Created At</p>
+                  <p className="mt-1 font-medium text-zinc-900">{new Date(viewRequest.createdAt).toLocaleString("en-IN")}</p>
+                </div>
+                <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 text-sm text-zinc-700">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Updated At</p>
+                  <p className="mt-1 font-medium text-zinc-900">{new Date(viewRequest.updatedAt).toLocaleString("en-IN")}</p>
+                </div>
+                <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 text-sm text-zinc-700">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Project Owner User ID</p>
+                  <p className="mt-1 font-medium text-zinc-900">{viewRequest.projectOwnerUserId}</p>
+                </div>
+                <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 text-sm text-zinc-700">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Delivery Manager User ID</p>
+                  <p className="mt-1 font-medium text-zinc-900">{viewRequest.deliveryManagerUserId}</p>
+                </div>
+                <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 text-sm text-zinc-700">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Project Director User ID</p>
+                  <p className="mt-1 font-medium text-zinc-900">{viewRequest.projectDirectorUserId ?? "-"}</p>
+                </div>
+                <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 text-sm text-zinc-700">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Project Manager User ID</p>
+                  <p className="mt-1 font-medium text-zinc-900">{viewRequest.projectManagerUserId ?? "-"}</p>
                 </div>
               </div>
               <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-700">
@@ -1972,6 +2401,57 @@ export default function ProjectsPage() {
                 <p className="font-semibold text-zinc-900">Risk Notes</p>
                 <p className="mt-1 whitespace-pre-wrap">{viewRequest.riskNotes || "-"}</p>
               </div>
+              {(viewRequest.referBackBy || viewRequest.referBackComment || viewRequest.referBackStage || viewRequest.referBackAt) ? (
+                <div className="rounded-2xl border border-violet-200 bg-violet-50 p-4 text-sm text-violet-900">
+                  <p className="font-semibold">Refer Back Details</p>
+                  <p className="mt-1">By: {viewRequest.referBackBy || "-"}</p>
+                  <p className="mt-1">Stage: {viewRequest.referBackStage || "-"}</p>
+                  <p className="mt-1">At: {viewRequest.referBackAt ? new Date(viewRequest.referBackAt).toLocaleString("en-IN") : "-"}</p>
+                  <p className="mt-1 whitespace-pre-wrap">Comment: {viewRequest.referBackComment || "-"}</p>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {bulkAllocationActionOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-2xl rounded-2xl border border-zinc-200 bg-white p-5 shadow-xl">
+            <h3 className="text-lg font-semibold text-zinc-900">
+              {bulkAllocationActionType === "APPROVE" ? "Approve" : bulkAllocationActionType === "REJECT" ? "Reject" : "Refer Back"} selected allocations
+            </h3>
+            <p className="mt-1 text-sm text-zinc-600">
+              {selectedPendingAllocations.length} pending allocation{selectedPendingAllocations.length > 1 ? "s" : ""} will be updated.
+            </p>
+            <div className="mt-4 max-h-40 space-y-2 overflow-y-auto rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-sm text-zinc-700">
+              {selectedPendingAllocations.map((allocation) => (
+                <div className="flex items-center justify-between gap-3 rounded-lg bg-white px-3 py-2" key={allocation.id}>
+                  <span className="min-w-0">
+                    <span className="block truncate font-medium">{allocation.allocationCode}</span>
+                    <span className="block truncate text-xs text-zinc-500">
+                      {allocation.projectName} • {allocation.employeeName}
+                    </span>
+                  </span>
+                  <span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${stageClass(allocation.status)}`}>{allocation.status}</span>
+                </div>
+              ))}
+            </div>
+            <Textarea className="mt-4" label="Action Comment *" value={bulkAllocationActionComment} onChange={setBulkAllocationActionComment} />
+            <div className="mt-4 flex justify-end gap-2">
+              <Button
+                onClick={() => {
+                  setBulkAllocationActionOpen(false);
+                  setBulkAllocationActionComment("");
+                }}
+                variant="outline"
+              >
+                Cancel
+              </Button>
+              <Button className="gap-2" disabled={isBulkAllocationActioning} onClick={() => void submitBulkAllocationAction()}>
+                {isBulkAllocationActioning ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                Submit
+              </Button>
             </div>
           </div>
         </div>
@@ -2186,6 +2666,10 @@ export default function ProjectsPage() {
                   <p className="mt-1 font-medium text-zinc-900">{viewChangeRequest.projectOwnerName}</p>
                 </div>
                 <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 text-sm text-zinc-700">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Project Director</p>
+                  <p className="mt-1 font-medium text-zinc-900">{viewChangeRequest.projectDirectorName || "-"}</p>
+                </div>
+                <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 text-sm text-zinc-700">
                   <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Planned Start Date</p>
                   <p className="mt-1 font-medium text-zinc-900">{viewChangeRequest.plannedStartDate}</p>
                 </div>
@@ -2193,6 +2677,45 @@ export default function ProjectsPage() {
                   <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Planned End Date</p>
                   <p className="mt-1 font-medium text-zinc-900">{viewChangeRequest.plannedEndDate}</p>
                 </div>
+                <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 text-sm text-zinc-700">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Created By</p>
+                  <p className="mt-1 font-medium text-zinc-900">{viewChangeRequest.createdByUsername}</p>
+                </div>
+                <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 text-sm text-zinc-700">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Version</p>
+                  <p className="mt-1 font-medium text-zinc-900">{viewChangeRequest.version}</p>
+                </div>
+                <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 text-sm text-zinc-700">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Created At</p>
+                  <p className="mt-1 font-medium text-zinc-900">{new Date(viewChangeRequest.createdAt).toLocaleString("en-IN")}</p>
+                </div>
+                <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 text-sm text-zinc-700">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Updated At</p>
+                  <p className="mt-1 font-medium text-zinc-900">{new Date(viewChangeRequest.updatedAt).toLocaleString("en-IN")}</p>
+                </div>
+              </div>
+              <div className="rounded-2xl border border-cyan-200 bg-cyan-50 p-4">
+                <p className="font-semibold text-cyan-900">Updated fields (current vs requested)</p>
+                {!currentProjectForChangeRequest ? (
+                  <p className="mt-2 text-sm text-cyan-800">
+                    Current approved project snapshot is unavailable. Open Project Master once to load baseline values.
+                  </p>
+                ) : (
+                  <div className="mt-3 space-y-2">
+                    {changeFieldRows.map((row) => (
+                      <div
+                        className={`rounded-xl border p-3 text-sm ${
+                          row.changed ? "border-amber-200 bg-amber-50" : "border-zinc-200 bg-white"
+                        }`}
+                        key={row.label}
+                      >
+                        <p className="font-semibold text-zinc-900">{row.label}</p>
+                        <p className="mt-1 text-xs text-zinc-600">Current: {row.current}</p>
+                        <p className={`mt-1 text-xs ${row.changed ? "font-semibold text-amber-800" : "text-zinc-600"}`}>Requested: {row.requested}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
               <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
                 <p className="font-semibold">Reason</p>
@@ -2393,6 +2916,180 @@ function Select({
         {children}
       </select>
     </label>
+  );
+}
+
+function MultiSelect({
+  label,
+  value,
+  onChange,
+  options,
+  className = "",
+  onFocus,
+}: {
+  label: string;
+  value: string[];
+  onChange: (value: string[]) => void;
+  options: ProjectAllocationEmployeeOption[];
+  className?: string;
+  onFocus?: () => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const containerRef = useRef<HTMLDivElement>(null);
+  const selectAllRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleDocumentMouseDown = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleDocumentMouseDown);
+    return () => document.removeEventListener("mousedown", handleDocumentMouseDown);
+  }, [isOpen]);
+
+  const filteredOptions = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) {
+      return options;
+    }
+    return options.filter((option) => {
+      const haystack = `${option.fullName} ${option.username} ${option.roleName}`.toLowerCase();
+      return haystack.includes(query);
+    });
+  }, [options, search]);
+
+  const selectedLabels = useMemo(() => {
+    const selected = new Set(value);
+    return options.filter((option) => selected.has(option.id.toString())).map((option) => `${option.fullName} (${option.username}) - ${option.roleName}`);
+  }, [options, value]);
+
+  const filteredIds = useMemo(() => filteredOptions.map((option) => String(option.id)), [filteredOptions]);
+  const allFilteredSelected = filteredIds.length > 0 && filteredIds.every((id) => value.includes(id));
+  const someFilteredSelected = filteredIds.some((id) => value.includes(id));
+
+  useEffect(() => {
+    if (selectAllRef.current) {
+      selectAllRef.current.indeterminate = someFilteredSelected && !allFilteredSelected;
+    }
+  }, [allFilteredSelected, someFilteredSelected]);
+
+  const displayText =
+    selectedLabels.length === 0
+      ? "Select employees"
+      : selectedLabels.length <= 2
+        ? selectedLabels.join(", ")
+        : `${selectedLabels.slice(0, 2).join(", ")} + ${selectedLabels.length - 2} more`;
+
+  const toggleEmployee = (employeeId: string) => {
+    const next = new Set(value);
+    if (next.has(employeeId)) {
+      next.delete(employeeId);
+    } else {
+      next.add(employeeId);
+    }
+    onChange(Array.from(next));
+  };
+
+  const toggleSelectAll = () => {
+    if (allFilteredSelected) {
+      onChange(value.filter((employeeId) => !filteredIds.includes(employeeId)));
+      return;
+    }
+    const next = new Set(value);
+    filteredIds.forEach((employeeId) => next.add(employeeId));
+    onChange(Array.from(next));
+  };
+
+  return (
+    <div ref={containerRef} className={`relative block ${className}`}>
+      <span className="pointer-events-none absolute left-3 -top-2 z-10 bg-white px-1 text-xs text-zinc-500">{label}</span>
+      <button
+        className="flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border border-zinc-300 bg-white px-3 py-3 text-left text-sm text-zinc-900 outline-none transition focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+        onClick={() => {
+          setIsOpen((current) => {
+            const next = !current;
+            if (!next) {
+              setSearch("");
+            }
+            return next;
+          });
+          onFocus?.();
+        }}
+        type="button"
+      >
+        <span className={`block min-w-0 flex-1 truncate ${selectedLabels.length === 0 ? "text-zinc-500" : "text-zinc-900"}`}>{displayText}</span>
+        <ChevronDown className={`h-4 w-4 shrink-0 text-zinc-500 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+      </button>
+
+      {isOpen ? (
+        <div className="absolute z-30 mt-2 max-h-72 w-full overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-xl">
+          <div className="space-y-2 p-2">
+            <input
+              className="h-10 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              onChange={(event) => setSearch(event.target.value)}
+              onFocus={onFocus}
+              placeholder="Search employees..."
+              value={search}
+            />
+
+            <label
+              className={`flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-left text-sm transition ${
+                allFilteredSelected || someFilteredSelected ? "bg-cyan-50 text-cyan-900" : "hover:bg-zinc-50 text-zinc-800"
+              }`}
+            >
+              <input
+                ref={selectAllRef}
+                checked={allFilteredSelected}
+                className="h-5 w-5 rounded border-zinc-300 text-cyan-600 focus:ring-cyan-500"
+                onChange={toggleSelectAll}
+                type="checkbox"
+              />
+              <span className="min-w-0 font-medium">Select all</span>
+            </label>
+
+            <div className="max-h-56 overflow-y-auto">
+              {filteredOptions.length === 0 ? (
+                <div className="rounded-lg bg-zinc-50 px-3 py-2 text-sm text-zinc-500">No employees match your search.</div>
+              ) : (
+                filteredOptions.map((option) => {
+                const checked = value.includes(String(option.id));
+                return (
+                  <button
+                    key={option.id}
+                    className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-sm transition ${
+                      checked ? "bg-cyan-50 text-cyan-900" : "hover:bg-zinc-50 text-zinc-800"
+                    }`}
+                    onClick={() => toggleEmployee(String(option.id))}
+                    type="button"
+                  >
+                    <span className="flex min-w-0 items-center gap-3">
+                      <span
+                        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border ${
+                          checked ? "border-cyan-600 bg-cyan-600 text-white" : "border-zinc-300 bg-white"
+                        }`}
+                      >
+                        {checked ? <Check className="h-3.5 w-3.5" /> : null}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block truncate font-medium">{option.fullName}</span>
+                        <span className="block truncate text-xs text-zinc-500">
+                          {option.username} - {option.roleName}
+                        </span>
+                      </span>
+                    </span>
+                  </button>
+                );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
   );
 }
 

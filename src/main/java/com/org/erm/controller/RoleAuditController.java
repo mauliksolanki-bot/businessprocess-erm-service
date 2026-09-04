@@ -1,9 +1,9 @@
 package com.org.erm.controller;
 
-import com.org.erm.dto.AssignRolesRequest;
-import com.org.erm.dto.EmployeeResponse;
-import com.org.erm.dto.PagedResponse;
-import com.org.erm.dto.RoleSummaryResponse;
+import com.org.erm.dto.request.AssignRolesRequest;
+import com.org.erm.dto.response.EmployeeResponse;
+import com.org.erm.dto.response.PagedResponse;
+import com.org.erm.dto.response.RoleSummaryResponse;
 import com.org.erm.service.RoleAuditService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;

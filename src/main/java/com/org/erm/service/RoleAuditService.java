@@ -1,9 +1,9 @@
 package com.org.erm.service;
 
-import com.org.erm.dto.AssignRolesRequest;
-import com.org.erm.dto.EmployeeResponse;
-import com.org.erm.dto.PagedResponse;
-import com.org.erm.dto.RoleSummaryResponse;
+import com.org.erm.dto.request.AssignRolesRequest;
+import com.org.erm.dto.response.EmployeeResponse;
+import com.org.erm.dto.response.PagedResponse;
+import com.org.erm.dto.response.RoleSummaryResponse;
 import com.org.erm.model.ErmRole;
 import com.org.erm.model.ErmUser;
 import com.org.erm.repository.ErmRoleRepository;

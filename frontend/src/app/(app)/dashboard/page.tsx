@@ -8,17 +8,20 @@ import {
   ApiError,
   getDashboardSummary,
   getManagedProjects,
+  getProjectMasterProjects,
   getProjectAllocationPendingApprovals,
   getProjectAllocationRequests,
   getProjectChangeRequests,
   getProjectPendingApprovals,
   getProjectRequests,
+  getSelfDashboard,
   getTeamLeadDashboard,
   type DashboardSummary,
   type ManagedProject,
   type ProjectAllocation,
   type ProjectChangeRequest,
   type ProjectRequest,
+  type SelfDashboard,
   type TeamLeadDashboard,
 } from "@/lib/api";
 import { loadSession } from "@/lib/auth-storage";
@@ -35,12 +38,20 @@ const AUTHORIZED_DASHBOARD_ROLES = [
   "senior hr",
   "team lead",
   "it support lead",
+  "application support specialist",
+  "employee",
   "project manager",
   "delivery manager",
   "project owner",
+  "director",
+  "cto",
   "role_project_manager",
   "role_delivery_manager",
   "role_project_owner",
+  "role_director",
+  "role_cto",
+  "role_application_support_specialist",
+  "role_employee",
   "role_super_admin",
   "role_admin",
 ];
@@ -59,6 +70,12 @@ type ProjectRoleDashboardData = {
   pendingProjectApprovals: ProjectRequest[];
   pendingAllocationApprovals: ProjectAllocation[];
   managedProjects: ManagedProject[];
+};
+
+type FocusDashboardData = {
+  associatedProjects: ProjectRequest[];
+  pendingRequests: ProjectRequest[];
+  pendingChangeRequests: ProjectChangeRequest[];
 };
 
 function formatCount(value: number | null) {
@@ -280,6 +297,131 @@ function StatBadge({ label, value }: { label: string; value: number }) {
     <div className="rounded-2xl bg-white/15 px-4 py-3 text-left ring-1 ring-white/20">
       <p className="text-[11px] font-semibold uppercase tracking-[0.25em] text-white/65">{label}</p>
       <p className="mt-1 text-2xl font-semibold">{value.toLocaleString()}</p>
+    </div>
+  );
+}
+
+function SelfServiceDashboardView({ dashboard }: { dashboard: SelfDashboard }) {
+  return (
+    <div className="space-y-6">
+      <Card className="overflow-hidden border-0 bg-gradient-to-r from-blue-700 via-indigo-700 to-violet-700 text-white shadow-xl shadow-indigo-200/60">
+        <CardContent className="flex flex-col gap-4 p-6 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.35em] text-white/70">Dashboard</p>
+            <h1 className="mt-2 text-3xl font-semibold">{dashboard.fullName}</h1>
+            <p className="mt-2 text-sm text-white/85">
+              {dashboard.designation} • Reporting Manager: {dashboard.reportingManagerFullName ?? "-"}
+            </p>
+          </div>
+          <StatBadge label="Current Projects" value={dashboard.currentProjects.length} />
+        </CardContent>
+      </Card>
+
+      <Card className="border-sky-100 shadow-md shadow-sky-100/40">
+        <CardHeader className="bg-gradient-to-r from-sky-500 to-blue-600 text-white">
+          <CardTitle className="text-white">Current project assignments</CardTitle>
+          <CardDescription className="text-sky-100">Projects currently assigned to you.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3 p-5">
+          {dashboard.currentProjects.length === 0 ? (
+            <EmptyState title="No active assignments" description="No active project allocation is currently assigned." />
+          ) : (
+            dashboard.currentProjects.map((project) => (
+              <div className="rounded-2xl border border-sky-100 bg-white p-4 shadow-sm" key={project.allocationId}>
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <p className="font-semibold text-zinc-900">
+                    {project.projectName} <span className="text-zinc-400">({project.projectCode})</span>
+                  </p>
+                  <Badge className={workflowBadgeClass(project.status)}>{project.status}</Badge>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-2 text-xs text-zinc-600">
+                  <span>{project.allocationType}</span>
+                  <span>•</span>
+                  <span>{project.allocationPercent.toFixed(2)}%</span>
+                  <span>•</span>
+                  <span>
+                    {formatDateOnly(project.startDate)} → {formatDateOnly(project.endDate)}
+                  </span>
+                </div>
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function FocusDashboardView({
+  heading,
+  associatedCountLabel,
+  pendingLabel,
+  data,
+}: {
+  heading: string;
+  associatedCountLabel: string;
+  pendingLabel: string;
+  data: FocusDashboardData;
+}) {
+  const pendingItems = [
+    ...data.pendingRequests.map((item) => ({
+      id: `project-${item.id}`,
+      title: `${item.projectName} (${item.projectCode})`,
+      stage: item.workflowStage,
+      updatedAt: item.updatedAt,
+      kind: "Project Request",
+    })),
+    ...data.pendingChangeRequests.map((item) => ({
+      id: `change-${item.id}`,
+      title: `${item.projectName} (${item.projectCode})`,
+      stage: item.workflowStage,
+      updatedAt: item.updatedAt,
+      kind: "Project Change",
+    })),
+  ].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+
+  return (
+    <div className="space-y-6">
+      <section className="grid gap-4 md:grid-cols-2">
+        <StatCard
+          description="Total approved projects associated with your role."
+          gradient="from-indigo-600 via-violet-600 to-fuchsia-600"
+          icon={Briefcase}
+          label={associatedCountLabel}
+          value={data.associatedProjects.length}
+        />
+        <StatCard
+          description="Approval items currently pending for your workflow scope."
+          gradient="from-amber-500 via-orange-500 to-rose-500"
+          icon={Inbox}
+          label={pendingLabel}
+          value={pendingItems.length}
+        />
+      </section>
+      <Card className="border-violet-100 shadow-md shadow-violet-100/40">
+        <CardHeader className="bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white">
+          <CardTitle className="text-white">{heading}</CardTitle>
+          <CardDescription className="text-violet-100">Pending requests requiring your attention.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3 p-5">
+          {pendingItems.length === 0 ? (
+            <EmptyState title="No pending approvals" description="No requests are waiting for your action right now." />
+          ) : (
+            pendingItems.map((item) => (
+              <div className="rounded-2xl border border-violet-100 bg-white p-4 shadow-sm" key={item.id}>
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div>
+                    <p className="font-semibold text-zinc-900">{item.title}</p>
+                    <p className="text-sm text-zinc-500">{item.kind}</p>
+                  </div>
+                  <Badge className={workflowBadgeClass(String(item.stage))}>{String(item.stage)}</Badge>
+                </div>
+                <p className="mt-2 text-xs text-zinc-500">Updated {formatDateTime(item.updatedAt)}</p>
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
@@ -637,11 +779,16 @@ export default function DashboardPage() {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [teamLeadDashboard, setTeamLeadDashboard] = useState<TeamLeadDashboard | null>(null);
   const [projectRoleDashboard, setProjectRoleDashboard] = useState<ProjectRoleDashboardData | null>(null);
+  const [selfDashboard, setSelfDashboard] = useState<SelfDashboard | null>(null);
+  const [focusDashboard, setFocusDashboard] = useState<FocusDashboardData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [isAuthorized, setIsAuthorized] = useState(true);
   const [isTeamLeadView, setIsTeamLeadView] = useState(false);
+  const [isSelfDashboardView, setIsSelfDashboardView] = useState(false);
+  const [isDirectorFocusView, setIsDirectorFocusView] = useState(false);
+  const [isProjectOwnerFocusView, setIsProjectOwnerFocusView] = useState(false);
   const [isProjectRoleView, setIsProjectRoleView] = useState(false);
   const [activeRoleNames, setActiveRoleNames] = useState<string[]>([]);
   const [activeUsername, setActiveUsername] = useState("");
@@ -667,6 +814,10 @@ export default function DashboardPage() {
     setIsAuthorized(true);
 
     const teamLeadAllowed = roleNames.some((role) => TEAM_LEAD_ROLES.includes(role));
+    const isEmployeeSelfRole = roleNames.includes("employee") || roleNames.includes("application support specialist");
+    const isDirectorRole = roleNames.some((role) => DIRECTOR_ROLES.includes(role));
+    const isProjectOwnerRole = roleNames.some((role) => PROJECT_OWNER_ROLES.includes(role));
+    const isGlobalRole = roleNames.some((role) => SUPER_ADMIN_ROLES.includes(role) || CTO_ROLES.includes(role));
     const projectRoleAllowed = roleNames.some(
       (role) =>
         PROJECT_MANAGER_ROLES.includes(role) ||
@@ -677,13 +828,66 @@ export default function DashboardPage() {
         SUPER_ADMIN_ROLES.includes(role)
     );
     setIsTeamLeadView(teamLeadAllowed);
-    setIsProjectRoleView(projectRoleAllowed);
+    setIsSelfDashboardView(isEmployeeSelfRole);
+    setIsDirectorFocusView(isDirectorRole && !teamLeadAllowed && !isGlobalRole);
+    setIsProjectOwnerFocusView(isProjectOwnerRole && !teamLeadAllowed && !isDirectorRole && !isGlobalRole);
+    setIsProjectRoleView(projectRoleAllowed && !isEmployeeSelfRole && !isDirectorRole && !isProjectOwnerRole);
 
     try {
       if (teamLeadAllowed) {
         const data = await getTeamLeadDashboard(session.accessToken);
         setTeamLeadDashboard(data);
         setSummary(null);
+        setSelfDashboard(null);
+        setFocusDashboard(null);
+        setProjectRoleDashboard(null);
+      } else if (isEmployeeSelfRole) {
+        const data = await getSelfDashboard(session.accessToken);
+        setSelfDashboard(data);
+        setSummary(null);
+        setTeamLeadDashboard(null);
+        setFocusDashboard(null);
+        setProjectRoleDashboard(null);
+      } else if (isDirectorRole && !isGlobalRole) {
+        const [associatedProjects, pendingProjectApprovals, changeRequests] = await Promise.all([
+          getProjectMasterProjects(session.accessToken),
+          getProjectPendingApprovals(session.accessToken),
+          getProjectChangeRequests(session.accessToken),
+        ]);
+        setFocusDashboard({
+          associatedProjects,
+          pendingRequests: pendingProjectApprovals.filter(
+            (item) =>
+              item.workflowStage === "PM Submitted" ||
+              item.workflowStage === "Delivery Manager Approved" ||
+              item.workflowStage === "Project Owner Approved"
+          ),
+          pendingChangeRequests: changeRequests.filter((item) => item.workflowStage === "Pending Director Approval"),
+        });
+        setSummary(null);
+        setTeamLeadDashboard(null);
+        setSelfDashboard(null);
+        setProjectRoleDashboard(null);
+      } else if (isProjectOwnerRole && !isGlobalRole && !isDirectorRole) {
+        const [associatedProjects, projectRequestPage, changeRequests] = await Promise.all([
+          getProjectMasterProjects(session.accessToken),
+          getProjectRequests(session.accessToken, undefined, undefined, 0, 100),
+          getProjectChangeRequests(session.accessToken),
+        ]);
+        setFocusDashboard({
+          associatedProjects,
+          pendingRequests: projectRequestPage.content.filter(
+            (item) =>
+              item.workflowStage !== "Super Admin Approved" &&
+              item.workflowStage !== "Rejected"
+          ),
+          pendingChangeRequests: changeRequests.filter(
+            (item) => item.workflowStage !== "Approved" && item.workflowStage !== "Rejected"
+          ),
+        });
+        setSummary(null);
+        setTeamLeadDashboard(null);
+        setSelfDashboard(null);
         setProjectRoleDashboard(null);
       } else if (projectRoleAllowed) {
         const canProjectManager = roleNames.some((role) => PROJECT_MANAGER_ROLES.includes(role));
@@ -711,10 +915,14 @@ export default function DashboardPage() {
         });
         setSummary(null);
         setTeamLeadDashboard(null);
+        setSelfDashboard(null);
+        setFocusDashboard(null);
       } else {
         const data = await getDashboardSummary(session.accessToken);
         setSummary(data);
         setTeamLeadDashboard(null);
+        setSelfDashboard(null);
+        setFocusDashboard(null);
         setProjectRoleDashboard(null);
       }
       setError(null);
@@ -794,6 +1002,54 @@ export default function DashboardPage() {
         lastUpdated={lastUpdated}
         roleNames={activeRoleNames}
         username={activeUsername}
+      />
+    );
+  }
+
+  if (isSelfDashboardView) {
+    if (isLoading && !selfDashboard) {
+      return <ProjectRoleDashboardSkeleton />;
+    }
+    if (!selfDashboard) {
+      return (
+        <Card className="border-rose-100 shadow-md shadow-rose-100/40">
+          <CardHeader className="bg-gradient-to-r from-rose-500 to-red-500 text-white">
+            <CardTitle className="text-white">Unable to load dashboard</CardTitle>
+            <CardDescription className="text-rose-50">{error ?? "Please refresh the page and try again."}</CardDescription>
+          </CardHeader>
+        </Card>
+      );
+    }
+    return <SelfServiceDashboardView dashboard={selfDashboard} />;
+  }
+
+  if (isDirectorFocusView || isProjectOwnerFocusView) {
+    if (isLoading && !focusDashboard) {
+      return <ProjectRoleDashboardSkeleton />;
+    }
+    if (!focusDashboard) {
+      return (
+        <Card className="border-rose-100 shadow-md shadow-rose-100/40">
+          <CardHeader className="bg-gradient-to-r from-rose-500 to-red-500 text-white">
+            <CardTitle className="text-white">Unable to load dashboard</CardTitle>
+            <CardDescription className="text-rose-50">{error ?? "Please refresh the page and try again."}</CardDescription>
+          </CardHeader>
+        </Card>
+      );
+    }
+    return isDirectorFocusView ? (
+      <FocusDashboardView
+        associatedCountLabel="Projects Associated with Director"
+        data={focusDashboard}
+        heading="Approval request list pending with Director"
+        pendingLabel="Pending Director Approvals"
+      />
+    ) : (
+      <FocusDashboardView
+        associatedCountLabel="Projects Associated with Project Owner"
+        data={focusDashboard}
+        heading="Approval request list pending with Project Owner"
+        pendingLabel="Pending Project Owner Requests"
       />
     );
   }

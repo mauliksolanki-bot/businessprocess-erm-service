@@ -198,7 +198,7 @@ export default function EmployeeDataPage() {
           <div>
             <CardTitle className="flex items-center gap-2 text-white">
               <Sparkles className="h-5 w-5" />
-              Request Tracker
+              Change Request (Employee Data)
             </CardTitle>
             <CardDescription className="text-indigo-100">Review and action profile change requests by workflow stage with the same onboarding-style experience.</CardDescription>
           </div>

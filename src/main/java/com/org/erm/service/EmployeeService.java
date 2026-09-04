@@ -1,10 +1,10 @@
 package com.org.erm.service;
 
-import com.org.erm.dto.EmployeeDirectReportResponse;
-import com.org.erm.dto.EmployeeResponse;
-import com.org.erm.dto.EmployeeUpdateRequest;
-import com.org.erm.dto.PagedResponse;
-import com.org.erm.dto.OnboardingManagerOptionResponse;
+import com.org.erm.dto.response.EmployeeDirectReportResponse;
+import com.org.erm.dto.response.EmployeeResponse;
+import com.org.erm.dto.request.EmployeeUpdateRequest;
+import com.org.erm.dto.response.PagedResponse;
+import com.org.erm.dto.response.OnboardingManagerOptionResponse;
 import com.org.erm.model.ErmRole;
 import com.org.erm.model.ErmUser;
 import com.org.erm.repository.ErmUserRepository;

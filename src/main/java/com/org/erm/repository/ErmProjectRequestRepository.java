@@ -27,6 +27,8 @@ public interface ErmProjectRequestRepository extends JpaRepository<ErmProjectReq
                     :restrictScope = false
                     OR (:projectOwnerUserId IS NOT NULL AND p.projectOwnerUserId = :projectOwnerUserId)
                     OR (:projectManagerUserId IS NOT NULL AND p.projectManagerUserId = :projectManagerUserId)
+                    OR (:projectDirectorUserId IS NOT NULL AND p.projectDirectorUserId = :projectDirectorUserId)
+                    OR (:deliveryManagerUserId IS NOT NULL AND p.deliveryManagerUserId = :deliveryManagerUserId)
                   )
               AND (:workflowStage IS NULL OR p.workflowStage = :workflowStage)
               AND (:query IS NULL OR LOWER(p.projectName) LIKE LOWER(CONCAT('%', :query, '%'))
@@ -38,6 +40,8 @@ public interface ErmProjectRequestRepository extends JpaRepository<ErmProjectReq
             @Param("restrictScope") boolean restrictScope,
             @Param("projectOwnerUserId") Long projectOwnerUserId,
             @Param("projectManagerUserId") Long projectManagerUserId,
+            @Param("projectDirectorUserId") Long projectDirectorUserId,
+            @Param("deliveryManagerUserId") Long deliveryManagerUserId,
             @Param("workflowStage") ProjectWorkflowStage workflowStage,
             @Param("query") String query,
             Pageable pageable
@@ -55,5 +59,25 @@ public interface ErmProjectRequestRepository extends JpaRepository<ErmProjectReq
             Long projectOwnerUserId
     );
 
+    List<ErmProjectRequest> findAllByWorkflowStageAndProjectManagerUserIdOrderByProjectNameAsc(
+            ProjectWorkflowStage workflowStage,
+            Long projectManagerUserId
+    );
+
     List<ErmProjectRequest> findAllByWorkflowStageOrderByProjectNameAsc(ProjectWorkflowStage workflowStage);
+
+    @Query("""
+            SELECT p
+            FROM ErmProjectRequest p
+            WHERE (
+                p.projectOwnerUserId = :userId
+                OR p.projectManagerUserId = :userId
+                OR p.projectDirectorUserId = :userId
+                OR p.deliveryManagerUserId = :userId
+            )
+            ORDER BY p.projectName ASC
+            """)
+    List<ErmProjectRequest> findAssociatedProjects(
+            @Param("userId") Long userId
+    );
 }

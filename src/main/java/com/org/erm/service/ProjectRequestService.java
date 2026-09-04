@@ -1,12 +1,12 @@
 package com.org.erm.service;
 
-import com.org.erm.dto.OnboardingActionRequest;
-import com.org.erm.dto.OnboardingApprovalTrailItem;
-import com.org.erm.dto.PagedResponse;
-import com.org.erm.dto.ProjectManagerOptionResponse;
-import com.org.erm.dto.ProjectRequestCreateRequest;
-import com.org.erm.dto.ProjectRequestResponse;
-import com.org.erm.dto.RequestCommentRequest;
+import com.org.erm.dto.request.OnboardingActionRequest;
+import com.org.erm.dto.response.OnboardingApprovalTrailItem;
+import com.org.erm.dto.response.PagedResponse;
+import com.org.erm.dto.response.ProjectManagerOptionResponse;
+import com.org.erm.dto.request.ProjectRequestCreateRequest;
+import com.org.erm.dto.response.ProjectRequestResponse;
+import com.org.erm.dto.request.RequestCommentRequest;
 import com.org.erm.model.ErmProjectRequest;
 import com.org.erm.model.ErmProjectRequestComment;
 import com.org.erm.model.ErmUser;
@@ -27,14 +27,16 @@ import org.springframework.web.server.ResponseStatusException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 
 @Service
 public class ProjectRequestService {
 
     private static final List<String> PROJECT_TYPES = List.of("Internal", "Billable", "Fixed Bid", "T&M");
     private static final List<String> PRIORITIES = List.of("Low", "Medium", "High", "Critical");
-    private static final List<String> GLOBAL_VIEW_ROLES = List.of("ROLE_DIRECTOR", "ROLE_CTO", "ROLE_SUPER_ADMIN", "ROLE_ADMIN");
+    private static final List<String> GLOBAL_VIEW_ROLES = List.of("ROLE_CTO", "ROLE_SUPER_ADMIN", "ROLE_ADMIN");
 
     private final ErmProjectRequestRepository projectRequestRepository;
     private final ErmProjectRequestCommentRepository projectRequestCommentRepository;
@@ -79,15 +81,45 @@ public class ProjectRequestService {
         boolean restrictScope = !isGlobalViewer(authentication);
         Long projectOwnerUserId = hasAnyAuthority(authentication, "ROLE_PROJECT_OWNER") ? actorUser.getId() : null;
         Long projectManagerUserId = hasAnyAuthority(authentication, "ROLE_PROJECT_MANAGER", "ROLE_TEAM_LEAD", "ROLE_IT_SUPPORT_MANAGER", "ROLE_IT_SUPPORT_LEAD") ? actorUser.getId() : null;
+        Long projectDirectorUserId = hasAnyAuthority(authentication, "ROLE_DIRECTOR") ? actorUser.getId() : null;
+        Long deliveryManagerUserId = hasAnyAuthority(authentication, "ROLE_DELIVERY_MANAGER") ? actorUser.getId() : null;
 
         return PagedResponse.from(projectRequestRepository.search(
                 restrictScope,
                 projectOwnerUserId,
                 projectManagerUserId,
+                projectDirectorUserId,
+                deliveryManagerUserId,
                 parsedStage,
                 normalizedQuery,
                 pageable
         ).map(this::toResponse));
+    }
+
+    @Transactional(readOnly = true)
+    public List<ProjectRequestResponse> listProjectMaster(Authentication authentication) {
+        ErmUser actorUser = loadCurrentUser(authentication);
+        List<ErmProjectRequest> projects;
+        if (isGlobalViewer(authentication)) {
+            projects = projectRequestRepository.findAll();
+        } else if (hasAnyAuthority(
+                authentication,
+                "ROLE_PROJECT_MANAGER",
+                "ROLE_PROJECT_OWNER",
+                "ROLE_DIRECTOR",
+                "ROLE_DELIVERY_MANAGER"
+        )) {
+            projects = projectRequestRepository.findAssociatedProjects(actorUser.getId());
+        } else {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not authorized to view Project Master");
+        }
+        return projects.stream()
+                .sorted(Comparator.comparing(
+                        ErmProjectRequest::getCreatedAt,
+                        Comparator.nullsLast(Comparator.reverseOrder())
+                ))
+                .map(this::toResponse)
+                .toList();
     }
 
     @Transactional(readOnly = true)
@@ -210,8 +242,7 @@ public class ProjectRequestService {
                         && item.getWorkflowStage() != ProjectWorkflowStage.DELIVERY_MANAGER_APPROVED
                         && item.getWorkflowStage() != ProjectWorkflowStage.PROJECT_OWNER_APPROVED)
                         || actorDirectorUserId == null
-                        || item.getProjectDirectorUserId() == null
-                        || item.getProjectDirectorUserId().equals(actorDirectorUserId))
+                        || Objects.equals(item.getProjectDirectorUserId(), actorDirectorUserId))
                 .map(this::toResponse)
                 .toList();
     }
@@ -450,7 +481,13 @@ public class ProjectRequestService {
         boolean managerAccess = hasAnyAuthority(authentication, "ROLE_PROJECT_MANAGER", "ROLE_TEAM_LEAD", "ROLE_IT_SUPPORT_MANAGER", "ROLE_IT_SUPPORT_LEAD")
                 && entity.getProjectManagerUserId() != null
                 && actor.getId().equals(entity.getProjectManagerUserId());
-        return ownerAccess || managerAccess;
+        boolean directorAccess = hasAnyAuthority(authentication, "ROLE_DIRECTOR")
+                && entity.getProjectDirectorUserId() != null
+                && actor.getId().equals(entity.getProjectDirectorUserId());
+        boolean deliveryManagerAccess = hasAnyAuthority(authentication, "ROLE_DELIVERY_MANAGER")
+                && entity.getDeliveryManagerUserId() != null
+                && actor.getId().equals(entity.getDeliveryManagerUserId());
+        return ownerAccess || managerAccess || directorAccess || deliveryManagerAccess;
     }
 
     private void ensureProjectOwnerCreator(Authentication authentication) {
@@ -543,3 +580,4 @@ public class ProjectRequestService {
         );
     }
 }
+

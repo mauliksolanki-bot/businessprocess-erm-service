@@ -1,12 +1,12 @@
 package com.org.erm.service;
 
-import com.org.erm.dto.EmployeeProfileUpdateRequestCreateRequest;
-import com.org.erm.dto.EmployeeProfileUpdateRequestResponse;
-import com.org.erm.dto.OnboardingActionRequest;
-import com.org.erm.dto.OnboardingApprovalTrailItem;
-import com.org.erm.dto.PagedResponse;
-import com.org.erm.dto.RequestCancellationRequest;
-import com.org.erm.dto.RequestCommentRequest;
+import com.org.erm.dto.request.EmployeeProfileUpdateRequestCreateRequest;
+import com.org.erm.dto.response.EmployeeProfileUpdateRequestResponse;
+import com.org.erm.dto.request.OnboardingActionRequest;
+import com.org.erm.dto.response.OnboardingApprovalTrailItem;
+import com.org.erm.dto.response.PagedResponse;
+import com.org.erm.dto.request.RequestCancellationRequest;
+import com.org.erm.dto.request.RequestCommentRequest;
 import com.org.erm.model.ErmDesignationHierarchy;
 import com.org.erm.model.ErmEmployeeProfileUpdateRequest;
 import com.org.erm.model.ErmEmployeeProfileUpdateRequestComment;

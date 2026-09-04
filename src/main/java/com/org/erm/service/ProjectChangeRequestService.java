@@ -1,12 +1,12 @@
 package com.org.erm.service;
 
-import com.org.erm.dto.ManagedProjectResponse;
-import com.org.erm.dto.OnboardingActionRequest;
-import com.org.erm.dto.OnboardingApprovalTrailItem;
-import com.org.erm.dto.ProjectChangeRequestCreateRequest;
-import com.org.erm.dto.ProjectChangeRequestResponse;
-import com.org.erm.dto.ProjectManagerOptionResponse;
-import com.org.erm.dto.RequestCommentRequest;
+import com.org.erm.dto.response.ManagedProjectResponse;
+import com.org.erm.dto.request.OnboardingActionRequest;
+import com.org.erm.dto.response.OnboardingApprovalTrailItem;
+import com.org.erm.dto.request.ProjectChangeRequestCreateRequest;
+import com.org.erm.dto.response.ProjectChangeRequestResponse;
+import com.org.erm.dto.response.ProjectManagerOptionResponse;
+import com.org.erm.dto.request.RequestCommentRequest;
 import com.org.erm.model.ErmProjectChangeRequest;
 import com.org.erm.model.ErmProjectChangeRequestComment;
 import com.org.erm.model.ErmProjectRequest;
@@ -105,7 +105,11 @@ public class ProjectChangeRequestService {
             projectChangeRequestRepository.findAllByProjectOwnerUserIdOrderByCreatedAtDesc(user.getId())
                     .forEach(item -> items.putIfAbsent(item.getId(), item));
         }
-        if (hasAnyAuthority(authentication, "ROLE_DIRECTOR", "ROLE_CTO", "ROLE_SUPER_ADMIN", "ROLE_ADMIN")) {
+        if (hasAnyAuthority(authentication, "ROLE_DIRECTOR")) {
+            projectChangeRequestRepository.findAllByProjectDirectorUserIdOrderByCreatedAtDesc(user.getId())
+                    .forEach(item -> items.putIfAbsent(item.getId(), item));
+        }
+        if (hasAnyAuthority(authentication, "ROLE_CTO", "ROLE_SUPER_ADMIN", "ROLE_ADMIN")) {
             projectChangeRequestRepository.findAllByWorkflowStageInOrderByCreatedAtDesc(EnumSet.allOf(ProjectChangeWorkflowStage.class))
                     .forEach(item -> items.putIfAbsent(item.getId(), item));
         }

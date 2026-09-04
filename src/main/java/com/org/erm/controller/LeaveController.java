@@ -1,9 +1,10 @@
 package com.org.erm.controller;
 
-import com.org.erm.dto.LeaveApplyRequest;
-import com.org.erm.dto.LeaveActionRequest;
-import com.org.erm.dto.LeavePolicyResponse;
-import com.org.erm.dto.LeaveRequestResponse;
+import com.org.erm.dto.request.LeaveApplyRequest;
+import com.org.erm.dto.request.LeaveActionRequest;
+import com.org.erm.dto.response.LeaveApproverVisibilityResponse;
+import com.org.erm.dto.response.LeavePolicyResponse;
+import com.org.erm.dto.response.LeaveRequestResponse;
 import com.org.erm.service.LeaveService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -64,6 +65,12 @@ public class LeaveController {
     @Operation(summary = "List leave requests assigned to me for approval")
     public ResponseEntity<List<LeaveRequestResponse>> approvals(Authentication authentication) {
         return ResponseEntity.ok(leaveService.approverRequests(authentication.getName()));
+    }
+
+    @GetMapping("/approver-visibility")
+    @Operation(summary = "Check whether approver requests tab should be shown for caller")
+    public ResponseEntity<LeaveApproverVisibilityResponse> approverVisibility(Authentication authentication) {
+        return ResponseEntity.ok(new LeaveApproverVisibilityResponse(leaveService.hasReportees(authentication.getName())));
     }
 
     @PatchMapping("/{id}/actions")

@@ -1,8 +1,8 @@
 package com.org.erm.controller;
 
-import com.org.erm.dto.EmployeeDesignationUpdateRequestCreateRequest;
-import com.org.erm.dto.EmployeeDesignationUpdateRequestResponse;
-import com.org.erm.dto.OnboardingActionRequest;
+import com.org.erm.dto.request.EmployeeDesignationUpdateRequestCreateRequest;
+import com.org.erm.dto.response.EmployeeDesignationUpdateRequestResponse;
+import com.org.erm.dto.request.OnboardingActionRequest;
 import com.org.erm.service.EmployeeDataRequestService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;

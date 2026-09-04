@@ -1,6 +1,6 @@
 package com.org.erm.service;
 
-import com.org.erm.dto.UserProfileResponse;
+import com.org.erm.dto.response.UserProfileResponse;
 import com.org.erm.model.ErmRole;
 import com.org.erm.model.ErmUser;
 import com.org.erm.repository.ErmRoleRepository;
@@ -37,6 +37,12 @@ public class UserService {
                 : ermRoleRepository.findById(ermUser.getPrimaryRoleId())
                 .map(ErmRole::getName)
                 .orElseGet(() -> roleNames.stream().findFirst().orElse("Employee"));
+        String reportingManagerFullName = null;
+        if (ermUser.getReportingManagerUserId() != null) {
+            reportingManagerFullName = ermUserRepository.findById(ermUser.getReportingManagerUserId())
+                    .map(manager -> manager.getFullName() == null || manager.getFullName().isBlank() ? manager.getUsername() : manager.getFullName().trim())
+                    .orElse(null);
+        }
 
         return new UserProfileResponse(
                 ermUser.getId(),
@@ -44,6 +50,8 @@ public class UserService {
                 ermUser.getEmail(),
                 ermUser.getFullName(),
                 designation,
+                reportingManagerFullName,
+                ermUser.getReportingManagerRoleName(),
                 roleNames
         );
     }

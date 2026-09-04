@@ -1,8 +1,8 @@
 package com.org.erm.controller;
 
-import com.org.erm.dto.LeavePolicyCreateRequest;
-import com.org.erm.dto.LeavePolicyResponse;
-import com.org.erm.dto.LeavePolicyUpdateRequest;
+import com.org.erm.dto.request.LeavePolicyCreateRequest;
+import com.org.erm.dto.response.LeavePolicyResponse;
+import com.org.erm.dto.request.LeavePolicyUpdateRequest;
 import com.org.erm.service.LeavePolicyService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;

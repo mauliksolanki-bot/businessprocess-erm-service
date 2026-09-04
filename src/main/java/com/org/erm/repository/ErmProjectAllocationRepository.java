@@ -34,6 +34,7 @@ public interface ErmProjectAllocationRepository extends JpaRepository<ErmProject
     );
 
     List<ErmProjectAllocation> findAllByStatusOrderByCreatedAtDesc(ProjectAllocationStatus status);
+    List<ErmProjectAllocation> findAllByEmployeeUserIdAndStatusOrderByUpdatedAtDesc(Long employeeUserId, ProjectAllocationStatus status);
     List<ErmProjectAllocation> findAllByEmployeeUserIdInAndStatus(Collection<Long> employeeUserIds, ProjectAllocationStatus status);
 
     @Query("""

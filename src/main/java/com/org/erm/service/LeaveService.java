@@ -1,9 +1,9 @@
 package com.org.erm.service;
 
-import com.org.erm.dto.LeaveApplyRequest;
-import com.org.erm.dto.LeaveActionRequest;
-import com.org.erm.dto.LeavePolicyResponse;
-import com.org.erm.dto.LeaveRequestResponse;
+import com.org.erm.dto.request.LeaveApplyRequest;
+import com.org.erm.dto.request.LeaveActionRequest;
+import com.org.erm.dto.response.LeavePolicyResponse;
+import com.org.erm.dto.response.LeaveRequestResponse;
 import com.org.erm.model.ErmLeavePolicy;
 import com.org.erm.model.ErmLeaveRequest;
 import com.org.erm.model.ErmUser;
@@ -117,6 +117,13 @@ public class LeaveService {
         return leaveRequestRepository.findAllByApproverManagerUserIdOrderByCreatedAtDesc(manager.getId()).stream()
                 .map(this::toLeaveResponse)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public boolean hasReportees(String username) {
+        ErmUser user = userRepository.findByUsernameIgnoreCase(username)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        return !userRepository.findAllByReportingManagerUserIdOrderByFullNameAsc(user.getId()).isEmpty();
     }
 
     @Transactional

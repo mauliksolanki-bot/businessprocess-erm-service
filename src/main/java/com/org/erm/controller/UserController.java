@@ -1,6 +1,6 @@
 package com.org.erm.controller;
 
-import com.org.erm.dto.UserProfileResponse;
+import com.org.erm.dto.response.UserProfileResponse;
 import com.org.erm.service.UserService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;

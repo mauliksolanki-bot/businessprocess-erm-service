@@ -1,14 +1,14 @@
 package com.org.erm.service;
 
-import com.org.erm.dto.OnboardingActionRequest;
-import com.org.erm.dto.OnboardingApprovalTrailItem;
-import com.org.erm.dto.OnboardingDesignationOptionResponse;
-import com.org.erm.dto.OnboardingManagerOptionResponse;
-import com.org.erm.dto.OnboardingManagerOptionsResponse;
-import com.org.erm.dto.OnboardingRequestCreateRequest;
-import com.org.erm.dto.OnboardingRequestResponse;
-import com.org.erm.dto.PagedResponse;
-import com.org.erm.dto.RequestCommentRequest;
+import com.org.erm.dto.request.OnboardingActionRequest;
+import com.org.erm.dto.response.OnboardingApprovalTrailItem;
+import com.org.erm.dto.response.OnboardingDesignationOptionResponse;
+import com.org.erm.dto.response.OnboardingManagerOptionResponse;
+import com.org.erm.dto.response.OnboardingManagerOptionsResponse;
+import com.org.erm.dto.request.OnboardingRequestCreateRequest;
+import com.org.erm.dto.response.OnboardingRequestResponse;
+import com.org.erm.dto.response.PagedResponse;
+import com.org.erm.dto.request.RequestCommentRequest;
 import com.org.erm.model.ErmDesignationHierarchy;
 import com.org.erm.model.ErmOnboardingRequest;
 import com.org.erm.model.ErmOnboardingRequestComment;
@@ -525,6 +525,9 @@ public class OnboardingRequestService {
     }
 
     private List<OnboardingApprovalTrailItem> buildTrail(ErmOnboardingRequest onboardingRequest) {
+        if (onboardingRequestCommentRepository == null) {
+            return List.of();
+        }
         List<ErmOnboardingRequestComment> historyEntries =
                 onboardingRequestCommentRepository.findAllByOnboardingRequestIdOrderByActionAtAscIdAsc(onboardingRequest.getId());
         if (!historyEntries.isEmpty()) {
@@ -582,7 +585,9 @@ public class OnboardingRequestService {
         history.setDecision(decision);
         history.setCommentText(comment);
         history.setActionAt(actionAt == null ? LocalDateTime.now() : actionAt);
-        onboardingRequestCommentRepository.save(history);
+        if (onboardingRequestCommentRepository != null) {
+            onboardingRequestCommentRepository.save(history);
+        }
     }
 
     private String decisionLabel(OnboardingActionDecision decision) {

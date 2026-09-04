@@ -1,6 +1,6 @@
 package com.org.erm.controller;
 
-import com.org.erm.dto.NavigationMenuResponse;
+import com.org.erm.dto.response.NavigationMenuResponse;
 import com.org.erm.service.NavigationService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;

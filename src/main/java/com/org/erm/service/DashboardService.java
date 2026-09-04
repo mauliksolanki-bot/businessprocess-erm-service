@@ -1,10 +1,12 @@
 package com.org.erm.service;
 
-import com.org.erm.dto.DashboardSummaryResponse;
-import com.org.erm.dto.TeamLeadDashboardResponse;
-import com.org.erm.dto.TeamLeadLeaveItemResponse;
-import com.org.erm.dto.TeamLeadProjectItemResponse;
-import com.org.erm.dto.TeamLeadProjectMemberResponse;
+import com.org.erm.dto.response.DashboardSummaryResponse;
+import com.org.erm.dto.response.SelfDashboardResponse;
+import com.org.erm.dto.response.SelfProjectAssignmentResponse;
+import com.org.erm.dto.response.TeamLeadDashboardResponse;
+import com.org.erm.dto.response.TeamLeadLeaveItemResponse;
+import com.org.erm.dto.response.TeamLeadProjectItemResponse;
+import com.org.erm.dto.response.TeamLeadProjectMemberResponse;
 import com.org.erm.model.ErmLeaveRequest;
 import com.org.erm.model.ErmProjectAllocation;
 import com.org.erm.model.ErmProjectRequest;
@@ -30,12 +32,10 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.Collection;
 import java.util.stream.Collectors;
 
 @Service
@@ -188,6 +188,47 @@ public class DashboardService {
                 activeTeamProjectCount,
                 leaveItems,
                 teamProjects
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public SelfDashboardResponse getSelfDashboard(String username) {
+        ErmUser user = userRepository.findByUsernameIgnoreCase(username)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        String reportingManagerFullName = null;
+        if (user.getReportingManagerUserId() != null) {
+            reportingManagerFullName = userRepository.findById(user.getReportingManagerUserId())
+                    .map(manager -> StringUtils.hasText(manager.getFullName()) ? manager.getFullName().trim() : manager.getUsername())
+                    .orElse(null);
+        }
+
+        List<SelfProjectAssignmentResponse> currentProjects = projectAllocationRepository
+                .findAllByEmployeeUserIdAndStatusOrderByUpdatedAtDesc(user.getId(), ProjectAllocationStatus.ACTIVE)
+                .stream()
+                .map(item -> new SelfProjectAssignmentResponse(
+                        item.getId(),
+                        item.getAllocationCode(),
+                        item.getProjectRequestId(),
+                        item.getProjectName(),
+                        item.getProjectCode(),
+                        item.getAllocationType().getLabel(),
+                        item.getAllocationPercent(),
+                        item.getStartDate(),
+                        item.getEndDate(),
+                        item.getStatus().getLabel(),
+                        item.getUpdatedAt()
+                ))
+                .toList();
+
+        return new SelfDashboardResponse(
+                user.getId(),
+                user.getUsername(),
+                StringUtils.hasText(user.getFullName()) ? user.getFullName().trim() : user.getUsername(),
+                resolveDesignation(user),
+                reportingManagerFullName,
+                user.getReportingManagerRoleName(),
+                currentProjects
         );
     }
 

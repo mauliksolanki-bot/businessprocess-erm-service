@@ -1,7 +1,8 @@
 package com.org.erm.controller;
 
-import com.org.erm.dto.DashboardSummaryResponse;
-import com.org.erm.dto.TeamLeadDashboardResponse;
+import com.org.erm.dto.response.DashboardSummaryResponse;
+import com.org.erm.dto.response.SelfDashboardResponse;
+import com.org.erm.dto.response.TeamLeadDashboardResponse;
 import com.org.erm.service.DashboardService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -16,7 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/dashboard")
 @Tag(name = "Dashboard", description = "Live dashboard summary counts")
-@PreAuthorize("hasAnyAuthority('ROLE_SUPER_ADMIN','ROLE_ADMIN','ROLE_CHRO','ROLE_HR_HEAD','ROLE_SENIOR_HR','ROLE_TEAM_LEAD','ROLE_IT_SUPPORT_LEAD')")
+@PreAuthorize("isAuthenticated()")
 public class DashboardController {
 
     private final DashboardService dashboardService;
@@ -32,6 +33,7 @@ public class DashboardController {
             @ApiResponse(responseCode = "401", description = "Unauthorized"),
             @ApiResponse(responseCode = "403", description = "Forbidden")
     })
+    @PreAuthorize("hasAnyAuthority('ROLE_SUPER_ADMIN','ROLE_ADMIN','ROLE_CHRO','ROLE_HR_HEAD','ROLE_SENIOR_HR','ROLE_TEAM_LEAD','ROLE_IT_SUPPORT_LEAD')")
     public ResponseEntity<DashboardSummaryResponse> summary() {
         return ResponseEntity.ok(dashboardService.getSummary());
     }
@@ -46,5 +48,11 @@ public class DashboardController {
     @PreAuthorize("hasAnyAuthority('ROLE_TEAM_LEAD','ROLE_IT_SUPPORT_LEAD','ROLE_SUPER_ADMIN','ROLE_ADMIN')")
     public ResponseEntity<TeamLeadDashboardResponse> teamLeadSummary(java.security.Principal principal) {
         return ResponseEntity.ok(dashboardService.getTeamLeadDashboard(principal.getName()));
+    }
+
+    @GetMapping("/self")
+    @Operation(summary = "Get dashboard details for self project assignments")
+    public ResponseEntity<SelfDashboardResponse> selfSummary(java.security.Principal principal) {
+        return ResponseEntity.ok(dashboardService.getSelfDashboard(principal.getName()));
     }
 }
