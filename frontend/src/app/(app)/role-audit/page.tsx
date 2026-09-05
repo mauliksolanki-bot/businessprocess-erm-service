@@ -1,13 +1,14 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { BadgeCheck, Check, Eye, RefreshCcw, Search, ShieldCheck, Sparkles, X } from "lucide-react";
+import { BadgeCheck, Check, RefreshCcw, Search, ShieldCheck, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTablePagination } from "@/components/erm/data-table-pagination";
 import { FloatingInputField, LabeledSelectField } from "@/components/ui/form-fields";
+import SearchableMultiSelect from "@/components/ui/searchable-multiselect";
 import { Spinner } from "@/components/ui/spinner";
 import {
   ApiError,
@@ -15,6 +16,7 @@ import {
   getAllRoles,
   getRoleAuditEmployeeById,
   getRoleAuditEmployees,
+  removeRolesFromEmployee,
   type Employee,
   type RoleSummary,
 } from "@/lib/api";
@@ -55,7 +57,11 @@ export default function RoleAuditPage() {
   const [filters, setFilters] = useState<RoleAuditFilters>(initialFilters);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [roles, setRoles] = useState<RoleSummary[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [employeeOptions, setEmployeeOptions] = useState<Employee[]>([]);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>("");
+  const [topSelectedRoleIds, setTopSelectedRoleIds] = useState<string[]>([]);
+  const [multiSelectResetSignal, setMultiSelectResetSignal] = useState(0);
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(25);
   const [totalElements, setTotalElements] = useState(0);
@@ -67,6 +73,13 @@ export default function RoleAuditPage() {
   const [assignSaving, setAssignSaving] = useState(false);
   const [assignedRoleIds, setAssignedRoleIds] = useState<string[]>([]);
   const [roleSearch, setRoleSearch] = useState("");
+
+  // delete modal state
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleteTargetEmployee, setDeleteTargetEmployee] = useState<Employee | null>(null);
+  const [deleteOptions, setDeleteOptions] = useState<{ id: number; label: string }[]>([]);
+  const [selectedDeleteRoleIds, setSelectedDeleteRoleIds] = useState<string[]>([]);
+  const [deleteSaving, setDeleteSaving] = useState(false);
 
   const accessToken = useMemo(() => loadSession()?.accessToken ?? null, []);
 
@@ -121,9 +134,19 @@ export default function RoleAuditPage() {
     }
   }
 
+  async function loadEmployeeOptions() {
+    if (!accessToken) return;
+    try {
+      const result = await getRoleAuditEmployees(accessToken, {}, 0, 200);
+      setEmployeeOptions(result.content);
+    } catch {
+      // ignore
+    }
+  }
+
   useEffect(() => {
     void loadRoles();
-    void loadGrid();
+    void loadEmployeeOptions();
   }, []);
 
   useEffect(() => {
@@ -190,7 +213,47 @@ export default function RoleAuditPage() {
   async function handleSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setPage(0);
-    await loadGrid(filters, 0, pageSize);
+
+    // If an employee is selected, show only that employee in the grid
+    if (selectedEmployeeId && selectedEmployeeId.trim()) {
+      const id = Number(selectedEmployeeId);
+      if (!accessToken) {
+        toast.error("Session not found. Please login again.");
+        return;
+      }
+      setLoading(true);
+      try {
+        const employee = await getRoleAuditEmployeeById(accessToken, id);
+        setEmployees([employee]);
+        setTotalElements(1);
+        setTotalPages(1);
+        setPage(0);
+        setPageSize(1);
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 404) {
+          toast.error("Employee not found.");
+          setEmployees([]);
+          setTotalElements(0);
+          setTotalPages(0);
+        } else if (error instanceof ApiError && error.status === 403) {
+          toast.error("Only Super Admin can access role audit.");
+        } else {
+          toast.error("Unable to load role audit data.");
+        }
+      } finally {
+        setLoading(false);
+      }
+
+      return;
+    }
+
+    // fallback to regular filters search
+    setLoading(true);
+    try {
+      await loadGrid(filters, 0, pageSize);
+    } finally {
+      setLoading(false);
+    }
   }
 
   function openAssignModal(employeeId?: number) {
@@ -225,11 +288,16 @@ export default function RoleAuditPage() {
 
     setAssignSaving(true);
     try {
-      const updated = await assignRolesToEmployee(accessToken, employeeId, {
+      const result = await assignRolesToEmployee(accessToken, employeeId, {
         roleIds: assignedRoleIds.map((value) => Number(value)),
       });
-      toast.success("Role changes saved successfully.");
-      setAssignEmployee(updated);
+      if (result.createdRoleIds && result.createdRoleIds.length > 0) {
+        toast.success(`Assigned ${result.createdRoleIds.length} new role(s).`);
+      }
+      if (result.existingRoleIds && result.existingRoleIds.length > 0) {
+        toast(`Skipped ${result.existingRoleIds.length} existing role(s).`);
+      }
+      setAssignEmployee(result.employee);
       await loadGrid(filters, page, pageSize);
       setAssignModalOpen(false);
     } catch (error) {
@@ -266,52 +334,112 @@ export default function RoleAuditPage() {
         </CardHeader>
         <CardContent className="pt-6">
           <form className="mb-5 grid gap-3 rounded-2xl border border-indigo-100 bg-gradient-to-r from-indigo-50 via-violet-50 to-cyan-50 p-4 md:grid-cols-5" onSubmit={handleSearch}>
-            <FloatingInputField
-              label="Employee Name"
-              onChange={(event) => setFilters((value) => ({ ...value, employeeName: event.target.value }))}
-              value={filters.employeeName}
-            />
-            <LabeledSelectField
-              label="Role"
-              onChange={(event) => setFilters((value) => ({ ...value, role: event.target.value }))}
-              value={filters.role}
-            >
-              <option value="">Any role</option>
-              {roles.map((role) => (
-                <option key={role.id} value={role.name}>
-                  {role.name}
-                </option>
-              ))}
-            </LabeledSelectField>
-            <FloatingInputField
-              label="Department"
-              onChange={(event) => setFilters((value) => ({ ...value, department: event.target.value }))}
-              value={filters.department}
-            />
-            <LabeledSelectField
-              label="Status"
-              onChange={(event) => setFilters((value) => ({ ...value, status: event.target.value }))}
-              value={filters.status}
-            >
-              <option value="">Any status</option>
-              <option value="Active">Active</option>
-              <option value="Inactive">Inactive</option>
-            </LabeledSelectField>
-            <div className="flex gap-2">
-              <Button className="gap-2" type="submit" variant="secondary">
+            <div className="md:col-span-1">
+              <LabeledSelectField label="Employee" value={selectedEmployeeId} onChange={(e) => setSelectedEmployeeId(e.target.value)}>
+                <option value="">Select employee</option>
+                {employeeOptions.map((emp) => (
+                  <option key={emp.id} value={String(emp.id)}>
+                    {emp.fullName} • #{emp.id}
+                  </option>
+                ))}
+              </LabeledSelectField>
+            </div>
+
+            <div className="md:col-span-2">
+              <SearchableMultiSelect
+                label="Roles"
+                options={roles.map((r) => ({ id: r.id, label: r.name }))}
+                value={topSelectedRoleIds}
+                onChange={(next) => setTopSelectedRoleIds(next)}
+                placeholder="Search roles"
+                resetSignal={multiSelectResetSignal}
+              />
+            </div>
+
+            <div className="md:col-span-1">
+              <FloatingInputField
+                label="Department"
+                onChange={(event) => setFilters((value) => ({ ...value, department: event.target.value }))}
+                value={filters.department}
+              />
+            </div>
+
+            <div className="md:col-span-1">
+              <LabeledSelectField
+                label="Status"
+                onChange={(event) => setFilters((value) => ({ ...value, status: event.target.value }))}
+                value={filters.status}
+              >
+                <option value="">Any status</option>
+                <option value="Active">Active</option>
+                <option value="Inactive">Inactive</option>
+              </LabeledSelectField>
+            </div>
+
+            <div className="md:col-span-5 flex flex-wrap items-center justify-end gap-2">
+              <Button type="submit" className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 bg-indigo-600 text-white hover:bg-indigo-500">
                 <Search className="h-4 w-4" />
-                Search
+                <span className="text-sm font-medium">Search</span>
               </Button>
+
               <Button
+                type="button"
+                onClick={async () => {
+                  // Assign selected roles to the selected employee (add-only)
+                  if (!accessToken) {
+                    toast.error("Session not found. Please login again.");
+                    return;
+                  }
+                  const employeeId = Number(selectedEmployeeId);
+                  if (!employeeId) {
+                    toast.error("Select an employee to assign roles.");
+                    return;
+                  }
+                  if (topSelectedRoleIds.length === 0) {
+                    toast.error("Select at least one role to assign.");
+                    return;
+                  }
+                  try {
+                    const result = await assignRolesToEmployee(accessToken, employeeId, {
+                      roleIds: topSelectedRoleIds.map((v) => Number(v)),
+                    });
+                    if (result.createdRoleIds && result.createdRoleIds.length > 0) {
+                      toast.success(`Assigned ${result.createdRoleIds.length} new role(s).`);
+                    }
+                    if (result.existingRoleIds && result.existingRoleIds.length > 0) {
+                      toast(`Skipped ${result.existingRoleIds.length} existing role(s).`);
+                    }
+                    // refresh grid if filters are set
+                    setPage(0);
+                    void loadGrid(filters, page, pageSize);
+                  } catch (error) {
+                    if (error instanceof ApiError) {
+                      toast.error(error.message || `Unable to assign roles (${error.status})`);
+                    } else {
+                      toast.error("Unable to assign roles.");
+                    }
+                  }
+                }}
+                className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 bg-emerald-600 text-white hover:bg-emerald-500"
+              >
+                <BadgeCheck className="h-4 w-4" />
+                <span className="text-sm font-medium">Assign</span>
+              </Button>
+
+              <Button
+                type="button"
                 onClick={() => {
                   setFilters(initialFilters);
                   setPage(0);
-                  void loadGrid(initialFilters, 0, pageSize);
+                  setSelectedEmployeeId("");
+                  setTopSelectedRoleIds([]);
+                  // signal multiselect to clear its internal search and close
+                  setMultiSelectResetSignal((s) => s + 1);
                 }}
-                type="button"
-                variant="outline"
+                className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 bg-white border border-zinc-200 text-zinc-700 hover:bg-zinc-50"
               >
-                Reset
+                <X className="h-4 w-4" />
+                <span className="text-sm font-medium">Reset</span>
               </Button>
             </div>
           </form>
@@ -373,23 +501,29 @@ export default function RoleAuditPage() {
                       <td className="px-4 py-3">
                         <div className="flex gap-2">
                           <Button
-                            aria-label={`Inspect ${employee.fullName}`}
-                            className="h-9 w-9 rounded-full border-indigo-200 bg-indigo-50 p-0 text-indigo-700 hover:bg-indigo-100"
-                            onClick={() => openAssignModal(employee.id)}
+                            aria-label={`Delete roles for ${employee.fullName}`}
+                            className="h-9 w-9 rounded-full border-rose-200 bg-rose-50 p-0 text-rose-700 hover:bg-rose-100"
+                            onClick={() => {
+                              // open delete modal to let user pick roles to remove
+                              const options = employee.roles
+                                .map((roleName) => ({
+                                  id: roles.find((r) => r.name.toLowerCase() === roleName.toLowerCase())?.id,
+                                  label: roleName,
+                                }))
+                                .filter((item) => item.id !== undefined && String(item.id) !== String(employee.primaryRoleId)) as { id: number; label: string }[];
+                              if (options.length === 0) {
+                                toast("No removable roles for this employee.");
+                                return;
+                              }
+                              setDeleteOptions(options);
+                              setSelectedDeleteRoleIds([]);
+                              setDeleteTargetEmployee(employee);
+                              setDeleteModalOpen(true);
+                            }}
                             size="sm"
-                            title="Inspect roles"
-                            variant="outline"
+                            title="Delete roles"
                           >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            aria-label={`Assign role to ${employee.fullName}`}
-                            className="h-9 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 px-3 text-white hover:from-blue-500 hover:to-indigo-500"
-                            onClick={() => openAssignModal(employee.id)}
-                            size="sm"
-                            title="Assign additional role"
-                          >
-                            Assign
+                            <Sparkles className="h-4 w-4" />
                           </Button>
                         </div>
                       </td>
@@ -600,6 +734,100 @@ export default function RoleAuditPage() {
           </div>
         </div>
       ) : null}
+
+
+      {deleteModalOpen ? (
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/45 p-4 backdrop-blur-sm">
+          <div className="my-4 w-full max-w-md rounded-3xl border border-zinc-200 bg-white p-5 shadow-2xl sm:p-6">
+            <div className="-m-5 rounded-t-3xl bg-gradient-to-r from-rose-600 via-rose-500 to-rose-400 p-4 text-white sm:-m-6 sm:mb-0 sm:rounded-t-3xl sm:p-6">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-white">Remove Roles</h3>
+                  <p className="mt-1 text-sm text-rose-100">Select roles to remove for this employee.</p>
+                </div>
+                <Button className="border-white/30 bg-white/10 text-white hover:bg-white/20" disabled={deleteSaving} onClick={() => { setDeleteModalOpen(false); }} size="sm" variant="outline">
+                  Close
+                </Button>
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <p className="text-sm font-semibold text-zinc-700">Employee</p>
+              <p className="text-sm text-zinc-600">{deleteTargetEmployee ? `${deleteTargetEmployee.fullName} • #${deleteTargetEmployee.id}` : "-"}</p>
+            </div>
+
+            <div className="mt-4">
+              <p className="text-xs text-zinc-500">Select roles to remove (primary role is locked)</p>
+              <div className="mt-2 max-h-48 overflow-y-auto rounded-md border p-2">
+                {deleteOptions.map((opt) => (
+                  <label key={opt.id} className="flex items-center gap-3 rounded px-2 py-1 hover:bg-zinc-50">
+                    <input
+                      type="checkbox"
+                      checked={selectedDeleteRoleIds.includes(String(opt.id))}
+                      onChange={() => {
+                        setSelectedDeleteRoleIds((current) =>
+                          current.includes(String(opt.id)) ? current.filter((v) => v !== String(opt.id)) : [...current, String(opt.id)]
+                        );
+                      }}
+                    />
+                    <div className="min-w-0 truncate text-sm">{opt.label}</div>
+                  </label>
+                ))}
+                {deleteOptions.length === 0 ? <div className="p-2 text-sm text-zinc-500">No removable roles.</div> : null}
+              </div>
+            </div>
+
+            <div className="mt-4 flex items-center justify-end gap-2">
+              <Button disabled={deleteSaving} onClick={() => { setDeleteModalOpen(false); }} type="button" variant="outline">
+                Cancel
+              </Button>
+              <Button
+                disabled={deleteSaving || selectedDeleteRoleIds.length === 0}
+                onClick={async () => {
+                  if (!accessToken || !deleteTargetEmployee) {
+                    toast.error("Session or employee not found.");
+                    return;
+                  }
+                  setDeleteSaving(true);
+                  try {
+                    const result = await removeRolesFromEmployee(accessToken, deleteTargetEmployee.id, {
+                      roleIds: selectedDeleteRoleIds.map((v) => Number(v)),
+                    });
+                    if (result.removedRoleIds && result.removedRoleIds.length > 0) {
+                      toast.success(`Removed ${result.removedRoleIds.length} role(s).`);
+                    }
+                    if (result.notAssignedRoleIds && result.notAssignedRoleIds.length > 0) {
+                      toast(`Skipped ${result.notAssignedRoleIds.length} not-assigned role(s).`);
+                    }
+                    // refresh grid and close
+                    setDeleteModalOpen(false);
+                    void loadGrid(filters, page, pageSize);
+                    // if assign modal open and same employee, update assignEmployee
+                    if (assignModalOpen && deleteTargetEmployee && String(assignEmployeeId) === String(deleteTargetEmployee.id)) {
+                      try {
+                        const updated = await getRoleAuditEmployeeById(accessToken, deleteTargetEmployee.id);
+                        setAssignEmployee(updated);
+                      } catch {}
+                    }
+                  } catch (error) {
+                    if (error instanceof ApiError) {
+                      toast.error(error.message || `Unable to remove roles (${error.status})`);
+                    } else {
+                      toast.error("Unable to remove roles.");
+                    }
+                  } finally {
+                    setDeleteSaving(false);
+                  }
+                }}
+                type="button"
+              >
+                {deleteSaving ? "Removing..." : "Remove selected"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
     </>
   );
 }

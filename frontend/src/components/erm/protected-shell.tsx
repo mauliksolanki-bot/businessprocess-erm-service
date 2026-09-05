@@ -49,7 +49,17 @@ export function ProtectedShell({ children }: ProtectedShellProps) {
   const pathname = usePathname();
 
   const currentPathAuthorized = useMemo(() => {
-    return menu.some((item) => item.path === pathname);
+    if (!pathname) return false;
+    // Always allow any /support routes for all authenticated users
+    if (pathname.startsWith("/support")) return true;
+
+    // Allow exact matches or any child route under a top-level menu path
+    return menu.some((item) => {
+      if (!item.path) return false;
+      if (item.path === pathname) return true;
+      const normalized = item.path.endsWith("/") ? item.path.slice(0, -1) : item.path;
+      return pathname.startsWith(normalized + "/");
+    });
   }, [menu, pathname]);
   const shellUser = user ?? sessionUser;
   const isUnauthorized = !isLoading && (menu.length === 0 || !currentPathAuthorized);

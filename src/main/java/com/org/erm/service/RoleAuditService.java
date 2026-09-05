@@ -53,7 +53,7 @@ public class RoleAuditService {
     }
 
     @Transactional
-    public EmployeeResponse assignRoles(Long employeeId, AssignRolesRequest request) {
+    public com.org.erm.dto.response.AssignRolesResponse assignRoles(Long employeeId, AssignRolesRequest request) {
         if (request.roleIds() == null || request.roleIds().isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "At least one role must be selected");
         }
@@ -61,26 +61,98 @@ public class RoleAuditService {
         ErmUser user = ermUserRepository.findById(employeeId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Employee not found"));
 
+        // maintain insertion order and uniqueness
         Set<Long> requestedRoleIds = new LinkedHashSet<>(request.roleIds());
-        List<ErmRole> rolesToAssign = new ArrayList<>();
-        ermRoleRepository.findAllById(requestedRoleIds).forEach(rolesToAssign::add);
-        if (rolesToAssign.size() != requestedRoleIds.size()) {
+
+        // validate roles exist
+        List<ErmRole> foundRoles = new ArrayList<>();
+        ermRoleRepository.findAllById(requestedRoleIds).forEach(foundRoles::add);
+        if (foundRoles.size() != requestedRoleIds.size()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "One or more roles were not found");
         }
 
-        if (user.getPrimaryRoleId() == null && !user.getRoles().isEmpty()) {
-            user.setPrimaryRoleId(user.getRoles().stream()
+        // compute already assigned role ids
+        Set<Long> existingAssignedIds = user.getRoles().stream()
+                .map(ErmRole::getId)
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+
+        List<Long> existingRoleIds = new ArrayList<>();
+        List<Long> createdRoleIds = new ArrayList<>();
+
+        // determine which roles are new vs existing
+        for (ErmRole role : foundRoles) {
+            if (existingAssignedIds.contains(role.getId())) {
+                existingRoleIds.add(role.getId());
+            } else {
+                createdRoleIds.add(role.getId());
+            }
+        }
+
+        // add new roles to the user's role set (keep existing roles)
+        Set<ErmRole> updatedRoles = new LinkedHashSet<>(user.getRoles());
+        for (ErmRole role : foundRoles) {
+            updatedRoles.add(role);
+        }
+
+        // primary role checks: if no primary set, preserve current behavior
+        if (user.getPrimaryRoleId() == null && !updatedRoles.isEmpty()) {
+            user.setPrimaryRoleId(updatedRoles.stream()
                     .map(ErmRole::getId)
                     .min(Long::compareTo)
                     .orElse(null));
         }
 
-        if (user.getPrimaryRoleId() != null && requestedRoleIds.stream().noneMatch(roleId -> roleId.equals(user.getPrimaryRoleId()))) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Primary role cannot be removed");
+        // ensure primary role is not removed by this flow (we're only adding, so safe)
+        user.setRoles(updatedRoles);
+        ermUserRepository.save(user);
+
+        EmployeeResponse employeeResponse = employeeService.getEmployeeById(employeeId);
+        return new com.org.erm.dto.response.AssignRolesResponse(employeeResponse, createdRoleIds, existingRoleIds);
+    }
+
+    @Transactional
+    public com.org.erm.dto.response.RemoveRolesResponse removeRoles(Long employeeId, com.org.erm.dto.request.RemoveRolesRequest request) {
+        if (request.roleIds() == null || request.roleIds().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "At least one role must be specified");
         }
 
-        user.setRoles(new LinkedHashSet<>(rolesToAssign));
+        ErmUser user = ermUserRepository.findById(employeeId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Employee not found"));
+
+        Set<Long> requestedRoleIds = new LinkedHashSet<>(request.roleIds());
+
+        List<ErmRole> foundRoles = new ArrayList<>();
+        ermRoleRepository.findAllById(requestedRoleIds).forEach(foundRoles::add);
+        if (foundRoles.size() != requestedRoleIds.size()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "One or more roles were not found");
+        }
+
+        Set<Long> currentAssignedIds = user.getRoles().stream().map(ErmRole::getId).collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+
+        List<Long> removedRoleIds = new ArrayList<>();
+        List<Long> notAssignedRoleIds = new ArrayList<>();
+
+        for (ErmRole role : foundRoles) {
+            Long id = role.getId();
+            if (!currentAssignedIds.contains(id)) {
+                notAssignedRoleIds.add(id);
+                continue;
+            }
+            if (user.getPrimaryRoleId() != null && id.equals(user.getPrimaryRoleId())) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Primary role cannot be removed");
+            }
+            removedRoleIds.add(id);
+        }
+
+        // remove roles
+        Set<ErmRole> updatedRoles = new LinkedHashSet<>(user.getRoles());
+        updatedRoles.removeIf(r -> removedRoleIds.contains(r.getId()));
+
+        // if primary role missing, shouldn't happen because we guard above
+        user.setRoles(updatedRoles);
         ermUserRepository.save(user);
-        return employeeService.getEmployeeById(employeeId);
+
+        EmployeeResponse employeeResponse = employeeService.getEmployeeById(employeeId);
+        return new com.org.erm.dto.response.RemoveRolesResponse(employeeResponse, removedRoleIds, notAssignedRoleIds);
     }
 }

@@ -31,6 +31,9 @@ public record SupportTicketCreateRequest(
         String description,
 
         @Size(max = 50, message = "Source must be at most 50 characters")
-        String source
+        String source,
+
+        // Optional assignee user id to assign the ticket at creation time
+        Long assigneeUserId
 ) {
 }

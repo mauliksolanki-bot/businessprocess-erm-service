@@ -1,6 +1,7 @@
 package com.org.erm.controller;
 
 import com.org.erm.dto.request.AssignRolesRequest;
+import com.org.erm.dto.response.AssignRolesResponse;
 import com.org.erm.dto.response.EmployeeResponse;
 import com.org.erm.dto.response.PagedResponse;
 import com.org.erm.dto.response.RoleSummaryResponse;
@@ -84,8 +85,22 @@ public class RoleAuditController {
             @ApiResponse(responseCode = "403", description = "Forbidden"),
             @ApiResponse(responseCode = "404", description = "Employee not found")
     })
-    public ResponseEntity<EmployeeResponse> assignRoles(@PathVariable Long employeeId,
+    public ResponseEntity<AssignRolesResponse> assignRoles(@PathVariable Long employeeId,
                                                         @Valid @RequestBody AssignRolesRequest request) {
         return ResponseEntity.ok(roleAuditService.assignRoles(employeeId, request));
+    }
+
+    @PostMapping("/employees/{employeeId}/roles/remove")
+    @Operation(summary = "Remove roles from employee")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Roles removed"),
+            @ApiResponse(responseCode = "400", description = "Invalid request"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized"),
+            @ApiResponse(responseCode = "403", description = "Forbidden"),
+            @ApiResponse(responseCode = "404", description = "Employee not found")
+    })
+    public ResponseEntity<com.org.erm.dto.response.RemoveRolesResponse> removeRoles(@PathVariable Long employeeId,
+                                                                                   @Valid @RequestBody com.org.erm.dto.request.RemoveRolesRequest request) {
+        return ResponseEntity.ok(roleAuditService.removeRoles(employeeId, request));
     }
 }

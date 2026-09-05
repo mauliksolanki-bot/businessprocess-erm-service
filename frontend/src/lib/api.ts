@@ -61,6 +61,18 @@ export type RoleSummary = {
   description: string | null;
 };
 
+export type AssignRolesResponse = {
+  employee: Employee;
+  createdRoleIds: number[];
+  existingRoleIds: number[];
+};
+
+export type RemoveRolesResponse = {
+  employee: Employee;
+  removedRoleIds: number[];
+  notAssignedRoleIds: number[];
+};
+
 export type OnboardingWorkflowStage =
   | "HR Submitted"
   | "Head HR Approved"
@@ -723,7 +735,21 @@ export async function assignRolesToEmployee(
   employeeId: number,
   payload: { roleIds: number[] }
 ) {
-  return request<Employee>(`/api/role-audit/employees/${employeeId}/roles`, {
+  return request<AssignRolesResponse>(`/api/role-audit/employees/${employeeId}/roles`, {
+    method: "POST",
+    headers: {
+      Authorization: "Bearer " + accessToken,
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function removeRolesFromEmployee(
+  accessToken: string,
+  employeeId: number,
+  payload: { roleIds: number[] }
+) {
+  return request<RemoveRolesResponse>(`/api/role-audit/employees/${employeeId}/roles/remove`, {
     method: "POST",
     headers: {
       Authorization: "Bearer " + accessToken,
@@ -1489,6 +1515,7 @@ export async function createSupportTicket(
     shortDescription: string;
     description: string;
     source?: string;
+    assigneeUserId?: number | null;
   }
 ) {
   return request<SupportTicket>("/api/support/tickets", {
