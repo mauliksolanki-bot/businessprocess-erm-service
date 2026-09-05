@@ -21,10 +21,12 @@ import { loadSession } from "@/lib/auth-storage";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { FloatingInputField, FloatingTextareaField, LabeledSelectField } from "@/components/ui/form-fields";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 
 const IMPACT_OPTIONS = ["Low", "Medium", "High", "Critical"] as const;
+const URGENCY_OPTIONS = ["Low", "Medium", "High", "Critical"] as const;
 const STATUS_OPTIONS: SupportTicket["status"][] = [
   "NEW",
   "ASSIGNED",
@@ -42,6 +44,36 @@ function statusTone(status: SupportTicket["status"]) {
   if (["REOPENED", "SECURITY_ESCALATED"].includes(status)) return "border-violet-200 bg-violet-50 text-violet-700";
   if (["CANCELLED"].includes(status)) return "border-rose-200 bg-rose-50 text-rose-700";
   return "border-amber-200 bg-amber-50 text-amber-700";
+}
+
+function derivePriorityPreview(
+    ticketType: SupportTicket["ticketType"],
+    impact: string,
+    urgency: string
+): SupportTicket["priorityCode"] {
+  if (ticketType === "SECURITY_INCIDENT") {
+    return "P1";
+  }
+  const key = `${impact}|${urgency}`;
+  const matrix: Record<string, SupportTicket["priorityCode"]> = {
+    "Critical|Critical": "P1",
+    "Critical|High": "P1",
+    "Critical|Medium": "P2",
+    "Critical|Low": "P2",
+    "High|Critical": "P1",
+    "High|High": "P2",
+    "High|Medium": "P2",
+    "High|Low": "P3",
+    "Medium|Critical": "P2",
+    "Medium|High": "P3",
+    "Medium|Medium": "P3",
+    "Medium|Low": "P4",
+    "Low|Critical": "P3",
+    "Low|High": "P4",
+    "Low|Medium": "P4",
+    "Low|Low": "P4",
+  };
+  return matrix[key] ?? "P4";
 }
 
 export default function SupportTicketDetailsPage() {
@@ -62,13 +94,19 @@ export default function SupportTicketDetailsPage() {
   const [editableQueueCode, setEditableQueueCode] = useState("");
   const [editableAssigneeUserId, setEditableAssigneeUserId] = useState("");
   const [editableImpact, setEditableImpact] = useState("Medium");
+  const [editableUrgency, setEditableUrgency] = useState("Medium");
   const [editableStatus, setEditableStatus] = useState<SupportTicket["status"]>("ASSIGNED");
   const [canEditDetails, setCanEditDetails] = useState(false);
+  const editablePriority = useMemo(
+      () => (ticket ? derivePriorityPreview(ticket.ticketType, editableImpact, editableUrgency) : "P4"),
+      [ticket, editableImpact, editableUrgency]
+  );
 
   const initializeEditableState = (item: SupportTicket) => {
     setEditableQueueCode(item.queueCode);
     setEditableAssigneeUserId(item.assigneeUserId ? String(item.assigneeUserId) : "");
     setEditableImpact(item.impactLevel);
+    setEditableUrgency(item.urgencyLevel);
     setEditableStatus(item.status);
     setClosureDetails("");
   };
@@ -167,6 +205,7 @@ export default function SupportTicketDetailsPage() {
     const queueChanged = editableQueueCode !== ticket.queueCode;
     const assigneeChanged = editableAssigneeUserId !== String(ticket.assigneeUserId ?? "");
     const impactChanged = editableImpact !== ticket.impactLevel;
+    const urgencyChanged = editableUrgency !== ticket.urgencyLevel;
     const statusChanged = editableStatus !== ticket.status;
 
     if (statusChanged && (editableStatus === "CLOSED" || editableStatus === "RESOLVED") && !normalizedClosureDetails) {
@@ -174,7 +213,7 @@ export default function SupportTicketDetailsPage() {
       return;
     }
 
-    if (!queueChanged && !assigneeChanged && !impactChanged && !statusChanged && !normalizedClosureDetails) {
+    if (!queueChanged && !assigneeChanged && !impactChanged && !urgencyChanged && !statusChanged && !normalizedClosureDetails) {
       toast.error("No changes to update.");
       return;
     }
@@ -185,6 +224,7 @@ export default function SupportTicketDetailsPage() {
         queueCode: editableQueueCode,
         assigneeUserId: editableAssigneeUserId ? Number(editableAssigneeUserId) : null,
         impactLevel: editableImpact,
+        urgencyLevel: editableUrgency,
         status: editableStatus,
         closureDetails: normalizedClosureDetails || undefined,
       });
@@ -240,88 +280,101 @@ export default function SupportTicketDetailsPage() {
         <Card className="border-zinc-200 shadow-md">
           <CardHeader className="bg-linear-to-r from-indigo-600 to-violet-600 text-white">
             <CardTitle className="text-white">{ticket.ticketNumber}</CardTitle>
-            <CardDescription className="text-indigo-100">{ticket.shortDescription}</CardDescription>
+            <CardDescription className="text-indigo-100">Support Ticket Details</CardDescription>
             <div className="pt-2">
               <Badge className={statusTone(ticket.status)}>{ticket.status}</Badge>
             </div>
           </CardHeader>
           <CardContent className="space-y-4 p-6">
-            <div className="grid gap-3 md:grid-cols-2">
-              <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 text-sm"><p className="text-xs text-zinc-500">Type</p><p className="mt-1 font-medium">{ticket.ticketType}</p></div>
-              <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 text-sm"><p className="text-xs text-zinc-500">Priority</p><p className="mt-1 font-medium">{ticket.priorityCode}</p></div>
-              <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 text-sm"><p className="text-xs text-zinc-500">Category</p><p className="mt-1 font-medium">{ticket.categoryTitle} ({ticket.categoryCode})</p></div>
-              <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 text-sm"><p className="text-xs text-zinc-500">Subcategory</p><p className="mt-1 font-medium">{ticket.subcategoryTitle ?? ticket.subcategoryCode ?? "-"}</p></div>
-              <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 text-sm"><p className="text-xs text-zinc-500">Queue</p><p className="mt-1 font-medium">{ticket.queueTitle ?? ticket.queueCode ?? "-"}</p></div>
-              <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 text-sm"><p className="text-xs text-zinc-500">Source</p><p className="mt-1 font-medium">{ticket.source}</p></div>
-              <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 text-sm"><p className="text-xs text-zinc-500">Requester</p><p className="mt-1 font-medium">{ticket.createdByUsername}</p></div>
-              <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 text-sm"><p className="text-xs text-zinc-500">Assignee</p><p className="mt-1 font-medium">{ticket.assigneeFullName ?? ticket.assigneeUsername ?? "Unassigned"}</p></div>
-              <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 text-sm"><p className="text-xs text-zinc-500">Impact / Urgency</p><p className="mt-1 font-medium">{ticket.impactLevel} / {ticket.urgencyLevel}</p></div>
-              <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 text-sm"><p className="text-xs text-zinc-500">Created On</p><p className="mt-1 font-medium">{new Date(ticket.createdAt).toLocaleString()}</p></div>
-            </div>
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <FloatingInputField label="Number" value={ticket.ticketNumber} readOnly />
+                <FloatingInputField label="Request Type" value={ticket.ticketType} readOnly />
+              </div>
 
-            {canEditDetails ? (
-                <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
-                  <p className="text-sm font-semibold text-zinc-900">Editable Ticket Fields</p>
-                  <div className="mt-3 grid gap-3 md:grid-cols-2">
-                    <label className="text-sm text-zinc-700">
-                      <span className="mb-1 block text-xs text-zinc-500">Assignment Group</span>
-                      <select className="h-10 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm" value={editableQueueCode} onChange={(event) => setEditableQueueCode(event.target.value)}>
-                        {queues.map((queue) => (
-                            <option key={queue.queueId} value={queue.queueCode}>{queue.queueTitle}</option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="text-sm text-zinc-700">
-                      <span className="mb-1 block text-xs text-zinc-500">Assigned To</span>
-                      <select className="h-10 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm" value={editableAssigneeUserId} onChange={(event) => setEditableAssigneeUserId(event.target.value)}>
-                        <option value="">Unassigned</option>
-                        {assigneeOptions.map((user) => (
-                            <option key={user.id} value={String(user.id)}>{user.fullName} • {user.username}</option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="text-sm text-zinc-700">
-                      <span className="mb-1 block text-xs text-zinc-500">Impact</span>
-                      <select className="h-10 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm" value={editableImpact} onChange={(event) => setEditableImpact(event.target.value)}>
-                        {IMPACT_OPTIONS.map((item) => (
-                            <option key={item} value={item}>{item}</option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="text-sm text-zinc-700">
-                      <span className="mb-1 block text-xs text-zinc-500">State</span>
-                      <select className="h-10 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm" value={editableStatus} onChange={(event) => setEditableStatus(event.target.value as SupportTicket["status"])}>
-                        {STATUS_OPTIONS.map((item) => (
-                            <option key={item} value={item}>{item}</option>
-                        ))}
-                      </select>
-                    </label>
-                  </div>
-                  <label className="mt-3 block text-sm text-zinc-700">
-                    <span className="mb-1 block text-xs text-zinc-500">Closure Details</span>
-                    <textarea
-                        className="min-h-24 w-full rounded-lg border border-zinc-300 bg-white p-3 text-sm"
-                        onChange={(event) => setClosureDetails(event.target.value)}
-                        placeholder="Add closure details (saved to tracking comment on update)"
-                        value={closureDetails}
-                    />
-                  </label>
-                  <div className="mt-3 flex justify-end">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <FloatingInputField label="Category" value={`${ticket.categoryTitle} (${ticket.categoryCode})`} readOnly />
+                <FloatingInputField label="Subcategory" value={ticket.subcategoryTitle ?? ticket.subcategoryCode ?? "-"} readOnly />
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <LabeledSelectField label="Assignment Group" value={editableQueueCode} onChange={(event) => setEditableQueueCode(event.target.value)} disabled={!canEditDetails}>
+                  {queues.map((queue) => (
+                      <option key={queue.queueId} value={queue.queueCode}>{queue.queueTitle}</option>
+                  ))}
+                </LabeledSelectField>
+
+                <LabeledSelectField label="Assigned To" value={editableAssigneeUserId} onChange={(event) => setEditableAssigneeUserId(event.target.value)} disabled={!canEditDetails}>
+                  <option value="">Unassigned</option>
+                  {!canEditDetails && editableAssigneeUserId ? (
+                      <option value={editableAssigneeUserId}>{ticket.assigneeFullName ?? ticket.assigneeUsername}</option>
+                  ) : null}
+                  {assigneeOptions.map((user) => (
+                      <option key={user.id} value={String(user.id)}>{user.fullName} • {user.username}</option>
+                  ))}
+                </LabeledSelectField>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <LabeledSelectField label="Impact" value={editableImpact} onChange={(event) => setEditableImpact(event.target.value)} disabled={!canEditDetails}>
+                  {IMPACT_OPTIONS.map((item) => (
+                      <option key={item} value={item}>{item}</option>
+                  ))}
+                </LabeledSelectField>
+
+                <LabeledSelectField label="Urgency" value={editableUrgency} onChange={(event) => setEditableUrgency(event.target.value)} disabled={!canEditDetails}>
+                  {URGENCY_OPTIONS.map((item) => (
+                      <option key={item} value={item}>{item}</option>
+                  ))}
+                </LabeledSelectField>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <LabeledSelectField label="Priority" value={editablePriority} onChange={() => {}} disabled className="bg-zinc-50 text-zinc-600 cursor-not-allowed">
+                  <option value="P1">P1</option>
+                  <option value="P2">P2</option>
+                  <option value="P3">P3</option>
+                  <option value="P4">P4</option>
+                </LabeledSelectField>
+
+                <LabeledSelectField label="State" value={editableStatus} onChange={(event) => setEditableStatus(event.target.value as SupportTicket["status"])} disabled={!canEditDetails}>
+                  {STATUS_OPTIONS.map((item) => (
+                      <option key={item} value={item}>{item}</option>
+                  ))}
+                </LabeledSelectField>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <FloatingInputField label="Requester" value={ticket.createdByUsername} readOnly />
+                <FloatingInputField label="Created On" value={new Date(ticket.createdAt).toLocaleString()} readOnly />
+              </div>
+
+              <FloatingInputField label="Short Description" value={ticket.shortDescription} readOnly />
+
+              <FloatingTextareaField label="Description" value={ticket.description} readOnly />
+
+              <FloatingTextareaField
+                  label="Closure Details"
+                  onChange={(event) => setClosureDetails(event.target.value)}
+                  placeholder="Add closure details (saved to tracking comment on update)"
+                  value={closureDetails}
+                  disabled={!canEditDetails}
+              />
+
+              {canEditDetails ? (
+                  <div className="flex justify-end">
                     <Button disabled={isSaving} onClick={handleSaveDetails}>
                       {isSaving ? "Saving..." : "Save"}
                     </Button>
                   </div>
-                </div>
-            ) : (
+              ) : null}
+            </div>
+
+            {!canEditDetails ? (
                 <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
                   Only active members of this ticket&apos;s support group can edit Assignment Group, Assigned To, Impact, and State.
                 </div>
-            )}
-
-            <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-700">
-              <p className="font-semibold text-zinc-900">Description</p>
-              <p className="mt-1 whitespace-pre-wrap">{ticket.description}</p>
-            </div>
+            ) : null}
 
             <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
               <p className="text-sm font-semibold text-zinc-900">Comments</p>

@@ -1,10 +1,12 @@
 package com.org.erm.controller;
 
 import com.org.erm.dto.response.SupportCatalogResponse;
+import com.org.erm.dto.response.SupportAssigneeOptionResponse;
 import com.org.erm.dto.response.SupportQueueSummaryResponse;
 import com.org.erm.dto.request.SupportTicketAssignRequest;
 import com.org.erm.dto.request.SupportTicketCommentRequest;
 import com.org.erm.dto.request.SupportTicketCreateRequest;
+import com.org.erm.dto.request.SupportTicketDetailsUpdateRequest;
 import com.org.erm.dto.response.SupportTicketResponse;
 import com.org.erm.dto.request.SupportTicketStatusRequest;
 import com.org.erm.service.SupportTicketService;
@@ -80,6 +82,12 @@ public class SupportTicketController {
         return ResponseEntity.ok(supportTicketService.getById(id, authentication));
     }
 
+    @GetMapping("/tickets/number/{ticketNumber}")
+    @Operation(summary = "Get support ticket by ticket number")
+    public ResponseEntity<SupportTicketResponse> getByTicketNumber(@PathVariable String ticketNumber, Authentication authentication) {
+        return ResponseEntity.ok(supportTicketService.getByTicketNumber(ticketNumber, authentication));
+    }
+
     @PostMapping("/tickets/{id}/comments")
     @Operation(summary = "Add a comment to support ticket")
     public ResponseEntity<SupportTicketResponse> addComment(@PathVariable Long id,
@@ -104,6 +112,14 @@ public class SupportTicketController {
         return ResponseEntity.ok(supportTicketService.assign(id, request, authentication));
     }
 
+    @PatchMapping("/tickets/{id}/details")
+    @Operation(summary = "Update support ticket details")
+    public ResponseEntity<SupportTicketResponse> updateDetails(@PathVariable Long id,
+                                                               @Valid @RequestBody SupportTicketDetailsUpdateRequest request,
+                                                               Authentication authentication) {
+        return ResponseEntity.ok(supportTicketService.updateDetails(id, request, authentication));
+    }
+
     @GetMapping("/catalog/options")
     @Operation(summary = "Get support catalog options")
     public ResponseEntity<SupportCatalogResponse> catalog(Authentication authentication) {
@@ -121,5 +137,12 @@ public class SupportTicketController {
     public ResponseEntity<List<SupportTicketResponse>> workbenchTickets(@RequestParam(name = "queueCode") String queueCode,
                                                                         Authentication authentication) {
         return ResponseEntity.ok(supportTicketService.workbenchTickets(queueCode, authentication));
+    }
+
+    @GetMapping("/workbench/assignees")
+    @Operation(summary = "Get assignable members for a support queue")
+    public ResponseEntity<List<SupportAssigneeOptionResponse>> workbenchAssignees(@RequestParam(name = "queueCode") String queueCode,
+                                                                                  Authentication authentication) {
+        return ResponseEntity.ok(supportTicketService.workbenchAssignees(queueCode, authentication));
     }
 }

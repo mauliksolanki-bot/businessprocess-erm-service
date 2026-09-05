@@ -74,13 +74,13 @@ export type RemoveRolesResponse = {
 };
 
 export type OnboardingWorkflowStage =
-  | "HR Submitted"
-  | "Head HR Approved"
-  | "CHRO Approved"
-  | "Super Admin Approved"
-  | "Refer Back"
-  | "Cancelled"
-  | "Rejected";
+    | "HR Submitted"
+    | "Head HR Approved"
+    | "CHRO Approved"
+    | "Super Admin Approved"
+    | "Refer Back"
+    | "Cancelled"
+    | "Rejected";
 
 export type OnboardingApprovalTrailItem = {
   step: string;
@@ -140,14 +140,14 @@ export type OnboardingManagerOptionsResponse = {
 };
 
 export type ProjectWorkflowStage =
-  | "PM Submitted"
-  | "Delivery Manager Approved"
-  | "Project Owner Approved"
-  | "Director Approved"
-  | "CTO Approved"
-  | "Super Admin Approved"
-  | "Refer Back"
-  | "Rejected";
+    | "PM Submitted"
+    | "Delivery Manager Approved"
+    | "Project Owner Approved"
+    | "Director Approved"
+    | "CTO Approved"
+    | "Super Admin Approved"
+    | "Refer Back"
+    | "Rejected";
 
 export type ProjectStatus = "Planned" | "Active" | "On Hold" | "Completed" | "Cancelled";
 
@@ -222,10 +222,10 @@ export type ManagedProject = {
 };
 
 export type ProjectChangeWorkflowStage =
-  | "Pending Director Approval"
-  | "Pending CTO Approval"
-  | "Approved"
-  | "Rejected";
+    | "Pending Director Approval"
+    | "Pending CTO Approval"
+    | "Approved"
+    | "Rejected";
 
 export type ProjectChangeRequest = {
   id: number;
@@ -258,11 +258,11 @@ export type ProjectChangeRequest = {
 };
 
 export type ProjectAllocationStatus =
-  | "Pending DM Approval"
-  | "Active"
-  | "Refer Back"
-  | "Rejected"
-  | "Released";
+    | "Pending DM Approval"
+    | "Active"
+    | "Refer Back"
+    | "Rejected"
+    | "Released";
 
 export type ProjectAllocationType = "Billable" | "Buffer" | "Shadow" | "Training" | "Internal";
 
@@ -471,6 +471,13 @@ export type SupportQueueSummary = {
   openTicketCount: number;
 };
 
+export type SupportAssigneeOption = {
+  id: number;
+  username: string;
+  fullName: string;
+  email: string;
+};
+
 export type SupportTicketComment = {
   id: number;
   actorUsername: string;
@@ -497,15 +504,15 @@ export type SupportTicket = {
   assigneeUsername: string | null;
   assigneeFullName: string | null;
   status:
-    | "NEW"
-    | "ASSIGNED"
-    | "IN_PROGRESS"
-    | "PENDING_EMPLOYEE"
-    | "RESOLVED"
-    | "CLOSED"
-    | "REOPENED"
-    | "CANCELLED"
-    | "SECURITY_ESCALATED";
+      | "NEW"
+      | "ASSIGNED"
+      | "IN_PROGRESS"
+      | "PENDING_EMPLOYEE"
+      | "RESOLVED"
+      | "CLOSED"
+      | "REOPENED"
+      | "CANCELLED"
+      | "SECURITY_ESCALATED";
   source: string;
   shortDescription: string;
   description: string;
@@ -624,10 +631,10 @@ export async function getSelfDashboard(accessToken: string) {
 }
 
 export async function getEmployees(
-  accessToken: string,
-  filters?: { employeeName?: string; role?: string; department?: string; status?: string },
-  page = 0,
-  size = 25
+    accessToken: string,
+    filters?: { employeeName?: string; role?: string; department?: string; status?: string },
+    page = 0,
+    size = 25
 ) {
   const params = new URLSearchParams();
 
@@ -655,10 +662,10 @@ export async function getEmployees(
 }
 
 export async function getRoleAuditEmployees(
-  accessToken: string,
-  filters?: { employeeName?: string; role?: string; department?: string; status?: string },
-  page = 0,
-  size = 25
+    accessToken: string,
+    filters?: { employeeName?: string; role?: string; department?: string; status?: string },
+    page = 0,
+    size = 25
 ) {
   const params = new URLSearchParams();
 
@@ -731,9 +738,9 @@ export async function getAllRoles(accessToken: string) {
 }
 
 export async function assignRolesToEmployee(
-  accessToken: string,
-  employeeId: number,
-  payload: { roleIds: number[] }
+    accessToken: string,
+    employeeId: number,
+    payload: { roleIds: number[] }
 ) {
   return request<AssignRolesResponse>(`/api/role-audit/employees/${employeeId}/roles`, {
     method: "POST",
@@ -745,9 +752,9 @@ export async function assignRolesToEmployee(
 }
 
 export async function removeRolesFromEmployee(
-  accessToken: string,
-  employeeId: number,
-  payload: { roleIds: number[] }
+    accessToken: string,
+    employeeId: number,
+    payload: { roleIds: number[] }
 ) {
   return request<RemoveRolesResponse>(`/api/role-audit/employees/${employeeId}/roles/remove`, {
     method: "POST",
@@ -759,9 +766,9 @@ export async function removeRolesFromEmployee(
 }
 
 export async function updateEmployee(
-  accessToken: string,
-  employeeId: number,
-  payload: { fullName: string; email: string; department: string; employmentStatus: string }
+    accessToken: string,
+    employeeId: number,
+    payload: { fullName: string; email: string; department: string; employmentStatus: string }
 ) {
   return request<Employee>(`/api/employees/${employeeId}`, {
     method: "PUT",
@@ -852,26 +859,26 @@ export async function getProjectManagerOptions(accessToken: string) {
 }
 
 export async function createProjectRequest(
-  accessToken: string,
-  payload: {
-    projectName: string;
-    projectCode: string;
-    clientName: string;
-    projectType: string;
-    priority: string;
-    plannedStartDate: string;
-    plannedEndDate: string;
-    budgetAmount: number;
-    currency: string;
-    deliveryManagerUserId: number;
-    projectOwnerUserId: number;
-    projectDirectorUserId: number;
-    projectManagerUserId: number;
-    projectStatus: ProjectStatus;
-    description: string;
-    riskNotes?: string;
-    comment?: string;
-  }
+    accessToken: string,
+    payload: {
+      projectName: string;
+      projectCode: string;
+      clientName: string;
+      projectType: string;
+      priority: string;
+      plannedStartDate: string;
+      plannedEndDate: string;
+      budgetAmount: number;
+      currency: string;
+      deliveryManagerUserId: number;
+      projectOwnerUserId: number;
+      projectDirectorUserId: number;
+      projectManagerUserId: number;
+      projectStatus: ProjectStatus;
+      description: string;
+      riskNotes?: string;
+      comment?: string;
+    }
 ) {
   return request<ProjectRequest>("/api/project-requests", {
     method: "POST",
@@ -893,9 +900,9 @@ export async function addProjectRequestComment(accessToken: string, requestId: n
 }
 
 export async function takeProjectAction(
-  accessToken: string,
-  requestId: number,
-  payload: { decision: "APPROVE" | "REJECT" | "REFER_BACK"; comment: string }
+    accessToken: string,
+    requestId: number,
+    payload: { decision: "APPROVE" | "REJECT" | "REFER_BACK"; comment: string }
 ) {
   return request<ProjectRequest>(`/api/project-requests/${requestId}/actions`, {
     method: "PATCH",
@@ -907,27 +914,27 @@ export async function takeProjectAction(
 }
 
 export async function resubmitProjectRequest(
-  accessToken: string,
-  requestId: number,
-  payload: {
-    projectName: string;
-    projectCode: string;
-    clientName: string;
-    projectType: string;
-    priority: string;
-    plannedStartDate: string;
-    plannedEndDate: string;
-    budgetAmount: number;
-    currency: string;
-    deliveryManagerUserId: number;
-    projectOwnerUserId: number;
-    projectDirectorUserId: number;
-    projectManagerUserId: number;
-    projectStatus: ProjectStatus;
-    description: string;
-    riskNotes?: string;
-    comment?: string;
-  }
+    accessToken: string,
+    requestId: number,
+    payload: {
+      projectName: string;
+      projectCode: string;
+      clientName: string;
+      projectType: string;
+      priority: string;
+      plannedStartDate: string;
+      plannedEndDate: string;
+      budgetAmount: number;
+      currency: string;
+      deliveryManagerUserId: number;
+      projectOwnerUserId: number;
+      projectDirectorUserId: number;
+      projectManagerUserId: number;
+      projectStatus: ProjectStatus;
+      description: string;
+      riskNotes?: string;
+      comment?: string;
+    }
 ) {
   return request<ProjectRequest>(`/api/project-requests/${requestId}/resubmit`, {
     method: "PATCH",
@@ -966,26 +973,26 @@ export async function getProjectMasterProjects(accessToken: string) {
 }
 
 export async function createProjectChangeRequest(
-  accessToken: string,
-  projectId: number,
-  payload: {
-    projectName: string;
-    projectCode: string;
-    clientName: string;
-    projectType: string;
-    priority: string;
-    plannedStartDate: string;
-    plannedEndDate: string;
-    budgetAmount: number;
-    currency: string;
-    deliveryManagerUserId: number;
-    projectOwnerUserId: number;
-    projectDirectorUserId: number;
-    projectStatus: ProjectStatus;
-    description: string;
-    riskNotes?: string;
-    reason: string;
-  }
+    accessToken: string,
+    projectId: number,
+    payload: {
+      projectName: string;
+      projectCode: string;
+      clientName: string;
+      projectType: string;
+      priority: string;
+      plannedStartDate: string;
+      plannedEndDate: string;
+      budgetAmount: number;
+      currency: string;
+      deliveryManagerUserId: number;
+      projectOwnerUserId: number;
+      projectDirectorUserId: number;
+      projectStatus: ProjectStatus;
+      description: string;
+      riskNotes?: string;
+      reason: string;
+    }
 ) {
   return request<ProjectChangeRequest>(`/api/project-requests/${projectId}/change-requests`, {
     method: "POST",
@@ -1006,9 +1013,9 @@ export async function getProjectChangeRequests(accessToken: string) {
 }
 
 export async function takeProjectChangeRequestAction(
-  accessToken: string,
-  changeRequestId: number,
-  payload: { decision: "APPROVE" | "REJECT"; comment: string }
+    accessToken: string,
+    changeRequestId: number,
+    payload: { decision: "APPROVE" | "REJECT"; comment: string }
 ) {
   return request<ProjectChangeRequest>(`/api/project-requests/change-requests/${changeRequestId}/actions`, {
     method: "PATCH",
@@ -1075,16 +1082,16 @@ export async function getProjectAllocationEmployeeOptions(accessToken: string) {
 }
 
 export async function createProjectAllocationRequest(
-  accessToken: string,
-  payload: {
-    projectRequestId: number;
-    employeeUserIds: number[];
-    allocationType: ProjectAllocationType;
-    allocationPercent: number;
-    startDate: string;
-    endDate: string;
-    comment?: string;
-  }
+    accessToken: string,
+    payload: {
+      projectRequestId: number;
+      employeeUserIds: number[];
+      allocationType: ProjectAllocationType;
+      allocationPercent: number;
+      startDate: string;
+      endDate: string;
+      comment?: string;
+    }
 ) {
   return request<ProjectAllocation[]>("/api/project-allocations", {
     method: "POST",
@@ -1106,9 +1113,9 @@ export async function addProjectAllocationComment(accessToken: string, allocatio
 }
 
 export async function takeProjectAllocationAction(
-  accessToken: string,
-  allocationId: number,
-  payload: { decision: "APPROVE" | "REJECT" | "REFER_BACK"; comment: string }
+    accessToken: string,
+    allocationId: number,
+    payload: { decision: "APPROVE" | "REJECT" | "REFER_BACK"; comment: string }
 ) {
   return request<ProjectAllocation>(`/api/project-allocations/${allocationId}/actions`, {
     method: "PATCH",
@@ -1120,17 +1127,17 @@ export async function takeProjectAllocationAction(
 }
 
 export async function resubmitProjectAllocationRequest(
-  accessToken: string,
-  allocationId: number,
-  payload: {
-    projectRequestId: number;
-    employeeUserId: number;
-    allocationType: ProjectAllocationType;
-    allocationPercent: number;
-    startDate: string;
-    endDate: string;
-    comment?: string;
-  }
+    accessToken: string,
+    allocationId: number,
+    payload: {
+      projectRequestId: number;
+      employeeUserId: number;
+      allocationType: ProjectAllocationType;
+      allocationPercent: number;
+      startDate: string;
+      endDate: string;
+      comment?: string;
+    }
 ) {
   return request<ProjectAllocation>(`/api/project-allocations/${allocationId}/resubmit`, {
     method: "PATCH",
@@ -1142,14 +1149,14 @@ export async function resubmitProjectAllocationRequest(
 }
 
 export async function manageProjectAllocation(
-  accessToken: string,
-  allocationId: number,
-  payload: {
-    action: "EXTEND" | "REDUCE" | "RELEASE";
-    allocationPercent?: number;
-    endDate?: string;
-    comment: string;
-  }
+    accessToken: string,
+    allocationId: number,
+    payload: {
+      action: "EXTEND" | "REDUCE" | "RELEASE";
+      allocationPercent?: number;
+      endDate?: string;
+      comment: string;
+    }
 ) {
   return request<ProjectAllocation>(`/api/project-allocations/${allocationId}/manage`, {
     method: "PATCH",
@@ -1191,20 +1198,20 @@ export async function getOnboardingManagerOptions(accessToken: string, designati
 }
 
 export async function createOnboardingRequest(
-  accessToken: string,
-  payload: {
-    firstName: string;
-    lastName: string;
-    aadhaarCardNumber: string;
-    panCardNumber: string;
-    personalEmailAddress: string;
-    permanentAddress: string;
-    phoneNumber: string;
-    designationRoleName: string;
-    reportingManagerUserId: number;
-    educationQualification?: string;
-    comment?: string;
-  }
+    accessToken: string,
+    payload: {
+      firstName: string;
+      lastName: string;
+      aadhaarCardNumber: string;
+      panCardNumber: string;
+      personalEmailAddress: string;
+      permanentAddress: string;
+      phoneNumber: string;
+      designationRoleName: string;
+      reportingManagerUserId: number;
+      educationQualification?: string;
+      comment?: string;
+    }
 ) {
   return request<OnboardingRequest>("/api/onboarding-requests", {
     method: "POST",
@@ -1216,9 +1223,9 @@ export async function createOnboardingRequest(
 }
 
 export async function takeOnboardingAction(
-  accessToken: string,
-  requestId: number,
-  payload: { decision: "APPROVE" | "REJECT" | "REFER_BACK"; comment: string }
+    accessToken: string,
+    requestId: number,
+    payload: { decision: "APPROVE" | "REJECT" | "REFER_BACK"; comment: string }
 ) {
   return request<OnboardingRequest>(`/api/onboarding-requests/${requestId}/actions`, {
     method: "PATCH",
@@ -1249,21 +1256,21 @@ export async function reInitiateOnboardingRequest(accessToken: string, requestId
 }
 
 export async function resubmitOnboardingRequest(
-  accessToken: string,
-  requestId: number,
-  payload: {
-    firstName: string;
-    lastName: string;
-    aadhaarCardNumber: string;
-    panCardNumber: string;
-    personalEmailAddress: string;
-    permanentAddress: string;
-    phoneNumber: string;
-    designationRoleName: string;
-    reportingManagerUserId: number;
-    educationQualification?: string;
-    comment?: string;
-  }
+    accessToken: string,
+    requestId: number,
+    payload: {
+      firstName: string;
+      lastName: string;
+      aadhaarCardNumber: string;
+      panCardNumber: string;
+      personalEmailAddress: string;
+      permanentAddress: string;
+      phoneNumber: string;
+      designationRoleName: string;
+      reportingManagerUserId: number;
+      educationQualification?: string;
+      comment?: string;
+    }
 ) {
   return request<OnboardingRequest>(`/api/onboarding-requests/${requestId}/resubmit`, {
     method: "PATCH",
@@ -1294,27 +1301,27 @@ export async function getPendingApprovalNotifications(accessToken: string) {
 
 export async function checkPendingProfileUpdateRequest(accessToken: string, employeeUserId: number) {
   return request<{ hasPendingRequest: boolean }>(
-    `/api/employee-profile-update-requests/pending-check?employeeUserId=${employeeUserId}`,
-    {
-      headers: {
-        Authorization: "Bearer " + accessToken,
-      },
-      cache: "no-store",
-    }
+      `/api/employee-profile-update-requests/pending-check?employeeUserId=${employeeUserId}`,
+      {
+        headers: {
+          Authorization: "Bearer " + accessToken,
+        },
+        cache: "no-store",
+      }
   );
 }
 
 export async function createEmployeeProfileUpdateRequest(
-  accessToken: string,
-  payload: {
-    employeeUserId: number;
-    department: string;
-    employmentStatus: string;
-    designationRoleName: string;
-    reportingManagerUserId: number;
-    replacementTeamLeadUserId?: number;
-    comment?: string;
-  }
+    accessToken: string,
+    payload: {
+      employeeUserId: number;
+      department: string;
+      employmentStatus: string;
+      designationRoleName: string;
+      reportingManagerUserId: number;
+      replacementTeamLeadUserId?: number;
+      comment?: string;
+    }
 ) {
   return request<EmployeeProfileUpdateRequest>("/api/employee-profile-update-requests", {
     method: "POST",
@@ -1341,9 +1348,9 @@ export async function getEmployeeProfileUpdateRequests(accessToken: string, work
 }
 
 export async function takeEmployeeProfileUpdateRequestAction(
-  accessToken: string,
-  requestId: number,
-  payload: { decision: "APPROVE" | "REJECT"; comment: string }
+    accessToken: string,
+    requestId: number,
+    payload: { decision: "APPROVE" | "REJECT"; comment: string }
 ) {
   return request<EmployeeProfileUpdateRequest>(`/api/employee-profile-update-requests/${requestId}/actions`, {
     method: "PATCH",
@@ -1355,9 +1362,9 @@ export async function takeEmployeeProfileUpdateRequestAction(
 }
 
 export async function addEmployeeProfileUpdateRequestComment(
-  accessToken: string,
-  requestId: number,
-  payload: RequestComment
+    accessToken: string,
+    requestId: number,
+    payload: RequestComment
 ) {
   return request<EmployeeProfileUpdateRequest>(`/api/employee-profile-update-requests/${requestId}/comments`, {
     method: "POST",
@@ -1369,9 +1376,9 @@ export async function addEmployeeProfileUpdateRequestComment(
 }
 
 export async function cancelEmployeeProfileUpdateRequest(
-  accessToken: string,
-  requestId: number,
-  payload?: { comment?: string }
+    accessToken: string,
+    requestId: number,
+    payload?: { comment?: string }
 ) {
   return request<EmployeeProfileUpdateRequest>(`/api/employee-profile-update-requests/${requestId}/cancel`, {
     method: "PATCH",
@@ -1392,13 +1399,13 @@ export async function getEnabledLeavePolicies(accessToken: string) {
 }
 
 export async function applyLeave(
-  accessToken: string,
-  payload: {
-    leaveCategory: string;
-    startDate: string;
-    endDate: string;
-    reason: string;
-  }
+    accessToken: string,
+    payload: {
+      leaveCategory: string;
+      startDate: string;
+      endDate: string;
+      reason: string;
+    }
 ) {
   return request<LeaveRequest>("/api/leaves/apply", {
     method: "POST",
@@ -1437,9 +1444,9 @@ export async function getLeaveApproverVisibility(accessToken: string) {
 }
 
 export async function takeLeaveAction(
-  accessToken: string,
-  requestId: number,
-  payload: { decision: "APPROVE" | "REJECT"; comment: string }
+    accessToken: string,
+    requestId: number,
+    payload: { decision: "APPROVE" | "REJECT"; comment: string }
 ) {
   return request<LeaveRequest>(`/api/leaves/${requestId}/actions`, {
     method: "PATCH",
@@ -1460,13 +1467,13 @@ export async function getLeavePolicies(accessToken: string) {
 }
 
 export async function createLeavePolicy(
-  accessToken: string,
-  payload: {
-    leaveCategory: string;
-    displayName: string;
-    maxDaysPerYear: number;
-    enabled: boolean;
-  }
+    accessToken: string,
+    payload: {
+      leaveCategory: string;
+      displayName: string;
+      maxDaysPerYear: number;
+      enabled: boolean;
+    }
 ) {
   return request<LeavePolicy>("/api/leave-policies", {
     method: "POST",
@@ -1478,13 +1485,13 @@ export async function createLeavePolicy(
 }
 
 export async function updateLeavePolicy(
-  accessToken: string,
-  id: number,
-  payload: {
-    displayName: string;
-    maxDaysPerYear: number;
-    enabled: boolean;
-  }
+    accessToken: string,
+    id: number,
+    payload: {
+      displayName: string;
+      maxDaysPerYear: number;
+      enabled: boolean;
+    }
 ) {
   return request<LeavePolicy>(`/api/leave-policies/${id}`, {
     method: "PUT",
@@ -1505,18 +1512,18 @@ export async function getSupportCatalog(accessToken: string) {
 }
 
 export async function createSupportTicket(
-  accessToken: string,
-  payload: {
-    ticketType: string;
-    categoryCode: string;
-    subcategoryCode?: string;
-    impactLevel: string;
-    urgencyLevel: string;
-    shortDescription: string;
-    description: string;
-    source?: string;
-    assigneeUserId?: number | null;
-  }
+    accessToken: string,
+    payload: {
+      ticketType: string;
+      categoryCode: string;
+      subcategoryCode?: string;
+      impactLevel: string;
+      urgencyLevel: string;
+      shortDescription: string;
+      description: string;
+      source?: string;
+      assigneeUserId?: number | null;
+    }
 ) {
   return request<SupportTicket>("/api/support/tickets", {
     method: "POST",
@@ -1528,8 +1535,8 @@ export async function createSupportTicket(
 }
 
 export async function getSupportTickets(
-  accessToken: string,
-  filters?: { scope?: string; queueCode?: string; status?: string }
+    accessToken: string,
+    filters?: { scope?: string; queueCode?: string; status?: string }
 ) {
   const params = new URLSearchParams();
   if (filters?.scope?.trim()) {
@@ -1558,6 +1565,15 @@ export async function getSupportTicketById(accessToken: string, ticketId: number
   });
 }
 
+export async function getSupportTicketByNumber(accessToken: string, ticketNumber: string) {
+  return request<SupportTicket>(`/api/support/tickets/number/${encodeURIComponent(ticketNumber)}`, {
+    headers: {
+      Authorization: "Bearer " + accessToken,
+    },
+    cache: "no-store",
+  });
+}
+
 export async function addSupportTicketComment(accessToken: string, ticketId: number, payload: { comment: string }) {
   return request<SupportTicket>(`/api/support/tickets/${ticketId}/comments`, {
     method: "POST",
@@ -1569,9 +1585,9 @@ export async function addSupportTicketComment(accessToken: string, ticketId: num
 }
 
 export async function updateSupportTicketStatus(
-  accessToken: string,
-  ticketId: number,
-  payload: { status: SupportTicket["status"]; comment?: string }
+    accessToken: string,
+    ticketId: number,
+    payload: { status: SupportTicket["status"]; comment?: string }
 ) {
   return request<SupportTicket>(`/api/support/tickets/${ticketId}/status`, {
     method: "PATCH",
@@ -1582,10 +1598,31 @@ export async function updateSupportTicketStatus(
   });
 }
 
+export async function updateSupportTicketDetails(
+    accessToken: string,
+    ticketId: number,
+    payload: {
+      queueCode?: string;
+      assigneeUserId?: number | null;
+      impactLevel?: string;
+      urgencyLevel?: string;
+      status?: SupportTicket["status"];
+      closureDetails?: string;
+    }
+) {
+  return request<SupportTicket>(`/api/support/tickets/${ticketId}/details`, {
+    method: "PATCH",
+    headers: {
+      Authorization: "Bearer " + accessToken,
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function assignSupportTicket(
-  accessToken: string,
-  ticketId: number,
-  payload: { queueCode?: string; assigneeUserId?: number | null }
+    accessToken: string,
+    ticketId: number,
+    payload: { queueCode?: string; assigneeUserId?: number | null }
 ) {
   return request<SupportTicket>(`/api/support/tickets/${ticketId}/assign`, {
     method: "PATCH",
@@ -1609,6 +1646,17 @@ export async function getSupportWorkbenchTickets(accessToken: string, queueCode:
   const params = new URLSearchParams();
   params.set("queueCode", queueCode);
   return request<SupportTicket[]>(`/api/support/workbench/tickets?${params.toString()}`, {
+    headers: {
+      Authorization: "Bearer " + accessToken,
+    },
+    cache: "no-store",
+  });
+}
+
+export async function getSupportQueueAssignees(accessToken: string, queueCode: string) {
+  const params = new URLSearchParams();
+  params.set("queueCode", queueCode);
+  return request<SupportAssigneeOption[]>(`/api/support/workbench/assignees?${params.toString()}`, {
     headers: {
       Authorization: "Bearer " + accessToken,
     },

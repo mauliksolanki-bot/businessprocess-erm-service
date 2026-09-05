@@ -3,6 +3,9 @@ package com.org.erm.controller;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authorization.AuthorizationDeniedException;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -23,13 +26,28 @@ public class GlobalExceptionHandler {
         log.info("Handled ResponseStatusException for {} {}: {}", request.getMethod(), request.getRequestURI(), ex.getReason());
 
         Map<String, Object> body = new LinkedHashMap<>();
+        HttpStatus status = HttpStatus.resolve(ex.getStatusCode().value());
         body.put("timestamp", Instant.now().toString());
         body.put("status", ex.getStatusCode().value());
-        body.put("error", ex.getStatusCode().getReasonPhrase());
+        body.put("error", status != null ? status.getReasonPhrase() : "HTTP " + ex.getStatusCode().value());
         body.put("message", ex.getReason());
         body.put("path", request.getRequestURI());
 
         return ResponseEntity.status(ex.getStatusCode()).body(body);
+    }
+
+    @ExceptionHandler({AuthorizationDeniedException.class, AccessDeniedException.class})
+    public ResponseEntity<Map<String, Object>> handleAccessDenied(Exception ex, HttpServletRequest request) {
+        log.info("Access denied for {} {}: {}", request.getMethod(), request.getRequestURI(), ex.getMessage());
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("timestamp", Instant.now().toString());
+        body.put("status", 403);
+        body.put("error", HttpStatus.FORBIDDEN.getReasonPhrase());
+        body.put("message", "Access denied");
+        body.put("path", request.getRequestURI());
+
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
     }
 
     @ExceptionHandler(Exception.class)

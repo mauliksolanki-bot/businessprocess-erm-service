@@ -12,6 +12,10 @@ public interface ErmSupportQueueMemberRepository extends JpaRepository<ErmSuppor
 
     Optional<ErmSupportQueueMember> findByQueueIdAndUserId(Long queueId, Long userId);
 
+    Optional<ErmSupportQueueMember> findByQueueIdAndUserIdAndActiveTrue(Long queueId, Long userId);
+
+    boolean existsByQueueIdAndUserIdAndActiveTrue(Long queueId, Long userId);
+
     boolean existsByUserIdAndActiveTrue(Long userId);
 
     List<ErmSupportQueueMember> findAllByUserIdAndActiveTrue(Long userId);
