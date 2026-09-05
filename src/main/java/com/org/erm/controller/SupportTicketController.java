@@ -13,6 +13,8 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -34,6 +36,8 @@ import java.util.List;
 @PreAuthorize("isAuthenticated()")
 public class SupportTicketController {
 
+    private static final Logger log = LoggerFactory.getLogger(SupportTicketController.class);
+
     private final SupportTicketService supportTicketService;
 
     public SupportTicketController(SupportTicketService supportTicketService) {
@@ -48,6 +52,15 @@ public class SupportTicketController {
     })
     public ResponseEntity<SupportTicketResponse> create(@Valid @RequestBody SupportTicketCreateRequest request,
                                                         Authentication authentication) {
+        try {
+            String principal = (authentication != null && authentication.getName() != null) ? authentication.getName() : "anonymous";
+            log.info("Create support ticket request from user {}: type={}, category={}, shortDesc={}", principal,
+                    request.ticketType(), request.categoryCode(), request.shortDescription());
+        } catch (Exception e) {
+            // ensure logging never breaks the request flow
+            log.warn("Unable to log create request details: {}", e.getMessage());
+        }
+
         return ResponseEntity.status(HttpStatus.CREATED).body(supportTicketService.create(request, authentication));
     }
 

@@ -6,6 +6,8 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -19,6 +21,8 @@ import java.time.LocalDateTime;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
+
+    private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
 
     private final JwtService jwtService;
     private final ErmUserDetailsService ermUserDetailsService;
@@ -38,6 +42,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     FilterChain filterChain) throws ServletException, IOException {
         String authHeader = request.getHeader("Authorization");
         if (!StringUtils.hasText(authHeader) || !authHeader.startsWith("Bearer ")) {
+            log.debug("No Authorization header or not Bearer for request {}", request.getRequestURI());
             filterChain.doFilter(request, response);
             return;
         }
@@ -45,12 +50,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String token = authHeader.substring(7);
         try {
             if (jwtService.isTokenExpired(token)) {
+                log.debug("JWT token is expired for request {}", request.getRequestURI());
                 filterChain.doFilter(request, response);
                 return;
             }
 
             String tokenHash = jwtService.hashToken(token);
             if (ermTokenBlacklistRepository.existsByTokenHashAndExpiresAtAfter(tokenHash, LocalDateTime.now())) {
+                log.debug("JWT token is blacklisted for request {}", request.getRequestURI());
                 filterChain.doFilter(request, response);
                 return;
             }
@@ -63,10 +70,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                             new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
                     authenticationToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authenticationToken);
+                    log.debug("Authenticated request {} as user {}", request.getRequestURI(), username);
+                } else {
+                    log.debug("JWT token failed validation for user {} on request {}", username, request.getRequestURI());
                 }
             }
         } catch (JwtException | IllegalArgumentException ex) {
             SecurityContextHolder.clearContext();
+            log.warn("JWT processing error for request {}: {}", request.getRequestURI(), ex.getMessage());
         }
 
         filterChain.doFilter(request, response);
