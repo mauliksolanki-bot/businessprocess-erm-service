@@ -96,49 +96,77 @@ public class SupportTicketService {
 
     @Transactional
     public SupportTicketResponse create(SupportTicketCreateRequest request, Authentication authentication) {
-        ErmUser requester = loadCurrentUser(authentication);
-        SupportTicketType ticketType = parseTicketType(request.ticketType());
-        String queueCode = queueCodeFor(ticketType);
-        ErmSupportCategory category = loadCategory(request.categoryCode(), ticketType);
-        ErmSupportQueue queue = loadQueue(queueCode);
-        SupportPriority priority = derivePriority(request.impactLevel(), request.urgencyLevel(), ticketType);
-        LocalDateTime now = LocalDateTime.now();
+        try {
+            ErmUser requester = loadCurrentUser(authentication);
+            SupportTicketType ticketType = parseTicketType(request.ticketType());
+            String queueCode = queueCodeFor(ticketType);
+            ErmSupportCategory category = loadCategory(request.categoryCode(), ticketType);
+            ErmSupportQueue queue = loadQueue(queueCode);
+            SupportPriority priority = derivePriority(request.impactLevel(), request.urgencyLevel(), ticketType);
+            LocalDateTime now = LocalDateTime.now();
 
-        ErmSupportTicket ticket = new ErmSupportTicket();
-        ticket.setTicketNumber(generateTicketNumber());
-        ticket.setRequesterUserId(requester.getId());
-        ticket.setRequesterUsername(requester.getUsername());
-        ticket.setRequesterFullName(requester.getFullName());
-        ticket.setTicketType(ticketType);
-        ticket.setCategoryCode(category.getCategoryCode());
-        ticket.setCategoryTitle(category.getCategoryTitle());
-        ticket.setSubcategoryCode(normalizeOptional(request.subcategoryCode()));
-        ticket.setSubcategoryTitle(normalizeOptional(request.subcategoryCode()));
-        ticket.setImpactLevel(normalizeRequired(request.impactLevel(), "Impact is required"));
-        ticket.setUrgencyLevel(normalizeRequired(request.urgencyLevel(), "Urgency is required"));
-        ticket.setPriorityCode(priority);
-        ticket.setQueueId(queue.getId());
-        ticket.setQueueCode(queue.getQueueCode());
-        ticket.setQueueTitle(queue.getQueueTitle());
-        ticket.setSource(StringUtils.hasText(request.source()) ? request.source().trim().toUpperCase(Locale.ROOT) : "PORTAL");
-        ticket.setShortDescription(normalizeRequired(request.shortDescription(), "Short description is required"));
-        ticket.setDescription(normalizeRequired(request.description(), "Description is required"));
-        ticket.setSecurityIncident(ticketType == SupportTicketType.SECURITY_INCIDENT);
-        ticket.setStatus(SupportTicketStatus.NEW);
-        ticket.setCreatedByUsername(requester.getUsername());
-        ticket.setUpdatedByUsername(requester.getUsername());
-        applySla(ticket, queue.getQueueCode(), ticketType.name(), priority.name(), now);
+            ErmSupportTicket ticket = new ErmSupportTicket();
+            ticket.setTicketNumber(generateTicketNumber());
+            ticket.setRequesterUserId(requester.getId());
+            ticket.setRequesterUsername(requester.getUsername());
+            ticket.setRequesterFullName(requester.getFullName());
+            ticket.setTicketType(ticketType);
+            ticket.setCategoryCode(category.getCategoryCode());
+            ticket.setCategoryTitle(category.getCategoryTitle());
+            ticket.setSubcategoryCode(normalizeOptional(request.subcategoryCode()));
+            ticket.setSubcategoryTitle(normalizeOptional(request.subcategoryCode()));
+            ticket.setImpactLevel(normalizeRequired(request.impactLevel(), "Impact is required"));
+            ticket.setUrgencyLevel(normalizeRequired(request.urgencyLevel(), "Urgency is required"));
+            ticket.setPriorityCode(priority);
+            ticket.setQueueId(queue.getId());
+            ticket.setQueueCode(queue.getQueueCode());
+            ticket.setQueueTitle(queue.getQueueTitle());
+            ticket.setSource(StringUtils.hasText(request.source()) ? request.source().trim().toUpperCase(Locale.ROOT) : "PORTAL");
+            ticket.setShortDescription(normalizeRequired(request.shortDescription(), "Short description is required"));
+            ticket.setDescription(normalizeRequired(request.description(), "Description is required"));
+            ticket.setSecurityIncident(ticketType == SupportTicketType.SECURITY_INCIDENT);
+            ticket.setStatus(SupportTicketStatus.NEW);
+            ticket.setCreatedByUsername(requester.getUsername());
+            ticket.setUpdatedByUsername(requester.getUsername());
+            applySla(ticket, queue.getQueueCode(), ticketType.name(), priority.name(), now);
 
-        ErmSupportQueueMember assignedMember = autoAssign(ticket, queue, now);
-        ticket = ticketRepository.save(ticket);
+            ErmSupportQueueMember assignedMember = null;
+            // if client requested a specific assignee, honor it (validate membership)
+            if (request.assigneeUserId() != null) {
+                ensureQueueMember(queue.getId(), request.assigneeUserId());
+                ErmUser assignee = userRepository.findById(request.assigneeUserId())
+                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Assignee not found"));
+                ticket.setAssigneeUserId(assignee.getId());
+                ticket.setAssigneeUsername(assignee.getUsername());
+                ticket.setAssigneeFullName(assignee.getFullName());
+                ticket.setStatus(SupportTicketStatus.ASSIGNED);
+                // update queue member last assigned
+                assignedMember = queueMemberRepository.findByQueueIdAndUserId(queue.getId(), assignee.getId()).orElse(null);
+                if (assignedMember != null) {
+                    assignedMember.setLastAssignedAt(now);
+                    queueMemberRepository.save(assignedMember);
+                }
+            } else {
+                assignedMember = autoAssign(ticket, queue, now);
+            }
 
-        recordAudit(ticket.getId(), requester.getUsername(), "CREATED", null, ticket.getStatus().name(), "Support ticket created");
-        recordNotification(ticket.getId(), requester.getUsername(), "IN_APP", "CREATED", "Ticket " + ticket.getTicketNumber() + " created");
-        if (assignedMember != null && ticket.getAssigneeUsername() != null) {
-            recordNotification(ticket.getId(), ticket.getAssigneeUsername(), "IN_APP", "ASSIGNED", "Ticket " + ticket.getTicketNumber() + " assigned to you");
+            ticket = ticketRepository.save(ticket);
+
+            recordAudit(ticket.getId(), requester.getUsername(), "CREATED", null, ticket.getStatus().name(), "Support ticket created");
+            recordNotification(ticket.getId(), requester.getUsername(), "IN_APP", "CREATED", "Ticket " + ticket.getTicketNumber() + " created");
+            if (assignedMember != null && ticket.getAssigneeUsername() != null) {
+                recordNotification(ticket.getId(), ticket.getAssigneeUsername(), "IN_APP", "ASSIGNED", "Ticket " + ticket.getTicketNumber() + " assigned to you");
+            }
+
+            return toResponse(ticket, true);
+        } catch (ResponseStatusException ex) {
+            // Known client-facing errors — rethrow to allow proper HTTP mapping
+            throw ex;
+        } catch (Exception ex) {
+            // Log unexpected server errors to aid debugging and rethrow as 500
+            org.slf4j.LoggerFactory.getLogger(SupportTicketService.class).error("Error creating support ticket: {}", ex.getMessage(), ex);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Unable to create support ticket");
         }
-
-        return toResponse(ticket, true);
     }
 
     @Transactional(readOnly = true)
