@@ -41,13 +41,16 @@ public class ProjectRequestService {
     private final ErmProjectRequestRepository projectRequestRepository;
     private final ErmProjectRequestCommentRepository projectRequestCommentRepository;
     private final ErmUserRepository userRepository;
+    private final MentionNotificationService mentionNotificationService;
 
     public ProjectRequestService(ErmProjectRequestRepository projectRequestRepository,
                                  ErmProjectRequestCommentRepository projectRequestCommentRepository,
-                                 ErmUserRepository userRepository) {
+                                 ErmUserRepository userRepository,
+                                 MentionNotificationService mentionNotificationService) {
         this.projectRequestRepository = projectRequestRepository;
         this.projectRequestCommentRepository = projectRequestCommentRepository;
         this.userRepository = userRepository;
+        this.mentionNotificationService = mentionNotificationService;
     }
 
     @Transactional
@@ -430,6 +433,14 @@ public class ProjectRequestService {
         history.setCommentText(comment);
         history.setActionAt(actionAt == null ? LocalDateTime.now() : actionAt);
         projectRequestCommentRepository.save(history);
+        mentionNotificationService.notifyMentions(
+                actor,
+                comment,
+                "PROJECT_REQUEST",
+                entity.getId(),
+                actor + " mentioned you on project request " + entity.getProjectCode(),
+                "/projects"
+        );
     }
 
     private String decisionLabel(OnboardingActionDecision decision) {
@@ -580,4 +591,3 @@ public class ProjectRequestService {
         );
     }
 }
-

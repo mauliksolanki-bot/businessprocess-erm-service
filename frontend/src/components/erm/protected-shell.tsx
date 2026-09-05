@@ -12,6 +12,7 @@ import {
   ApiError,
   getAuthorizedNavigation,
   getCurrentUser,
+  getMentionNotifications,
   getOnboardingRequests,
   getPendingApprovalNotifications,
   getProjectAllocationPendingApprovals,
@@ -128,6 +129,7 @@ export function ProtectedShell({ children }: ProtectedShellProps) {
           projectTrackerResult,
           projectChangeResult,
           projectAllocationResult,
+          mentionNotificationsResult,
         ] = await Promise.allSettled([
           isApprover ? getPendingApprovalNotifications(session.accessToken) : Promise.resolve([]),
           isProjectApprover ? getProjectPendingApprovals(session.accessToken) : Promise.resolve([]),
@@ -136,6 +138,7 @@ export function ProtectedShell({ children }: ProtectedShellProps) {
           hasProjectsMenu ? getProjectRequests(session.accessToken, undefined, undefined, 0, 25) : Promise.resolve(null),
           hasProjectsMenu && canUseProjectChange ? getProjectChangeRequests(session.accessToken) : Promise.resolve([]),
           hasProjectsMenu ? getProjectAllocationRequests(session.accessToken, undefined, undefined, 0, 25) : Promise.resolve(null),
+          getMentionNotifications(session.accessToken),
         ]);
 
         const nextNotifications: AppNotification[] = [];
@@ -204,95 +207,95 @@ export function ProtectedShell({ children }: ProtectedShellProps) {
 
         if (onboardingTrackerResult.status === "fulfilled" && onboardingTrackerResult.value) {
           onboardingTrackerResult.value.content
-            .filter((request) => request.createdByUsername.toLowerCase() === username)
-            .forEach((request) => {
-              if (request.workflowStage === "Refer Back") {
-                addNotification(nextNotifications, {
-                  id: `onboarding-refer-back-${request.id}`,
-                  title: "On-boarding request sent back",
-                  message: `Request #${request.id} needs your update and resubmission.`,
-                  href: "/onboarding",
-                  occurredAt: request.updatedAt,
-                  kind: "update",
-                  tone: "warning",
-                });
-              }
-              if (request.workflowStage === "Rejected") {
-                addNotification(nextNotifications, {
-                  id: `onboarding-rejected-${request.id}`,
-                  title: "On-boarding request rejected",
-                  message: `Request #${request.id} was rejected. Review comments before taking the next action.`,
-                  href: "/onboarding",
-                  occurredAt: request.updatedAt,
-                  kind: "update",
-                  tone: "critical",
-                });
-              }
-              if (request.workflowStage === "Super Admin Approved") {
-                addNotification(nextNotifications, {
-                  id: `onboarding-approved-${request.id}`,
-                  title: "On-boarding request completed",
-                  message: `Request #${request.id} completed the full approval flow.`,
-                  href: "/onboarding",
-                  occurredAt: request.updatedAt,
-                  kind: "update",
-                  tone: "success",
-                });
-              }
-              if (request.reminderCount > 0 && request.lastReminderAt) {
-                addNotification(nextNotifications, {
-                  id: `onboarding-reminder-${request.id}`,
-                  title: "Reminder sent",
-                  message: `You sent ${request.reminderCount} reminder${request.reminderCount === 1 ? "" : "s"} for on-boarding request #${request.id}.`,
-                  href: "/onboarding",
-                  occurredAt: request.lastReminderAt,
-                  kind: "reminder",
-                  tone: "info",
-                });
-              }
-            });
+              .filter((request) => request.createdByUsername.toLowerCase() === username)
+              .forEach((request) => {
+                if (request.workflowStage === "Refer Back") {
+                  addNotification(nextNotifications, {
+                    id: `onboarding-refer-back-${request.id}`,
+                    title: "On-boarding request sent back",
+                    message: `Request #${request.id} needs your update and resubmission.`,
+                    href: "/onboarding",
+                    occurredAt: request.updatedAt,
+                    kind: "update",
+                    tone: "warning",
+                  });
+                }
+                if (request.workflowStage === "Rejected") {
+                  addNotification(nextNotifications, {
+                    id: `onboarding-rejected-${request.id}`,
+                    title: "On-boarding request rejected",
+                    message: `Request #${request.id} was rejected. Review comments before taking the next action.`,
+                    href: "/onboarding",
+                    occurredAt: request.updatedAt,
+                    kind: "update",
+                    tone: "critical",
+                  });
+                }
+                if (request.workflowStage === "Super Admin Approved") {
+                  addNotification(nextNotifications, {
+                    id: `onboarding-approved-${request.id}`,
+                    title: "On-boarding request completed",
+                    message: `Request #${request.id} completed the full approval flow.`,
+                    href: "/onboarding",
+                    occurredAt: request.updatedAt,
+                    kind: "update",
+                    tone: "success",
+                  });
+                }
+                if (request.reminderCount > 0 && request.lastReminderAt) {
+                  addNotification(nextNotifications, {
+                    id: `onboarding-reminder-${request.id}`,
+                    title: "Reminder sent",
+                    message: `You sent ${request.reminderCount} reminder${request.reminderCount === 1 ? "" : "s"} for on-boarding request #${request.id}.`,
+                    href: "/onboarding",
+                    occurredAt: request.lastReminderAt,
+                    kind: "reminder",
+                    tone: "info",
+                  });
+                }
+              });
         } else if (hasOnboardingMenu) {
           nextNotificationError = "Some notifications could not be loaded right now.";
         }
 
         if (projectTrackerResult.status === "fulfilled" && projectTrackerResult.value) {
           projectTrackerResult.value.content
-            .filter((request) => request.createdByUsername.toLowerCase() === username)
-            .forEach((request) => {
-              if (request.workflowStage === "Refer Back") {
-                addNotification(nextNotifications, {
-                  id: `project-refer-back-${request.id}`,
-                  title: "Project request sent back",
-                  message: `${request.projectName} requires your updates and resubmission.`,
-                  href: "/projects",
-                  occurredAt: request.updatedAt,
-                  kind: "update",
-                  tone: "warning",
-                });
-              }
-              if (request.workflowStage === "Rejected") {
-                addNotification(nextNotifications, {
-                  id: `project-rejected-${request.id}`,
-                  title: "Project request rejected",
-                  message: `${request.projectName} was rejected in the workflow.`,
-                  href: "/projects",
-                  occurredAt: request.updatedAt,
-                  kind: "update",
-                  tone: "critical",
-                });
-              }
-              if (request.workflowStage === "Super Admin Approved") {
-                addNotification(nextNotifications, {
-                  id: `project-approved-${request.id}`,
-                  title: "Project request approved",
-                  message: `${request.projectName} is fully approved and now live for downstream actions.`,
-                  href: "/projects",
-                  occurredAt: request.updatedAt,
-                  kind: "update",
-                  tone: "success",
-                });
-              }
-            });
+              .filter((request) => request.createdByUsername.toLowerCase() === username)
+              .forEach((request) => {
+                if (request.workflowStage === "Refer Back") {
+                  addNotification(nextNotifications, {
+                    id: `project-refer-back-${request.id}`,
+                    title: "Project request sent back",
+                    message: `${request.projectName} requires your updates and resubmission.`,
+                    href: "/projects",
+                    occurredAt: request.updatedAt,
+                    kind: "update",
+                    tone: "warning",
+                  });
+                }
+                if (request.workflowStage === "Rejected") {
+                  addNotification(nextNotifications, {
+                    id: `project-rejected-${request.id}`,
+                    title: "Project request rejected",
+                    message: `${request.projectName} was rejected in the workflow.`,
+                    href: "/projects",
+                    occurredAt: request.updatedAt,
+                    kind: "update",
+                    tone: "critical",
+                  });
+                }
+                if (request.workflowStage === "Super Admin Approved") {
+                  addNotification(nextNotifications, {
+                    id: `project-approved-${request.id}`,
+                    title: "Project request approved",
+                    message: `${request.projectName} is fully approved and now live for downstream actions.`,
+                    href: "/projects",
+                    occurredAt: request.updatedAt,
+                    kind: "update",
+                    tone: "success",
+                  });
+                }
+              });
         } else if (hasProjectsMenu) {
           nextNotificationError = "Some notifications could not be loaded right now.";
         }
@@ -309,8 +312,8 @@ export function ProtectedShell({ children }: ProtectedShellProps) {
           projectChangeResult.value.forEach((item) => {
             const isOwnChange = item.createdByUsername.toLowerCase() === username;
             const isPendingMyApproval =
-              (isDirector && item.workflowStage === "Pending Director Approval") ||
-              (isCto && item.workflowStage === "Pending CTO Approval");
+                (isDirector && item.workflowStage === "Pending Director Approval") ||
+                (isCto && item.workflowStage === "Pending CTO Approval");
 
             if (isPendingMyApproval) {
               addNotification(nextNotifications, {
@@ -352,43 +355,59 @@ export function ProtectedShell({ children }: ProtectedShellProps) {
 
         if (projectAllocationResult.status === "fulfilled" && projectAllocationResult.value) {
           projectAllocationResult.value.content
-            .filter((item) => item.createdByUsername.toLowerCase() === username)
-            .forEach((item) => {
-              if (item.status === "Refer Back") {
-                addNotification(nextNotifications, {
-                  id: `allocation-refer-back-${item.id}`,
-                  title: "Allocation request sent back",
-                  message: `${item.employeeName}'s allocation for ${item.projectName} needs your update.`,
-                  href: "/projects",
-                  occurredAt: item.updatedAt,
-                  kind: "update",
-                  tone: "warning",
-                });
-              }
-              if (item.status === "Rejected") {
-                addNotification(nextNotifications, {
-                  id: `allocation-rejected-${item.id}`,
-                  title: "Allocation request rejected",
-                  message: `${item.employeeName}'s allocation for ${item.projectName} was rejected.`,
-                  href: "/projects",
-                  occurredAt: item.updatedAt,
-                  kind: "update",
-                  tone: "critical",
-                });
-              }
-              if (item.status === "Active" || item.status === "Released") {
-                addNotification(nextNotifications, {
-                  id: `allocation-status-${item.id}-${item.status}`,
-                  title: `Allocation ${item.status.toLowerCase()}`,
-                  message: `${item.employeeName} is ${item.status.toLowerCase()} on ${item.projectName}.`,
-                  href: "/projects",
-                  occurredAt: item.updatedAt,
-                  kind: "update",
-                  tone: item.status === "Active" ? "success" : "info",
-                });
-              }
-            });
+              .filter((item) => item.createdByUsername.toLowerCase() === username)
+              .forEach((item) => {
+                if (item.status === "Refer Back") {
+                  addNotification(nextNotifications, {
+                    id: `allocation-refer-back-${item.id}`,
+                    title: "Allocation request sent back",
+                    message: `${item.employeeName}'s allocation for ${item.projectName} needs your update.`,
+                    href: "/projects",
+                    occurredAt: item.updatedAt,
+                    kind: "update",
+                    tone: "warning",
+                  });
+                }
+                if (item.status === "Rejected") {
+                  addNotification(nextNotifications, {
+                    id: `allocation-rejected-${item.id}`,
+                    title: "Allocation request rejected",
+                    message: `${item.employeeName}'s allocation for ${item.projectName} was rejected.`,
+                    href: "/projects",
+                    occurredAt: item.updatedAt,
+                    kind: "update",
+                    tone: "critical",
+                  });
+                }
+                if (item.status === "Active" || item.status === "Released") {
+                  addNotification(nextNotifications, {
+                    id: `allocation-status-${item.id}-${item.status}`,
+                    title: `Allocation ${item.status.toLowerCase()}`,
+                    message: `${item.employeeName} is ${item.status.toLowerCase()} on ${item.projectName}.`,
+                    href: "/projects",
+                    occurredAt: item.updatedAt,
+                    kind: "update",
+                    tone: item.status === "Active" ? "success" : "info",
+                  });
+                }
+              });
         } else if (hasProjectsMenu) {
+          nextNotificationError = "Some notifications could not be loaded right now.";
+        }
+
+        if (mentionNotificationsResult.status === "fulfilled") {
+          mentionNotificationsResult.value.forEach((item) => {
+            addNotification(nextNotifications, {
+              id: `mention-${item.id}`,
+              title: "You were mentioned",
+              message: item.message,
+              href: item.href,
+              occurredAt: item.createdAt,
+              kind: "update",
+              tone: "info",
+            });
+          });
+        } else {
           nextNotificationError = "Some notifications could not be loaded right now.";
         }
 
@@ -432,111 +451,111 @@ export function ProtectedShell({ children }: ProtectedShellProps) {
 
   if (!shellUser) {
     return (
-      <div className="flex h-screen overflow-hidden">
-        <aside className="hidden w-72 shrink-0 border-r border-zinc-200 bg-white/70 md:block" />
-        <main className="flex flex-1 items-center justify-center overflow-y-auto p-6">
-          <Spinner size="lg" />
-        </main>
-      </div>
+        <div className="flex h-screen overflow-hidden">
+          <aside className="hidden w-72 shrink-0 border-r border-zinc-200 bg-white/70 md:block" />
+          <main className="flex flex-1 items-center justify-center overflow-y-auto p-6">
+            <Spinner size="lg" />
+          </main>
+        </div>
     );
   }
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-[radial-gradient(circle_at_top,#dbeafe_0,#f8fafc_42%,#f8fafc_100%)]">
-      <Topbar notificationError={notificationError} notifications={notifications} onLogout={handleLogout} user={shellUser} />
-      {showBanner ? (
-        <div className="flex shrink-0 items-center justify-between gap-3 bg-gradient-to-r from-violet-600 via-purple-600 to-fuchsia-600 px-4 py-2.5 text-white shadow-md">
-          <div className="flex items-center gap-2 text-sm font-medium">
-            <Bell className="h-4 w-4 shrink-0 animate-pulse" />
-            <span>
+      <div className="flex h-screen flex-col overflow-hidden bg-[radial-gradient(circle_at_top,#dbeafe_0,#f8fafc_42%,#f8fafc_100%)]">
+        <Topbar notificationError={notificationError} notifications={notifications} onLogout={handleLogout} user={shellUser} />
+        {showBanner ? (
+            <div className="flex shrink-0 items-center justify-between gap-3 bg-gradient-to-r from-violet-600 via-purple-600 to-fuchsia-600 px-4 py-2.5 text-white shadow-md">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <Bell className="h-4 w-4 shrink-0 animate-pulse" />
+                <span>
               {pendingApprovals.length > 0 ? (
-                <>
-                  You have <strong>{pendingApprovals.length}</strong> onboarding{" "}
-                  {pendingApprovals.length === 1 ? "request" : "requests"} awaiting your approval.{" "}
-                  <Link className="underline underline-offset-2 hover:text-white/80" href="/onboarding">
-                    View requests →
-                  </Link>
-                </>
+                  <>
+                    You have <strong>{pendingApprovals.length}</strong> onboarding{" "}
+                    {pendingApprovals.length === 1 ? "request" : "requests"} awaiting your approval.{" "}
+                    <Link className="underline underline-offset-2 hover:text-white/80" href="/onboarding">
+                      View requests →
+                    </Link>
+                  </>
               ) : null}
-              {pendingApprovals.length > 0 && pendingProjectApprovals > 0 ? " • " : null}
-              {pendingProjectApprovals > 0 ? (
-                <>
-                  You have <strong>{pendingProjectApprovals}</strong> project{" "}
-                  {pendingProjectApprovals === 1 ? "request" : "requests"} awaiting approval.{" "}
-                  <Link className="underline underline-offset-2 hover:text-white/80" href="/projects">
-                    View projects →
-                  </Link>
-                </>
-              ) : null}
-              {(pendingApprovals.length > 0 || pendingProjectApprovals > 0) && pendingChangeApprovals > 0 ? " • " : null}
-              {pendingChangeApprovals > 0 ? (
-                <>
-                  You have <strong>{pendingChangeApprovals}</strong> project change{" "}
-                  {pendingChangeApprovals === 1 ? "request" : "requests"} awaiting approval.{" "}
-                  <Link className="underline underline-offset-2 hover:text-white/80" href="/projects">
-                    Open changes →
-                  </Link>
-                </>
-              ) : null}
-              {(pendingApprovals.length > 0 || pendingProjectApprovals > 0 || pendingChangeApprovals > 0) && pendingAllocationApprovals > 0 ? " • " : null}
-              {pendingAllocationApprovals > 0 ? (
-                <>
-                  You have <strong>{pendingAllocationApprovals}</strong> allocation{" "}
-                  {pendingAllocationApprovals === 1 ? "request" : "requests"} awaiting approval.{" "}
-                  <Link className="underline underline-offset-2 hover:text-white/80" href="/projects">
-                    Open tracker →
-                  </Link>
-                </>
-              ) : null}
+                  {pendingApprovals.length > 0 && pendingProjectApprovals > 0 ? " • " : null}
+                  {pendingProjectApprovals > 0 ? (
+                      <>
+                        You have <strong>{pendingProjectApprovals}</strong> project{" "}
+                        {pendingProjectApprovals === 1 ? "request" : "requests"} awaiting approval.{" "}
+                        <Link className="underline underline-offset-2 hover:text-white/80" href="/projects">
+                          View projects →
+                        </Link>
+                      </>
+                  ) : null}
+                  {(pendingApprovals.length > 0 || pendingProjectApprovals > 0) && pendingChangeApprovals > 0 ? " • " : null}
+                  {pendingChangeApprovals > 0 ? (
+                      <>
+                        You have <strong>{pendingChangeApprovals}</strong> project change{" "}
+                        {pendingChangeApprovals === 1 ? "request" : "requests"} awaiting approval.{" "}
+                        <Link className="underline underline-offset-2 hover:text-white/80" href="/projects">
+                          Open changes →
+                        </Link>
+                      </>
+                  ) : null}
+                  {(pendingApprovals.length > 0 || pendingProjectApprovals > 0 || pendingChangeApprovals > 0) && pendingAllocationApprovals > 0 ? " • " : null}
+                  {pendingAllocationApprovals > 0 ? (
+                      <>
+                        You have <strong>{pendingAllocationApprovals}</strong> allocation{" "}
+                        {pendingAllocationApprovals === 1 ? "request" : "requests"} awaiting approval.{" "}
+                        <Link className="underline underline-offset-2 hover:text-white/80" href="/projects">
+                          Open tracker →
+                        </Link>
+                      </>
+                  ) : null}
             </span>
-          </div>
-          <button
-            aria-label="Dismiss notification"
-            className="rounded-full p-1 hover:bg-white/20"
-            onClick={() => setShowBanner(false)}
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      ) : null}
-      <div className="flex min-h-0 flex-1">
-        <SidebarNav menu={menu} />
-        <main className="w-full overflow-y-auto p-4 md:p-6">
-          <nav className="mb-4 flex gap-2 overflow-x-auto pb-1 md:hidden">
-            {menu.map((item) => (
-              <Link
-                className={cn(
-                  "inline-flex items-center gap-2 whitespace-nowrap rounded-full border px-3 py-2 text-sm font-medium shadow-sm transition-all",
-                  pathname === item.path
-                    ? "border-blue-200 bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-blue-600/25"
-                    : "border-white/70 bg-white/90 text-zinc-700 hover:border-zinc-200 hover:bg-white"
-                )}
-                href={item.path}
-                key={item.code}
+              </div>
+              <button
+                  aria-label="Dismiss notification"
+                  className="rounded-full p-1 hover:bg-white/20"
+                  onClick={() => setShowBanner(false)}
               >
-                {pathname === item.path ? <Sparkles className="h-3.5 w-3.5" /> : null}
-                {item.title}
-              </Link>
-            ))}
-          </nav>
-          {isUnauthorized ? (
-            <Card className="max-w-xl">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-rose-700">
-                  <ShieldAlert className="h-5 w-5" />
-                  Access denied
-                </CardTitle>
-                <CardDescription>
-                  You are logged in, but this page is not available for your role. Use the authorized menu on the left.
-                </CardDescription>
-              </CardHeader>
-              <CardContent />
-            </Card>
-          ) : (
-            children
-          )}
-        </main>
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+        ) : null}
+        <div className="flex min-h-0 flex-1">
+          <SidebarNav menu={menu} />
+          <main className="w-full overflow-y-auto p-4 md:p-6">
+            <nav className="mb-4 flex gap-2 overflow-x-auto pb-1 md:hidden">
+              {menu.map((item) => (
+                  <Link
+                      className={cn(
+                          "inline-flex items-center gap-2 whitespace-nowrap rounded-full border px-3 py-2 text-sm font-medium shadow-sm transition-all",
+                          pathname === item.path
+                              ? "border-blue-200 bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-blue-600/25"
+                              : "border-white/70 bg-white/90 text-zinc-700 hover:border-zinc-200 hover:bg-white"
+                      )}
+                      href={item.path}
+                      key={item.code}
+                  >
+                    {pathname === item.path ? <Sparkles className="h-3.5 w-3.5" /> : null}
+                    {item.title}
+                  </Link>
+              ))}
+            </nav>
+            {isUnauthorized ? (
+                <Card className="max-w-xl">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-rose-700">
+                      <ShieldAlert className="h-5 w-5" />
+                      Access denied
+                    </CardTitle>
+                    <CardDescription>
+                      You are logged in, but this page is not available for your role. Use the authorized menu on the left.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent />
+                </Card>
+            ) : (
+                children
+            )}
+          </main>
+        </div>
       </div>
-    </div>
   );
 }

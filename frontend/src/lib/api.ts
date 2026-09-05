@@ -22,6 +22,23 @@ export type UserProfile = {
   roles: string[];
 };
 
+export type UserMentionOption = {
+  id: number;
+  username: string;
+  fullName: string;
+};
+
+export type MentionNotification = {
+  id: number;
+  actorUsername: string;
+  contextType: string;
+  contextId: number | null;
+  message: string;
+  href: string;
+  createdAt: string;
+  readAt: string | null;
+};
+
 export type NavigationMenu = {
   code: string;
   title: string;
@@ -587,6 +604,24 @@ export async function logout(accessToken: string) {
 
 export async function getCurrentUser(accessToken: string) {
   return request<UserProfile>("/api/users/me", {
+    headers: {
+      Authorization: "Bearer " + accessToken,
+    },
+    cache: "no-store",
+  });
+}
+
+export async function searchUserMentions(accessToken: string, query: string) {
+  return request<UserMentionOption[]>(`/api/users/mentions?query=${encodeURIComponent(query)}`, {
+    headers: {
+      Authorization: "Bearer " + accessToken,
+    },
+    cache: "no-store",
+  });
+}
+
+export async function getMentionNotifications(accessToken: string) {
+  return request<MentionNotification[]>("/api/users/mention-notifications", {
     headers: {
       Authorization: "Bearer " + accessToken,
     },

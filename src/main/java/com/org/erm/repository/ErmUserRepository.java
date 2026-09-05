@@ -100,4 +100,32 @@ public interface ErmUserRepository extends JpaRepository<ErmUser, Long> {
             @Param("department") String department,
             @Param("status") String status
     );
+
+    @Query("""
+            SELECT u
+            FROM ErmUser u
+            WHERE u.active = true
+              AND LOWER(u.employmentStatus) = 'active'
+              AND (
+                LOWER(u.fullName) LIKE LOWER(CONCAT('%', :query, '%'))
+                OR LOWER(u.username) LIKE LOWER(CONCAT('%', :query, '%'))
+              )
+            ORDER BY
+              CASE
+                WHEN LOWER(u.fullName) LIKE LOWER(CONCAT(:query, '%')) THEN 0
+                WHEN LOWER(u.username) LIKE LOWER(CONCAT(:query, '%')) THEN 1
+                ELSE 1
+              END,
+              u.fullName ASC
+            """)
+    List<ErmUser> searchMentionableUsers(@Param("query") String query, Pageable pageable);
+
+    @Query("""
+            SELECT u
+            FROM ErmUser u
+            WHERE u.active = true
+              AND LOWER(u.employmentStatus) = 'active'
+              AND LOWER(u.username) IN :usernames
+            """)
+    List<ErmUser> findActiveUsersByUsernames(@Param("usernames") java.util.Set<String> usernames);
 }

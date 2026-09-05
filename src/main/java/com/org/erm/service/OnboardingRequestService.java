@@ -47,19 +47,22 @@ public class OnboardingRequestService {
     private final ErmRoleRepository roleRepository;
     private final ErmUserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final MentionNotificationService mentionNotificationService;
 
     public OnboardingRequestService(ErmOnboardingRequestRepository onboardingRequestRepository,
                                     ErmOnboardingRequestCommentRepository onboardingRequestCommentRepository,
                                     ErmDesignationHierarchyRepository designationHierarchyRepository,
                                     ErmRoleRepository roleRepository,
                                     ErmUserRepository userRepository,
-                                    PasswordEncoder passwordEncoder) {
+                                    PasswordEncoder passwordEncoder,
+                                    MentionNotificationService mentionNotificationService) {
         this.onboardingRequestRepository = onboardingRequestRepository;
         this.onboardingRequestCommentRepository = onboardingRequestCommentRepository;
         this.designationHierarchyRepository = designationHierarchyRepository;
         this.roleRepository = roleRepository;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.mentionNotificationService = mentionNotificationService;
     }
 
     @Transactional
@@ -588,6 +591,14 @@ public class OnboardingRequestService {
         if (onboardingRequestCommentRepository != null) {
             onboardingRequestCommentRepository.save(history);
         }
+        mentionNotificationService.notifyMentions(
+                actor,
+                comment,
+                "ONBOARDING_REQUEST",
+                onboardingRequest.getId(),
+                actor + " mentioned you on onboarding request #" + onboardingRequest.getId(),
+                "/onboarding"
+        );
     }
 
     private String decisionLabel(OnboardingActionDecision decision) {

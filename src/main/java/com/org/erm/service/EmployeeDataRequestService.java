@@ -35,15 +35,18 @@ public class EmployeeDataRequestService {
     private final ErmUserRepository userRepository;
     private final ErmRoleRepository roleRepository;
     private final ErmDesignationHierarchyRepository designationHierarchyRepository;
+    private final MentionNotificationService mentionNotificationService;
 
     public EmployeeDataRequestService(ErmEmployeeDesignationRequestRepository requestRepository,
                                       ErmUserRepository userRepository,
                                       ErmRoleRepository roleRepository,
-                                      ErmDesignationHierarchyRepository designationHierarchyRepository) {
+                                      ErmDesignationHierarchyRepository designationHierarchyRepository,
+                                      MentionNotificationService mentionNotificationService) {
         this.requestRepository = requestRepository;
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.designationHierarchyRepository = designationHierarchyRepository;
+        this.mentionNotificationService = mentionNotificationService;
     }
 
     @Transactional
@@ -78,8 +81,16 @@ public class EmployeeDataRequestService {
         entity.setHrActionBy(actor);
         entity.setHrActionAt(LocalDateTime.now());
         entity.setHrComment(normalizeOptional(request.comment()));
-
-        return toResponse(requestRepository.save(entity));
+        entity = requestRepository.save(entity);
+        mentionNotificationService.notifyMentions(
+                actor,
+                entity.getHrComment(),
+                "EMPLOYEE_DATA_REQUEST",
+                entity.getId(),
+                actor + " mentioned you on employee data request #" + entity.getId(),
+                "/employee-data"
+        );
+        return toResponse(entity);
     }
 
     @Transactional(readOnly = true)
@@ -141,7 +152,16 @@ public class EmployeeDataRequestService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Workflow stage cannot be actioned");
         }
 
-        return toResponse(requestRepository.save(entity));
+        entity = requestRepository.save(entity);
+        mentionNotificationService.notifyMentions(
+                actor,
+                comment,
+                "EMPLOYEE_DATA_REQUEST",
+                entity.getId(),
+                actor + " mentioned you on employee data request #" + entity.getId(),
+                "/employee-data"
+        );
+        return toResponse(entity);
     }
 
     private void applyDesignationUpdate(ErmEmployeeDesignationRequest request) {

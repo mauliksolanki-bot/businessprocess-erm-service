@@ -57,15 +57,18 @@ public class ProjectAllocationService {
     private final ErmProjectAllocationCommentRepository allocationCommentRepository;
     private final ErmProjectRequestRepository projectRequestRepository;
     private final ErmUserRepository userRepository;
+    private final MentionNotificationService mentionNotificationService;
 
     public ProjectAllocationService(ErmProjectAllocationRepository allocationRepository,
                                     ErmProjectAllocationCommentRepository allocationCommentRepository,
                                     ErmProjectRequestRepository projectRequestRepository,
-                                    ErmUserRepository userRepository) {
+                                    ErmUserRepository userRepository,
+                                    MentionNotificationService mentionNotificationService) {
         this.allocationRepository = allocationRepository;
         this.allocationCommentRepository = allocationCommentRepository;
         this.projectRequestRepository = projectRequestRepository;
         this.userRepository = userRepository;
+        this.mentionNotificationService = mentionNotificationService;
     }
 
     @Transactional
@@ -532,6 +535,14 @@ public class ProjectAllocationService {
         commentEntry.setCommentText(comment);
         commentEntry.setActionAt(actionAt == null ? LocalDateTime.now() : actionAt);
         allocationCommentRepository.save(commentEntry);
+        mentionNotificationService.notifyMentions(
+                actor,
+                comment,
+                "PROJECT_ALLOCATION",
+                entity.getId(),
+                actor + " mentioned you on allocation " + entity.getAllocationCode(),
+                "/projects"
+        );
     }
 
     private String decisionLabel(OnboardingActionDecision decision) {

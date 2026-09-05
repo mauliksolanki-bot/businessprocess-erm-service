@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { CheckCircle2, Eye, RefreshCw, Ticket } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -11,13 +11,15 @@ import {
   assignSupportTicket,
   getSupportTicketById,
   getSupportTickets,
+  searchUserMentions,
   type SupportTicket,
 } from "@/lib/api";
 import { loadSession } from "@/lib/auth-storage";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { MentionTextareaField } from "@/components/ui/mention-textarea-field";
+import { MentionText } from "@/components/ui/mention-text";
 import { Spinner } from "@/components/ui/spinner";
 import TicketForm from "@/components/ui/ticket-form";
 
@@ -28,6 +30,40 @@ function statusTone(status: SupportTicket["status"]) {
   if (["REOPENED", "SECURITY_ESCALATED"].includes(status)) return "border-violet-200 bg-violet-50 text-violet-700";
   if (["CANCELLED"].includes(status)) return "border-rose-200 bg-rose-50 text-rose-700";
   return "border-amber-200 bg-amber-50 text-amber-700";
+}
+
+function renderCommentText(commentText: string | null) {
+  if (!commentText) {
+    return <div className="mt-1 text-zinc-500">-</div>;
+  }
+  const lines = commentText.split(/\r?\n/).filter((line) => line.trim().length > 0);
+  return (
+      <div className="mt-1 space-y-1">
+        {lines.map((line, index) => {
+          const match = line.match(/^(.+?)\s-\s(.+?)\s-->\s(.+)$/);
+          if (!match) {
+            return (
+                <div key={`${line}-${index}`} className="whitespace-pre-line text-zinc-700">
+                  <MentionText text={line} />
+                </div>
+            );
+          }
+          const [, field, fromValue, toValue] = match;
+          return (
+              <div key={`${field}-${index}`} className="flex flex-wrap items-center gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1 text-xs">
+                <span className="font-semibold text-indigo-700">{field}</span>
+                <span className="rounded bg-rose-100 px-1.5 py-0.5 text-rose-700">
+              <MentionText text={fromValue} />
+            </span>
+                <span className="text-zinc-500">--&gt;</span>
+                <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-emerald-700">
+              <MentionText text={toValue} />
+            </span>
+              </div>
+          );
+        })}
+      </div>
+  );
 }
 
 function isSupportAssigneeRole(roles: string[]) {
@@ -53,6 +89,13 @@ export default function SupportPage() {
   const [isLoading, setIsLoading] = useState(false);
 
   const canViewAssignedTickets = useMemo(() => isSupportAssigneeRole(session?.roles ?? []), [session?.roles]);
+  const mentionSearch = useCallback(
+      async (query: string) => {
+        if (!token) return [];
+        return searchUserMentions(token, query);
+      },
+      [token]
+  );
   const supportHeading = supportTab === "raise"
       ? {
         title: "Support Request",
@@ -393,7 +436,7 @@ export default function SupportPage() {
                   </div>
                   <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-700">
                     <p className="font-semibold text-zinc-900">Comments</p>
-                    <div className="mt-2 max-h-48 space-y-3 overflow-y-auto">
+                    <div className="mt-2 max-h-112 space-y-3 overflow-y-auto">
                       {selectedTicket.comments.length === 0 ? (
                           <div className="text-sm text-zinc-500">No comments yet.</div>
                       ) : (
@@ -403,13 +446,20 @@ export default function SupportPage() {
                                   <div className="font-medium text-zinc-700">{item.actorUsername}</div>
                                   <div className="text-xs text-zinc-500">{new Date(item.createdAt).toLocaleString()}</div>
                                 </div>
-                                <div className="mt-1 text-zinc-700">{item.commentText}</div>
+                                {renderCommentText(item.commentText)}
                               </div>
                           ))
                       )}
                     </div>
                     <div className="mt-3 flex gap-2">
-                      <Input placeholder="Add a comment" value={comment} onChange={(e) => setComment(e.target.value)} />
+                      <MentionTextareaField
+                          className="min-h-[72px]"
+                          label="Add a comment"
+                          mentionSearch={mentionSearch}
+                          onChange={setComment}
+                          value={comment}
+                          wrapperClassName="flex-1"
+                      />
                       <Button onClick={handleComment} disabled={!comment.trim()}>Post</Button>
                     </div>
                   </div>

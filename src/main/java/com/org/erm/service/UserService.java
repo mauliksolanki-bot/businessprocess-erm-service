@@ -1,6 +1,7 @@
 package com.org.erm.service;
 
 import com.org.erm.dto.response.UserProfileResponse;
+import com.org.erm.dto.response.UserMentionOptionResponse;
 import com.org.erm.model.ErmRole;
 import com.org.erm.model.ErmUser;
 import com.org.erm.repository.ErmRoleRepository;
@@ -9,8 +10,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import org.springframework.data.domain.PageRequest;
 import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class UserService {
@@ -54,5 +57,42 @@ public class UserService {
                 ermUser.getReportingManagerRoleName(),
                 roleNames
         );
+    }
+
+    public List<UserMentionOptionResponse> searchMentionableUsers(String query) {
+        String normalizedQuery = query == null ? "" : query.trim();
+        if (normalizedQuery.isEmpty()) {
+            return ermUserRepository.findAllByActiveTrueAndEmploymentStatusIgnoreCaseOrderByFullNameAsc("active")
+                    .stream()
+                    .limit(12)
+                    .map(user -> new UserMentionOptionResponse(
+                            user.getId(),
+                            user.getUsername(),
+                            user.getFullName() == null || user.getFullName().isBlank() ? user.getUsername() : user.getFullName().trim()
+                    ))
+                    .collect(Collectors.toList());
+        }
+
+        List<UserMentionOptionResponse> matches = ermUserRepository.searchMentionableUsers(normalizedQuery, PageRequest.of(0, 12)).stream()
+                .map(user -> new UserMentionOptionResponse(
+                        user.getId(),
+                        user.getUsername(),
+                        user.getFullName() == null || user.getFullName().isBlank() ? user.getUsername() : user.getFullName().trim()
+                ))
+                .collect(Collectors.toList());
+
+        if (!matches.isEmpty()) {
+            return matches;
+        }
+
+        return ermUserRepository.findAllByActiveTrueAndEmploymentStatusIgnoreCaseOrderByFullNameAsc("active")
+                .stream()
+                .limit(12)
+                .map(user -> new UserMentionOptionResponse(
+                        user.getId(),
+                        user.getUsername(),
+                        user.getFullName() == null || user.getFullName().isBlank() ? user.getUsername() : user.getFullName().trim()
+                ))
+                .collect(Collectors.toList());
     }
 }

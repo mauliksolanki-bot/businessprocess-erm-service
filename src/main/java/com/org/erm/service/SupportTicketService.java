@@ -79,6 +79,7 @@ public class SupportTicketService {
     private final ErmSupportAuditLogRepository auditLogRepository;
     private final ErmSupportNotificationRepository notificationRepository;
     private final ErmUserRepository userRepository;
+    private final MentionNotificationService mentionNotificationService;
 
     public SupportTicketService(ErmSupportTicketRepository ticketRepository,
                                 ErmSupportTicketCommentRepository commentRepository,
@@ -89,7 +90,8 @@ public class SupportTicketService {
                                 ErmSupportSlaPolicyRepository slaPolicyRepository,
                                 ErmSupportAuditLogRepository auditLogRepository,
                                 ErmSupportNotificationRepository notificationRepository,
-                                ErmUserRepository userRepository) {
+                                ErmUserRepository userRepository,
+                                MentionNotificationService mentionNotificationService) {
         this.ticketRepository = ticketRepository;
         this.commentRepository = commentRepository;
         this.categoryRepository = categoryRepository;
@@ -100,6 +102,7 @@ public class SupportTicketService {
         this.auditLogRepository = auditLogRepository;
         this.notificationRepository = notificationRepository;
         this.userRepository = userRepository;
+        this.mentionNotificationService = mentionNotificationService;
     }
 
     @Transactional
@@ -246,6 +249,14 @@ public class SupportTicketService {
         if (ticket.getAssigneeUsername() != null) {
             recordNotification(ticket.getId(), ticket.getAssigneeUsername(), "IN_APP", "COMMENT", "New comment on ticket " + ticket.getTicketNumber());
         }
+        mentionNotificationService.notifyMentions(
+                currentUser.getUsername(),
+                comment.getCommentText(),
+                "SUPPORT_TICKET",
+                ticket.getId(),
+                currentUser.getUsername() + " mentioned you on support ticket " + ticket.getTicketNumber(),
+                "/support/ticket/" + ticket.getTicketNumber()
+        );
         return toResponse(ticket, true);
     }
 
@@ -274,6 +285,14 @@ public class SupportTicketService {
             comment.setActionType("STATUS_CHANGE");
             comment.setCommentText(normalizeRequired(request.comment(), "Comment is required"));
             commentRepository.save(comment);
+            mentionNotificationService.notifyMentions(
+                    currentUser.getUsername(),
+                    comment.getCommentText(),
+                    "SUPPORT_TICKET",
+                    ticket.getId(),
+                    currentUser.getUsername() + " mentioned you on support ticket " + ticket.getTicketNumber(),
+                    "/support/ticket/" + ticket.getTicketNumber()
+            );
         }
         recordAudit(ticket.getId(), currentUser.getUsername(), "STATUS_CHANGE", previousStatus.name(), nextStatus.name(), "Status changed");
         recordNotification(ticket.getId(), ticket.getRequesterUsername(), "IN_APP", "STATUS_CHANGE", "Ticket " + ticket.getTicketNumber() + " moved to " + nextStatus.name());
@@ -290,14 +309,27 @@ public class SupportTicketService {
         LocalDateTime now = LocalDateTime.now();
         List<String> changeLogs = new ArrayList<>();
         SupportTicketStatus previousStatus = ticket.getStatus();
+        boolean lockedForDetails = isClosureStatus(previousStatus);
 
         ErmSupportQueue activeQueue = queueRepository.findById(ticket.getQueueId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Support queue not found"));
 
+        boolean queueChanged = StringUtils.hasText(request.queueCode()) && !Objects.equals(ticket.getQueueCode(), request.queueCode().trim());
+        boolean assigneeChanged = request.assigneeUserId() != null && !Objects.equals(ticket.getAssigneeUserId(), request.assigneeUserId());
+        String normalizedImpact = StringUtils.hasText(request.impactLevel()) ? normalizeRequired(request.impactLevel(), "Impact is required") : null;
+        String normalizedUrgency = StringUtils.hasText(request.urgencyLevel()) ? normalizeRequired(request.urgencyLevel(), "Urgency is required") : null;
+        boolean impactChanged = normalizedImpact != null && !Objects.equals(ticket.getImpactLevel(), normalizedImpact);
+        boolean urgencyChanged = normalizedUrgency != null && !Objects.equals(ticket.getUrgencyLevel(), normalizedUrgency);
+        boolean closureDetailsProvided = StringUtils.hasText(request.closureDetails());
+
+        if (lockedForDetails && (queueChanged || assigneeChanged || impactChanged || urgencyChanged || closureDetailsProvided)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only State can be changed when ticket is RESOLVED or CLOSED");
+        }
+
         if (StringUtils.hasText(request.queueCode())) {
             ErmSupportQueue nextQueue = loadQueue(request.queueCode());
             if (!Objects.equals(ticket.getQueueId(), nextQueue.getId())) {
-                changeLogs.add("Assignment Group changed from " + ticket.getQueueTitle() + " to " + nextQueue.getQueueTitle());
+                changeLogs.add(formatChangeLine("Assignment Group", ticket.getQueueTitle(), nextQueue.getQueueTitle()));
                 ticket.setQueueId(nextQueue.getId());
                 ticket.setQueueCode(nextQueue.getQueueCode());
                 ticket.setQueueTitle(nextQueue.getQueueTitle());
@@ -312,7 +344,7 @@ public class SupportTicketService {
 
             String fromAssignee = resolveAssigneeLabel(ticket.getAssigneeFullName(), ticket.getAssigneeUsername());
             String toAssignee = resolveAssigneeLabel(assignee.getFullName(), assignee.getUsername());
-            changeLogs.add("Assigned To changed from " + fromAssignee + " to " + toAssignee);
+            changeLogs.add(formatChangeLine("Assigned To", fromAssignee, toAssignee));
 
             ticket.setAssigneeUserId(assignee.getId());
             ticket.setAssigneeUsername(assignee.getUsername());
@@ -324,23 +356,21 @@ public class SupportTicketService {
         }
 
         if (StringUtils.hasText(request.impactLevel())) {
-            String normalizedImpact = normalizeRequired(request.impactLevel(), "Impact is required");
             if (!IMPACT_LEVELS.contains(normalizedImpact)) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Impact must be one of Low, Medium, High, Critical");
             }
             if (!Objects.equals(ticket.getImpactLevel(), normalizedImpact)) {
-                changeLogs.add("Impact changed from " + ticket.getImpactLevel() + " to " + normalizedImpact);
+                changeLogs.add(formatChangeLine("Impact", ticket.getImpactLevel(), normalizedImpact));
                 ticket.setImpactLevel(normalizedImpact);
             }
         }
 
         if (StringUtils.hasText(request.urgencyLevel())) {
-            String normalizedUrgency = normalizeRequired(request.urgencyLevel(), "Urgency is required");
             if (!URGENCY_LEVELS.contains(normalizedUrgency)) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Urgency must be one of Low, Medium, High, Critical");
             }
             if (!Objects.equals(ticket.getUrgencyLevel(), normalizedUrgency)) {
-                changeLogs.add("Urgency changed from " + ticket.getUrgencyLevel() + " to " + normalizedUrgency);
+                changeLogs.add(formatChangeLine("Urgency", ticket.getUrgencyLevel(), normalizedUrgency));
                 ticket.setUrgencyLevel(normalizedUrgency);
             }
         }
@@ -348,7 +378,7 @@ public class SupportTicketService {
         if (StringUtils.hasText(request.impactLevel()) || StringUtils.hasText(request.urgencyLevel())) {
             SupportPriority recalculatedPriority = derivePriority(ticket.getImpactLevel(), ticket.getUrgencyLevel(), ticket.getTicketType());
             if (recalculatedPriority != ticket.getPriorityCode()) {
-                changeLogs.add("Priority changed from " + ticket.getPriorityCode().name() + " to " + recalculatedPriority.name());
+                changeLogs.add(formatChangeLine("Priority", ticket.getPriorityCode().name(), recalculatedPriority.name()));
             }
             ticket.setPriorityCode(recalculatedPriority);
             applySla(ticket, ticket.getQueueCode(), ticket.getTicketType().name(), recalculatedPriority.name(), now);
@@ -359,11 +389,11 @@ public class SupportTicketService {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Closure details are required when state is RESOLVED or CLOSED");
             }
             applyStatusTransition(ticket, request.status(), now);
-            changeLogs.add("State changed from " + previousStatus.name() + " to " + request.status().name());
+            changeLogs.add(formatChangeLine("State", previousStatus.name(), request.status().name()));
         }
 
         if (StringUtils.hasText(request.closureDetails())) {
-            changeLogs.add("Closure Details: " + request.closureDetails().trim());
+            changeLogs.add(formatChangeLine("Closure Details", "N/A", request.closureDetails().trim()));
         }
 
         if (changeLogs.isEmpty()) {
@@ -377,8 +407,16 @@ public class SupportTicketService {
         trackingComment.setTicketId(ticket.getId());
         trackingComment.setActorUsername(currentUser.getUsername());
         trackingComment.setActionType("DETAILS_UPDATE");
-        trackingComment.setCommentText(String.join(" | ", changeLogs));
+        trackingComment.setCommentText(String.join("\n", changeLogs));
         commentRepository.save(trackingComment);
+        mentionNotificationService.notifyMentions(
+                currentUser.getUsername(),
+                trackingComment.getCommentText(),
+                "SUPPORT_TICKET",
+                ticket.getId(),
+                currentUser.getUsername() + " mentioned you on support ticket " + ticket.getTicketNumber(),
+                "/support/ticket/" + ticket.getTicketNumber()
+        );
 
         recordAudit(ticket.getId(), currentUser.getUsername(), "DETAILS_UPDATE", previousStatus.name(), ticket.getStatus().name(), trackingComment.getCommentText());
         recordNotification(ticket.getId(), ticket.getRequesterUsername(), "IN_APP", "DETAILS_UPDATE", "Ticket " + ticket.getTicketNumber() + " details updated");
@@ -891,6 +929,12 @@ public class SupportTicketService {
             return username.trim();
         }
         return "Unassigned";
+    }
+
+    private String formatChangeLine(String fieldName, String fromValue, String newValue) {
+        String safeFrom = StringUtils.hasText(fromValue) ? fromValue.trim() : "N/A";
+        String safeTo = StringUtils.hasText(newValue) ? newValue.trim() : "N/A";
+        return fieldName + " - " + safeFrom + " --> " + safeTo;
     }
 
     private record MemberCandidate(ErmSupportQueueMember member, long openTicketCount) {

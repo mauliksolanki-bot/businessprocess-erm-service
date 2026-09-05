@@ -43,17 +43,20 @@ public class EmployeeProfileUpdateRequestService {
     private final ErmUserRepository userRepository;
     private final ErmDesignationHierarchyRepository designationHierarchyRepository;
     private final ErmRoleRepository roleRepository;
+    private final MentionNotificationService mentionNotificationService;
 
     public EmployeeProfileUpdateRequestService(ErmEmployeeProfileUpdateRequestRepository requestRepository,
                                                ErmEmployeeProfileUpdateRequestCommentRepository requestCommentRepository,
                                                ErmUserRepository userRepository,
                                                ErmDesignationHierarchyRepository designationHierarchyRepository,
-                                               ErmRoleRepository roleRepository) {
+                                               ErmRoleRepository roleRepository,
+                                               MentionNotificationService mentionNotificationService) {
         this.requestRepository = requestRepository;
         this.requestCommentRepository = requestCommentRepository;
         this.userRepository = userRepository;
         this.designationHierarchyRepository = designationHierarchyRepository;
         this.roleRepository = roleRepository;
+        this.mentionNotificationService = mentionNotificationService;
     }
 
     private static final Set<OnboardingWorkflowStage> TERMINAL_STAGES =
@@ -119,8 +122,16 @@ public class EmployeeProfileUpdateRequestService {
         entity.setHrActionBy(authentication.getName());
         entity.setHrActionAt(LocalDateTime.now());
         entity.setHrComment(normalizeOptional(request.comment()));
-
-        return toResponse(requestRepository.save(entity));
+        entity = requestRepository.save(entity);
+        mentionNotificationService.notifyMentions(
+                authentication.getName(),
+                entity.getHrComment(),
+                "EMPLOYEE_PROFILE_UPDATE",
+                entity.getId(),
+                authentication.getName() + " mentioned you on employee profile request #" + entity.getId(),
+                "/employee-data"
+        );
+        return toResponse(entity);
     }
 
     @Transactional(readOnly = true)
@@ -179,7 +190,16 @@ public class EmployeeProfileUpdateRequestService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Workflow stage cannot be actioned");
         }
 
-        return toResponse(requestRepository.save(entity));
+        entity = requestRepository.save(entity);
+        mentionNotificationService.notifyMentions(
+                actor,
+                comment,
+                "EMPLOYEE_PROFILE_UPDATE",
+                entity.getId(),
+                actor + " mentioned you on employee profile request #" + entity.getId(),
+                "/employee-data"
+        );
+        return toResponse(entity);
     }
 
     @Transactional
@@ -202,7 +222,16 @@ public class EmployeeProfileUpdateRequestService {
         entity.setCancelledAt(LocalDateTime.now());
         entity.setCancelledComment(normalizeOptional(request == null ? null : request.comment()));
         entity.setWorkflowStage(OnboardingWorkflowStage.CANCELLED);
-        return toResponse(requestRepository.save(entity));
+        entity = requestRepository.save(entity);
+        mentionNotificationService.notifyMentions(
+                actor,
+                entity.getCancelledComment(),
+                "EMPLOYEE_PROFILE_UPDATE",
+                entity.getId(),
+                actor + " mentioned you on employee profile request #" + entity.getId(),
+                "/employee-data"
+        );
+        return toResponse(entity);
     }
 
     @Transactional
@@ -225,6 +254,14 @@ public class EmployeeProfileUpdateRequestService {
         comment.setCommentText(normalizeOptional(request.comment()));
         comment.setActionAt(LocalDateTime.now());
         requestCommentRepository.save(comment);
+        mentionNotificationService.notifyMentions(
+                actor,
+                comment.getCommentText(),
+                "EMPLOYEE_PROFILE_UPDATE",
+                entity.getId(),
+                actor + " mentioned you on employee profile request #" + entity.getId(),
+                "/employee-data"
+        );
         return toResponse(entity);
     }
 

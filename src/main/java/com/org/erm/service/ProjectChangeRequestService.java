@@ -51,17 +51,20 @@ public class ProjectChangeRequestService {
     private final ErmProjectChangeRequestRepository projectChangeRequestRepository;
     private final ErmProjectChangeRequestCommentRepository projectChangeRequestCommentRepository;
     private final ErmUserRepository userRepository;
+    private final MentionNotificationService mentionNotificationService;
 
     public ProjectChangeRequestService(ErmProjectRequestRepository projectRequestRepository,
                                        ErmProjectRequestCommentRepository projectRequestCommentRepository,
                                        ErmProjectChangeRequestRepository projectChangeRequestRepository,
                                        ErmProjectChangeRequestCommentRepository projectChangeRequestCommentRepository,
-                                       ErmUserRepository userRepository) {
+                                       ErmUserRepository userRepository,
+                                       MentionNotificationService mentionNotificationService) {
         this.projectRequestRepository = projectRequestRepository;
         this.projectRequestCommentRepository = projectRequestCommentRepository;
         this.projectChangeRequestRepository = projectChangeRequestRepository;
         this.projectChangeRequestCommentRepository = projectChangeRequestCommentRepository;
         this.userRepository = userRepository;
+        this.mentionNotificationService = mentionNotificationService;
     }
 
     @Transactional(readOnly = true)
@@ -437,6 +440,14 @@ public class ProjectChangeRequestService {
         history.setCommentText(comment);
         history.setActionAt(actionAt == null ? LocalDateTime.now() : actionAt);
         projectChangeRequestCommentRepository.save(history);
+        mentionNotificationService.notifyMentions(
+                actor,
+                comment,
+                "PROJECT_CHANGE_REQUEST",
+                entity.getId(),
+                actor + " mentioned you on project change request #" + entity.getId(),
+                "/projects"
+        );
     }
 
     private List<OnboardingApprovalTrailItem> buildProjectTrail(Long projectRequestId) {

@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { CommentsConversationModal } from "@/components/erm/comments-conversation-modal";
 import { DataTablePagination } from "@/components/erm/data-table-pagination";
 import { FloatingTextareaField } from "@/components/ui/form-fields";
+import { MentionTextareaField } from "@/components/ui/mention-textarea-field";
 import { Spinner } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +15,7 @@ import {
   cancelEmployeeProfileUpdateRequest,
   addEmployeeProfileUpdateRequestComment,
   getEmployeeProfileUpdateRequests,
+  searchUserMentions,
   takeEmployeeProfileUpdateRequestAction,
   type EmployeeProfileUpdateRequest,
 } from "@/lib/api";
@@ -106,6 +108,15 @@ export default function EmployeeDataPage() {
     return latestSession.accessToken;
   }, []);
 
+  const mentionSearch = useCallback(
+      async (query: string) => {
+        const token = accessToken();
+        if (!token) return [];
+        return searchUserMentions(token, query);
+      },
+      [accessToken]
+  );
+
   const loadRequests = useCallback(async (nextPage = page, nextSize = pageSize) => {
     const token = accessToken();
     if (!token) return;
@@ -192,328 +203,330 @@ export default function EmployeeDataPage() {
   }
 
   return (
-    <>
-      <Card className="mb-6 shadow-md shadow-zinc-100/80">
-        <CardHeader className="flex flex-col gap-3 rounded-t-2xl bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-600 text-white sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2 text-white">
-              <Sparkles className="h-5 w-5" />
-              Change Request (Employee Data)
-            </CardTitle>
-            <CardDescription className="text-indigo-100">Review and action profile change requests by workflow stage with the same onboarding-style experience.</CardDescription>
-          </div>
-          <div className="grid w-full gap-3 sm:grid-cols-3 md:max-w-[540px]">
-            <SummaryPill
-              label="Total requests"
-              value={hasLoadedRequests ? requests.length : 0}
-              isActive={trackerStatusFilter === "all"}
-              onClick={() => setTrackerStatusFilter("all")}
-            />
-            <SummaryPill
-              label="Pending"
-              value={hasLoadedRequests ? requestSummary.pendingCount : 0}
-              isActive={trackerStatusFilter === "pending"}
-              onClick={() => setTrackerStatusFilter("pending")}
-            />
-            <SummaryPill
-              label="Closed"
-              value={hasLoadedRequests ? requestSummary.closedCount : 0}
-              isActive={trackerStatusFilter === "closed"}
-              onClick={() => setTrackerStatusFilter("closed")}
-            />
-          </div>
-        </CardHeader>
-        <CardContent className="pt-6">
-          {!hasLoadedRequests ? (
-            <div className="flex min-h-[18rem] items-center justify-center rounded-xl border border-zinc-200 bg-zinc-50">
-              <Spinner size="lg" />
+      <>
+        <Card className="mb-6 shadow-md shadow-zinc-100/80">
+          <CardHeader className="flex flex-col gap-3 rounded-t-2xl bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-600 text-white sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-white">
+                <Sparkles className="h-5 w-5" />
+                Change Request (Employee Data)
+              </CardTitle>
+              <CardDescription className="text-indigo-100">Review and action profile change requests by workflow stage with the same onboarding-style experience.</CardDescription>
             </div>
-          ) : isLoadingRequests ? (
-            <div className="flex min-h-[18rem] items-center justify-center rounded-xl border border-zinc-200 bg-zinc-50">
-              <Spinner size="lg" />
+            <div className="grid w-full gap-3 sm:grid-cols-3 md:max-w-[540px]">
+              <SummaryPill
+                  label="Total requests"
+                  value={hasLoadedRequests ? requests.length : 0}
+                  isActive={trackerStatusFilter === "all"}
+                  onClick={() => setTrackerStatusFilter("all")}
+              />
+              <SummaryPill
+                  label="Pending"
+                  value={hasLoadedRequests ? requestSummary.pendingCount : 0}
+                  isActive={trackerStatusFilter === "pending"}
+                  onClick={() => setTrackerStatusFilter("pending")}
+              />
+              <SummaryPill
+                  label="Closed"
+                  value={hasLoadedRequests ? requestSummary.closedCount : 0}
+                  isActive={trackerStatusFilter === "closed"}
+                  onClick={() => setTrackerStatusFilter("closed")}
+              />
             </div>
-          ) : filteredRequests.length === 0 ? (
-            <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-600">No requests available.</div>
-          ) : (
-            <>
-              <div className="overflow-x-auto rounded-2xl border border-zinc-200 bg-white">
-                <table className="w-full min-w-[1100px] text-sm">
-                  <thead className="bg-gradient-to-r from-indigo-50 via-violet-50 to-cyan-50 text-left text-zinc-800">
-                    <tr>
-                      <th className="px-4 py-3 font-medium">Employee</th>
-                      <th className="px-4 py-3 font-medium">Requested Changes</th>
-                      <th className="px-4 py-3 font-medium">Stage</th>
-                      <th className="px-4 py-3 font-medium">Pending With / Outcome</th>
-                      <th className="px-4 py-3 font-medium">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredRequests.map((request) => {
-                      const changes = buildRequestedChanges(request);
-                      return (
-                        <tr className="border-t border-zinc-200 hover:bg-indigo-50/30" key={request.id}>
-                          <td className="px-4 py-3">
-                            <p className="font-semibold text-zinc-900">{request.currentFullName}</p>
-                            <p className="text-xs text-zinc-500">{request.employeeUsername}</p>
-                            <p className="mt-1 text-xs text-zinc-400">Requested by {request.createdByUsername}</p>
-                          </td>
-                          <td className="px-4 py-3">
-                            {changes.length === 0 ? (
-                              <span className="text-xs text-zinc-500">No field changes detected.</span>
-                            ) : (
-                              <div className="space-y-1">
-                                <p className="text-xs font-semibold text-zinc-800">
-                                  {changes.length} field{changes.length === 1 ? "" : "s"} updated
-                                </p>
-                                <p className="text-xs text-zinc-500">
-                                  {changes
-                                    .slice(0, 3)
-                                    .map((change) => change.label)
-                                    .join(" • ")}
-                                  {changes.length > 3 ? ` +${changes.length - 3} more` : ""}
-                                </p>
-                              </div>
-                            )}
-                            {request.directReportsAffectedCount > 0 && request.replacementTeamLeadName ? (
-                              <div className="mt-2 rounded-full border border-violet-200 bg-violet-50 px-3 py-1 text-[11px] font-medium text-violet-700">
-                                Includes direct reports reassignment
-                              </div>
-                            ) : null}
-                          </td>
-                          <td className="px-4 py-3">
+          </CardHeader>
+          <CardContent className="pt-6">
+            {!hasLoadedRequests ? (
+                <div className="flex min-h-[18rem] items-center justify-center rounded-xl border border-zinc-200 bg-zinc-50">
+                  <Spinner size="lg" />
+                </div>
+            ) : isLoadingRequests ? (
+                <div className="flex min-h-[18rem] items-center justify-center rounded-xl border border-zinc-200 bg-zinc-50">
+                  <Spinner size="lg" />
+                </div>
+            ) : filteredRequests.length === 0 ? (
+                <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-600">No requests available.</div>
+            ) : (
+                <>
+                  <div className="overflow-x-auto rounded-2xl border border-zinc-200 bg-white">
+                    <table className="w-full min-w-[1100px] text-sm">
+                      <thead className="bg-gradient-to-r from-indigo-50 via-violet-50 to-cyan-50 text-left text-zinc-800">
+                      <tr>
+                        <th className="px-4 py-3 font-medium">Employee</th>
+                        <th className="px-4 py-3 font-medium">Requested Changes</th>
+                        <th className="px-4 py-3 font-medium">Stage</th>
+                        <th className="px-4 py-3 font-medium">Pending With / Outcome</th>
+                        <th className="px-4 py-3 font-medium">Actions</th>
+                      </tr>
+                      </thead>
+                      <tbody>
+                      {filteredRequests.map((request) => {
+                        const changes = buildRequestedChanges(request);
+                        return (
+                            <tr className="border-t border-zinc-200 hover:bg-indigo-50/30" key={request.id}>
+                              <td className="px-4 py-3">
+                                <p className="font-semibold text-zinc-900">{request.currentFullName}</p>
+                                <p className="text-xs text-zinc-500">{request.employeeUsername}</p>
+                                <p className="mt-1 text-xs text-zinc-400">Requested by {request.createdByUsername}</p>
+                              </td>
+                              <td className="px-4 py-3">
+                                {changes.length === 0 ? (
+                                    <span className="text-xs text-zinc-500">No field changes detected.</span>
+                                ) : (
+                                    <div className="space-y-1">
+                                      <p className="text-xs font-semibold text-zinc-800">
+                                        {changes.length} field{changes.length === 1 ? "" : "s"} updated
+                                      </p>
+                                      <p className="text-xs text-zinc-500">
+                                        {changes
+                                            .slice(0, 3)
+                                            .map((change) => change.label)
+                                            .join(" • ")}
+                                        {changes.length > 3 ? ` +${changes.length - 3} more` : ""}
+                                      </p>
+                                    </div>
+                                )}
+                                {request.directReportsAffectedCount > 0 && request.replacementTeamLeadName ? (
+                                    <div className="mt-2 rounded-full border border-violet-200 bg-violet-50 px-3 py-1 text-[11px] font-medium text-violet-700">
+                                      Includes direct reports reassignment
+                                    </div>
+                                ) : null}
+                              </td>
+                              <td className="px-4 py-3">
                             <span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${stageClass(request.workflowStage)}`}>
                               {request.workflowStage}
                             </span>
-                          </td>
-                          <td className="px-4 py-3 text-xs text-zinc-700">{pendingWith(request.workflowStage)}</td>
-                          <td className="px-4 py-3">
-                            <div className="flex gap-2">
-                              <Button
-                                aria-label={`View requested changes for request ${request.id}`}
-                                className="h-9 w-9 rounded-full border-zinc-200 bg-zinc-50 p-0 text-zinc-700 hover:bg-zinc-100"
-                                onClick={() => setViewChangesRequest(request)}
-                                size="sm"
-                                title="View requested changes"
-                                variant="outline"
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                aria-label={`View comments for request ${request.id}`}
-                                className="h-9 w-9 rounded-full border-indigo-200 bg-indigo-50 p-0 text-indigo-700 hover:bg-indigo-100"
-                                onClick={() => setCommentsRequest(request)}
-                                size="sm"
-                                title="Comments"
-                                variant="outline"
-                              >
-                                <MessageSquareQuote className="h-4 w-4" />
-                              </Button>
-                              {canAction(request) ? (
-                                <>
+                              </td>
+                              <td className="px-4 py-3 text-xs text-zinc-700">{pendingWith(request.workflowStage)}</td>
+                              <td className="px-4 py-3">
+                                <div className="flex gap-2">
                                   <Button
-                                    className="h-9 rounded-full bg-emerald-600 px-3 text-white hover:bg-emerald-500"
-                                    onClick={() => {
-                                      setActionType("APPROVE");
-                                      setActionComment("");
-                                      setSelectedRequest(request);
-                                    }}
-                                    size="sm"
-                                    title="Approve"
+                                      aria-label={`View requested changes for request ${request.id}`}
+                                      className="h-9 w-9 rounded-full border-zinc-200 bg-zinc-50 p-0 text-zinc-700 hover:bg-zinc-100"
+                                      onClick={() => setViewChangesRequest(request)}
+                                      size="sm"
+                                      title="View requested changes"
+                                      variant="outline"
                                   >
-                                    <CheckCircle2 className="h-4 w-4" />
+                                    <Eye className="h-4 w-4" />
                                   </Button>
                                   <Button
-                                    className="h-9 rounded-full border-rose-200 bg-rose-50 px-3 text-rose-700 hover:bg-rose-100"
-                                    onClick={() => {
-                                      setActionType("REJECT");
-                                      setActionComment("");
-                                      setSelectedRequest(request);
-                                    }}
-                                    size="sm"
-                                    title="Reject"
-                                    variant="outline"
+                                      aria-label={`View comments for request ${request.id}`}
+                                      className="h-9 w-9 rounded-full border-indigo-200 bg-indigo-50 p-0 text-indigo-700 hover:bg-indigo-100"
+                                      onClick={() => setCommentsRequest(request)}
+                                      size="sm"
+                                      title="Comments"
+                                      variant="outline"
                                   >
-                                    <ShieldX className="h-4 w-4" />
+                                    <MessageSquareQuote className="h-4 w-4" />
                                   </Button>
-                                </>
-                              ) : null}
-                              {canCancel(request) ? (
-                                <Button
-                                  className="h-9 rounded-full border-slate-200 bg-slate-50 px-3 text-slate-700 hover:bg-slate-100"
-                                  onClick={() => {
-                                    setActionType("CANCEL");
-                                    setActionComment("");
-                                    setSelectedRequest(request);
-                                  }}
-                                  size="sm"
-                                  title="Cancel"
-                                  variant="outline"
-                                >
-                                  <Ban className="h-4 w-4" />
-                                </Button>
-                              ) : null}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-              {hasLoadedRequests && !isLoadingRequests && totalPages > 0 && (
-                <DataTablePagination
-                  page={page}
-                  size={pageSize}
-                  totalElements={totalElements}
-                  totalPages={totalPages}
-                  onPageChange={(p) => {
-                    setIsLoadingRequests(true);
-                    void loadRequests(p, pageSize);
-                  }}
-                  onSizeChange={(s) => {
-                    setIsLoadingRequests(true);
-                    setPage(0);
-                    void loadRequests(0, s);
-                  }}
-                />
-              )}
-            </>
-          )}
-        </CardContent>
-      </Card>
+                                  {canAction(request) ? (
+                                      <>
+                                        <Button
+                                            className="h-9 rounded-full bg-emerald-600 px-3 text-white hover:bg-emerald-500"
+                                            onClick={() => {
+                                              setActionType("APPROVE");
+                                              setActionComment("");
+                                              setSelectedRequest(request);
+                                            }}
+                                            size="sm"
+                                            title="Approve"
+                                        >
+                                          <CheckCircle2 className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                            className="h-9 rounded-full border-rose-200 bg-rose-50 px-3 text-rose-700 hover:bg-rose-100"
+                                            onClick={() => {
+                                              setActionType("REJECT");
+                                              setActionComment("");
+                                              setSelectedRequest(request);
+                                            }}
+                                            size="sm"
+                                            title="Reject"
+                                            variant="outline"
+                                        >
+                                          <ShieldX className="h-4 w-4" />
+                                        </Button>
+                                      </>
+                                  ) : null}
+                                  {canCancel(request) ? (
+                                      <Button
+                                          className="h-9 rounded-full border-slate-200 bg-slate-50 px-3 text-slate-700 hover:bg-slate-100"
+                                          onClick={() => {
+                                            setActionType("CANCEL");
+                                            setActionComment("");
+                                            setSelectedRequest(request);
+                                          }}
+                                          size="sm"
+                                          title="Cancel"
+                                          variant="outline"
+                                      >
+                                        <Ban className="h-4 w-4" />
+                                      </Button>
+                                  ) : null}
+                                </div>
+                              </td>
+                            </tr>
+                        );
+                      })}
+                      </tbody>
+                    </table>
+                  </div>
+                  {hasLoadedRequests && !isLoadingRequests && totalPages > 0 && (
+                      <DataTablePagination
+                          page={page}
+                          size={pageSize}
+                          totalElements={totalElements}
+                          totalPages={totalPages}
+                          onPageChange={(p) => {
+                            setIsLoadingRequests(true);
+                            void loadRequests(p, pageSize);
+                          }}
+                          onSizeChange={(s) => {
+                            setIsLoadingRequests(true);
+                            setPage(0);
+                            void loadRequests(0, s);
+                          }}
+                      />
+                  )}
+                </>
+            )}
+          </CardContent>
+        </Card>
 
-      {viewChangesRequest ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
-          <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-3xl border border-zinc-200 bg-white shadow-2xl shadow-slate-300/40">
-            <div className="border-b border-zinc-200 bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-600 px-6 py-5 text-white">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h3 className="flex items-center gap-2 text-xl font-semibold">
-                    <Eye className="h-5 w-5" />
-                    Requested Change Details #{viewChangesRequest.id}
-                  </h3>
-                  <p className="mt-1 text-sm text-indigo-100">
-                    {viewChangesRequest.currentFullName} ({viewChangesRequest.employeeUsername})
-                  </p>
-                </div>
-                <Button className="border-white/30 bg-white/10 text-white hover:bg-white/20" onClick={() => setViewChangesRequest(null)} variant="outline">
-                  Close
-                </Button>
-              </div>
-              <div className="mt-4 flex flex-wrap gap-2">
+        {viewChangesRequest ? (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
+              <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-3xl border border-zinc-200 bg-white shadow-2xl shadow-slate-300/40">
+                <div className="border-b border-zinc-200 bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-600 px-6 py-5 text-white">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="flex items-center gap-2 text-xl font-semibold">
+                        <Eye className="h-5 w-5" />
+                        Requested Change Details #{viewChangesRequest.id}
+                      </h3>
+                      <p className="mt-1 text-sm text-indigo-100">
+                        {viewChangesRequest.currentFullName} ({viewChangesRequest.employeeUsername})
+                      </p>
+                    </div>
+                    <Button className="border-white/30 bg-white/10 text-white hover:bg-white/20" onClick={() => setViewChangesRequest(null)} variant="outline">
+                      Close
+                    </Button>
+                  </div>
+                  <div className="mt-4 flex flex-wrap gap-2">
                 <span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${stageClass(viewChangesRequest.workflowStage)}`}>
                   {viewChangesRequest.workflowStage}
                 </span>
-                <span className="rounded-full border border-white/30 px-2.5 py-1 text-xs font-medium text-white/90">
+                    <span className="rounded-full border border-white/30 px-2.5 py-1 text-xs font-medium text-white/90">
                   Pending With: {pendingWith(viewChangesRequest.workflowStage)}
                 </span>
+                  </div>
+                </div>
+
+                <div className="space-y-4 p-6">
+                  {buildRequestedChanges(viewChangesRequest).length === 0 ? (
+                      <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-600">
+                        No field changes detected for this request.
+                      </div>
+                  ) : (
+                      <div className="space-y-3">
+                        {buildRequestedChanges(viewChangesRequest).map((change) => (
+                            <div className="rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3" key={change.label}>
+                              <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">{change.label}</p>
+                              <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+                                <span className="rounded-full bg-rose-50 px-2.5 py-1 text-rose-700 line-through">{change.before}</span>
+                                <span className="text-zinc-400">→</span>
+                                <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-emerald-700">{change.after}</span>
+                              </div>
+                            </div>
+                        ))}
+                      </div>
+                  )}
+
+                  {viewChangesRequest.directReportsAffectedCount > 0 && viewChangesRequest.replacementTeamLeadName ? (
+                      <div className="rounded-2xl border border-violet-200 bg-violet-50 px-4 py-3">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-violet-600">Direct reports reassignment</p>
+                        <p className="mt-1 text-sm text-violet-800">
+                          {viewChangesRequest.directReportsAffectedCount} employee
+                          {viewChangesRequest.directReportsAffectedCount === 1 ? "" : "s"} will move to{" "}
+                          <span className="font-semibold">{viewChangesRequest.replacementTeamLeadName}</span> when this promotion is approved.
+                        </p>
+                      </div>
+                  ) : null}
+                </div>
               </div>
             </div>
+        ) : null}
 
-            <div className="space-y-4 p-6">
-              {buildRequestedChanges(viewChangesRequest).length === 0 ? (
-                <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-600">
-                  No field changes detected for this request.
+        {selectedRequest ? (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
+              <div className="w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-5 shadow-xl">
+                <h3 className="text-lg font-semibold text-zinc-900">
+                  {actionType === "APPROVE"
+                      ? "Approve request"
+                      : actionType === "REJECT"
+                          ? "Reject request"
+                          : "Cancel request"} #{selectedRequest.id}
+                </h3>
+                <MentionTextareaField
+                    className="mt-4"
+                    label={actionType === "CANCEL" ? "Cancellation Comment" : "Approval Comment *"}
+                    mentionSearch={mentionSearch}
+                    onChange={setActionComment}
+                    value={actionComment}
+                />
+                <div className="mt-4 flex justify-end gap-2">
+                  <Button onClick={() => setSelectedRequest(null)} variant="outline">
+                    Cancel
+                  </Button>
+                  <Button className="gap-2" disabled={isActioning} onClick={() => void submitAction()}>
+                    {isActioning ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                    Submit
+                  </Button>
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  {buildRequestedChanges(viewChangesRequest).map((change) => (
-                    <div className="rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3" key={change.label}>
-                      <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">{change.label}</p>
-                      <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
-                        <span className="rounded-full bg-rose-50 px-2.5 py-1 text-rose-700 line-through">{change.before}</span>
-                        <span className="text-zinc-400">→</span>
-                        <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-emerald-700">{change.after}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {viewChangesRequest.directReportsAffectedCount > 0 && viewChangesRequest.replacementTeamLeadName ? (
-                <div className="rounded-2xl border border-violet-200 bg-violet-50 px-4 py-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-violet-600">Direct reports reassignment</p>
-                  <p className="mt-1 text-sm text-violet-800">
-                    {viewChangesRequest.directReportsAffectedCount} employee
-                    {viewChangesRequest.directReportsAffectedCount === 1 ? "" : "s"} will move to{" "}
-                    <span className="font-semibold">{viewChangesRequest.replacementTeamLeadName}</span> when this promotion is approved.
-                  </p>
-                </div>
-              ) : null}
+              </div>
             </div>
-          </div>
-        </div>
-      ) : null}
+        ) : null}
 
-      {selectedRequest ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-5 shadow-xl">
-            <h3 className="text-lg font-semibold text-zinc-900">
-              {actionType === "APPROVE"
-                ? "Approve request"
-                : actionType === "REJECT"
-                ? "Reject request"
-                : "Cancel request"} #{selectedRequest.id}
-            </h3>
-            <FloatingTextareaField
-              className="mt-4"
-              label={actionType === "CANCEL" ? "Cancellation Comment" : "Approval Comment *"}
-              onChange={(event) => setActionComment(event.target.value)}
-              value={actionComment}
+        {commentsRequest ? (
+            <CommentsConversationModal
+                items={commentsRequest.approvalTrail}
+                canSendComment={
+                    commentsRequest.workflowStage !== "Super Admin Approved" &&
+                    commentsRequest.workflowStage !== "Rejected" &&
+                    commentsRequest.workflowStage !== "Cancelled"
+                }
+                isSendingComment={isCommenting}
+                mentionSearch={mentionSearch}
+                onSendComment={(comment) => submitComment(comment)}
+                onClose={() => setCommentsRequest(null)}
+                subtitle={`Request #${commentsRequest.id}`}
+                title={`Comments: ${commentsRequest.currentFullName}`}
             />
-            <div className="mt-4 flex justify-end gap-2">
-              <Button onClick={() => setSelectedRequest(null)} variant="outline">
-                Cancel
-              </Button>
-              <Button className="gap-2" disabled={isActioning} onClick={() => void submitAction()}>
-                {isActioning ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                Submit
-              </Button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {commentsRequest ? (
-        <CommentsConversationModal
-          items={commentsRequest.approvalTrail}
-          canSendComment={
-            commentsRequest.workflowStage !== "Super Admin Approved" &&
-            commentsRequest.workflowStage !== "Rejected" &&
-            commentsRequest.workflowStage !== "Cancelled"
-          }
-          isSendingComment={isCommenting}
-          onSendComment={(comment) => submitComment(comment)}
-          onClose={() => setCommentsRequest(null)}
-          subtitle={`Request #${commentsRequest.id}`}
-          title={`Comments: ${commentsRequest.currentFullName}`}
-        />
-      ) : null}
-    </>
+        ) : null}
+      </>
   );
 }
 
 function SummaryPill({
-  label,
-  value,
-  onClick,
-  isActive = false,
-}: {
+                       label,
+                       value,
+                       onClick,
+                       isActive = false,
+                     }: {
   label: string;
   value: number;
   onClick?: () => void;
   isActive?: boolean;
 }) {
   return (
-    <button
-      className={`h-[68px] w-full rounded-2xl px-3 py-2 text-left ring-1 transition ${
-        isActive ? "bg-white/25 ring-white/45" : "bg-white/15 ring-white/20 hover:bg-white/20"
-      }`}
-      onClick={onClick}
-      type="button"
-    >
-      <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/65">{label}</p>
-      <p className="mt-1 text-base font-semibold text-white">{value.toLocaleString()}</p>
-    </button>
+      <button
+          className={`h-[68px] w-full rounded-2xl px-3 py-2 text-left ring-1 transition ${
+              isActive ? "bg-white/25 ring-white/45" : "bg-white/15 ring-white/20 hover:bg-white/20"
+          }`}
+          onClick={onClick}
+          type="button"
+      >
+        <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/65">{label}</p>
+        <p className="mt-1 text-base font-semibold text-white">{value.toLocaleString()}</p>
+      </button>
   );
 }

@@ -33,13 +33,16 @@ public class LeaveService {
     private final ErmLeavePolicyRepository leavePolicyRepository;
     private final ErmLeaveRequestRepository leaveRequestRepository;
     private final ErmUserRepository userRepository;
+    private final MentionNotificationService mentionNotificationService;
 
     public LeaveService(ErmLeavePolicyRepository leavePolicyRepository,
                         ErmLeaveRequestRepository leaveRequestRepository,
-                        ErmUserRepository userRepository) {
+                        ErmUserRepository userRepository,
+                        MentionNotificationService mentionNotificationService) {
         this.leavePolicyRepository = leavePolicyRepository;
         this.leaveRequestRepository = leaveRequestRepository;
         this.userRepository = userRepository;
+        this.mentionNotificationService = mentionNotificationService;
     }
 
     @Transactional(readOnly = true)
@@ -145,8 +148,16 @@ public class LeaveService {
                 : LeaveRequestStatus.REJECTED);
         leaveRequest.setApproverComment(normalizeRequired(request.comment(), "Comment is required"));
         leaveRequest.setApproverActionAt(LocalDateTime.now());
-
-        return toLeaveResponse(leaveRequestRepository.save(leaveRequest));
+        leaveRequest = leaveRequestRepository.save(leaveRequest);
+        mentionNotificationService.notifyMentions(
+                manager.getUsername(),
+                leaveRequest.getApproverComment(),
+                "LEAVE_REQUEST",
+                leaveRequest.getId(),
+                manager.getUsername() + " mentioned you on leave request #" + leaveRequest.getId(),
+                "/leaves"
+        );
+        return toLeaveResponse(leaveRequest);
     }
 
     private String normalizeRequired(String value, String message) {

@@ -9,6 +9,7 @@ import { DataTablePagination } from "@/components/erm/data-table-pagination";
 import { Spinner } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { MentionTextareaField } from "@/components/ui/mention-textarea-field";
 import {
   ApiError,
   addOnboardingRequestComment,
@@ -19,6 +20,7 @@ import {
   reInitiateOnboardingRequest,
   resubmitOnboardingRequest,
   sendOnboardingReminder,
+  searchUserMentions,
   takeOnboardingAction,
   type OnboardingDesignationOption,
   type OnboardingManagerOption,
@@ -188,6 +190,15 @@ export default function OnboardingPage() {
     return { pendingCount, closedCount };
   }, [requests]);
 
+  const mentionSearch = useCallback(
+      async (query: string) => {
+        const token = session?.accessToken ?? null;
+        if (!token) return [];
+        return searchUserMentions(token, query);
+      },
+      [session?.accessToken]
+  );
+
   const filteredRequests = useMemo(() => {
     if (trackerStatusFilter === "all") {
       return requests;
@@ -200,11 +211,11 @@ export default function OnboardingPage() {
 
   const headerTitle = activeTab === "raise" ? (editingRequestId ? "Update request" : "Create On-Boarding Request") : "Track On-Boarding Request";
   const headerDescription =
-    activeTab === "raise"
-      ? editingRequestId
-        ? "Update the details and resubmit this on-boarding request."
-        : "Fill candidate details to create a new on-boarding request."
-      : "Track request status, take actions, and review request details.";
+      activeTab === "raise"
+          ? editingRequestId
+              ? "Update the details and resubmit this on-boarding request."
+              : "Fill candidate details to create a new on-boarding request."
+          : "Track request status, take actions, and review request details.";
 
   useEffect(() => {
     if (!canCreate && activeTab === "raise") {
@@ -600,26 +611,26 @@ export default function OnboardingPage() {
               <p className="mt-1 text-sm text-white/80">{headerDescription}</p>
             </div>
             {activeTab === "tracker" ? (
-              <div className="grid w-full gap-3 sm:grid-cols-3 md:max-w-[430px]">
-                <SummaryPill
-                  label="Total requests"
-                  value={hasLoaded ? requests.length : 0}
-                  isActive={trackerStatusFilter === "all"}
-                  onClick={() => onSummaryFilterClick("all")}
-                />
-                <SummaryPill
-                  label="Pending"
-                  value={hasLoaded ? requestSummary.pendingCount : 0}
-                  isActive={trackerStatusFilter === "pending"}
-                  onClick={() => onSummaryFilterClick("pending")}
-                />
-                <SummaryPill
-                  label="Closed"
-                  value={hasLoaded ? requestSummary.closedCount : 0}
-                  isActive={trackerStatusFilter === "closed"}
-                  onClick={() => onSummaryFilterClick("closed")}
-                />
-              </div>
+                <div className="grid w-full gap-3 sm:grid-cols-3 md:max-w-[430px]">
+                  <SummaryPill
+                      label="Total requests"
+                      value={hasLoaded ? requests.length : 0}
+                      isActive={trackerStatusFilter === "all"}
+                      onClick={() => onSummaryFilterClick("all")}
+                  />
+                  <SummaryPill
+                      label="Pending"
+                      value={hasLoaded ? requestSummary.pendingCount : 0}
+                      isActive={trackerStatusFilter === "pending"}
+                      onClick={() => onSummaryFilterClick("pending")}
+                  />
+                  <SummaryPill
+                      label="Closed"
+                      value={hasLoaded ? requestSummary.closedCount : 0}
+                      isActive={trackerStatusFilter === "closed"}
+                      onClick={() => onSummaryFilterClick("closed")}
+                  />
+                </div>
             ) : null}
           </CardContent>
         </Card>
@@ -719,11 +730,12 @@ export default function OnboardingPage() {
                         value={form.educationQualification}
                         onChange={(value) => setForm((v) => ({ ...v, educationQualification: value }))}
                     />
-                    <FloatingTextarea
+                    <MentionTextareaField
                         className="md:col-span-2"
                         label="HR Comment"
-                        value={form.comment}
+                        mentionSearch={mentionSearch}
                         onChange={(value) => setForm((v) => ({ ...v, comment: value }))}
+                        value={form.comment}
                     />
                     <div className="md:col-span-2 flex justify-end">
                       <Button className="mt-1 min-w-40 gap-2" disabled={isSubmitting} type="submit">
@@ -739,9 +751,9 @@ export default function OnboardingPage() {
             <Card className="mb-6 overflow-hidden shadow-md shadow-zinc-100/80">
               <CardContent className="pt-6">
                 {!hasLoaded || isLoading ? (
-                  <div className="flex justify-center py-10">
-                    <Spinner size="md" />
-                  </div>
+                    <div className="flex justify-center py-10">
+                      <Spinner size="md" />
+                    </div>
                 ) : filteredRequests.length === 0 ? (
                     <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-600">
                       {trackerStatusFilter === "all" ? "No requests available." : "No requests available for the selected status."}
@@ -782,14 +794,14 @@ export default function OnboardingPage() {
                                   <p className="text-xs text-zinc-700">Emp ID: {request.generatedEmployeeId ?? "-"}</p>
                                   <p className="text-xs text-zinc-700">Email: {request.generatedEmailAddress ?? "-"}</p>
                                 </td>
-                               <td className="px-4 py-3 align-top">
+                                <td className="px-4 py-3 align-top">
                           <span className={`inline-flex max-w-[180px] whitespace-normal break-words rounded-full border px-2.5 py-1 text-xs font-medium leading-tight ${stageClass(request.workflowStage)}`}>
                             {request.workflowStage}
                           </span>
                                 </td>
-                               <td className="px-4 py-3 align-top">
+                                <td className="px-4 py-3 align-top">
                           <span
-                             className={`inline-flex max-w-[180px] whitespace-normal break-words rounded-full border px-2.5 py-1 text-xs font-medium leading-tight ${pendingWithClass(pendingWith(request))}`}
+                              className={`inline-flex max-w-[180px] whitespace-normal break-words rounded-full border px-2.5 py-1 text-xs font-medium leading-tight ${pendingWithClass(pendingWith(request))}`}
                           >
                             {pendingWith(request)}
                           </span>
@@ -1002,10 +1014,10 @@ export default function OnboardingPage() {
                   </div>
 
                   {viewRequest.referBackComment ? (
-                    <div className="rounded-2xl border border-violet-200 bg-violet-50 p-3 text-sm text-violet-800">
-                      <p className="text-xs font-semibold uppercase tracking-wider text-violet-600">Refer Back Comment</p>
-                      <p className="mt-1">{viewRequest.referBackComment}</p>
-                    </div>
+                      <div className="rounded-2xl border border-violet-200 bg-violet-50 p-3 text-sm text-violet-800">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-violet-600">Refer Back Comment</p>
+                        <p className="mt-1">{viewRequest.referBackComment}</p>
+                      </div>
                   ) : null}
                 </div>
               </div>
@@ -1021,11 +1033,12 @@ export default function OnboardingPage() {
                 <p className="mt-1 text-sm text-zinc-600">
                   Candidate: {selectedRequest.firstName} {selectedRequest.lastName}
                 </p>
-                <FloatingTextarea
+                <MentionTextareaField
                     className="mt-4"
                     label={actionType === "REFER_BACK" ? "Clarification / Change Comment *" : "Approval Comment *"}
-                    value={actionComment}
+                    mentionSearch={mentionSearch}
                     onChange={setActionComment}
+                    value={actionComment}
                 />
                 <div className="mt-4 flex justify-end gap-2">
                   <Button onClick={() => setSelectedRequest(null)} variant="outline">
@@ -1050,6 +1063,7 @@ export default function OnboardingPage() {
                     commentsRequest.workflowStage !== "Cancelled"
                 }
                 isSendingComment={isCommenting}
+                mentionSearch={mentionSearch}
                 onSendComment={(comment) => submitComment(comment)}
                 onClose={() => setCommentsRequest(null)}
                 subtitle={`Request #${commentsRequest.id}`}
@@ -1090,11 +1104,11 @@ function FloatingInput({
 }
 
 function SummaryPill({
-  label,
-  value,
-  onClick,
-  isActive = false,
-}: {
+                       label,
+                       value,
+                       onClick,
+                       isActive = false,
+                     }: {
   label: string;
   value: number;
   onClick?: () => void;
@@ -1102,11 +1116,11 @@ function SummaryPill({
 }) {
   return (
       <button
-        className={`w-full rounded-2xl px-3 py-2 text-left ring-1 transition ${
-          isActive ? "bg-white/25 ring-white/45" : "bg-white/15 ring-white/20 hover:bg-white/20"
-        }`}
-        onClick={onClick}
-        type="button"
+          className={`w-full rounded-2xl px-3 py-2 text-left ring-1 transition ${
+              isActive ? "bg-white/25 ring-white/45" : "bg-white/15 ring-white/20 hover:bg-white/20"
+          }`}
+          onClick={onClick}
+          type="button"
       >
         <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/65">{label}</p>
         <p className="mt-1 text-base font-semibold text-white">{value.toLocaleString()}</p>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -12,6 +12,7 @@ import {
   getSupportCatalog,
   getSupportQueueAssignees,
   getSupportTicketByNumber,
+  searchUserMentions,
   type SupportAssigneeOption,
   type SupportQueueSummary,
   type SupportTicket,
@@ -22,7 +23,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FloatingInputField, FloatingTextareaField, LabeledSelectField } from "@/components/ui/form-fields";
-import { Input } from "@/components/ui/input";
+import { MentionTextareaField } from "@/components/ui/mention-textarea-field";
+import { MentionText } from "@/components/ui/mention-text";
 import { Spinner } from "@/components/ui/spinner";
 
 const IMPACT_OPTIONS = ["Low", "Medium", "High", "Critical"] as const;
@@ -38,12 +40,47 @@ const STATUS_OPTIONS: SupportTicket["status"][] = [
   "CANCELLED",
   "SECURITY_ESCALATED",
 ];
+const NON_EDITABLE_FIELD_CLASS = "bg-zinc-100 text-zinc-700 cursor-not-allowed";
 
 function statusTone(status: SupportTicket["status"]) {
   if (["RESOLVED", "CLOSED"].includes(status)) return "border-emerald-200 bg-emerald-50 text-emerald-700";
   if (["REOPENED", "SECURITY_ESCALATED"].includes(status)) return "border-violet-200 bg-violet-50 text-violet-700";
   if (["CANCELLED"].includes(status)) return "border-rose-200 bg-rose-50 text-rose-700";
   return "border-amber-200 bg-amber-50 text-amber-700";
+}
+
+function renderCommentText(commentText: string | null) {
+  if (!commentText) {
+    return <div className="mt-1 text-zinc-500">-</div>;
+  }
+  const lines = commentText.split(/\r?\n/).filter((line) => line.trim().length > 0);
+  return (
+      <div className="mt-1 space-y-1">
+        {lines.map((line, index) => {
+          const match = line.match(/^(.+?)\s-\s(.+?)\s-->\s(.+)$/);
+          if (!match) {
+            return (
+                <div key={`${line}-${index}`} className="whitespace-pre-line text-zinc-700">
+                  <MentionText text={line} />
+                </div>
+            );
+          }
+          const [, field, fromValue, toValue] = match;
+          return (
+              <div key={`${field}-${index}`} className="flex flex-wrap items-center gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1 text-xs">
+                <span className="font-semibold text-indigo-700">{field}</span>
+                <span className="rounded bg-rose-100 px-1.5 py-0.5 text-rose-700">
+              <MentionText text={fromValue} />
+            </span>
+                <span className="text-zinc-500">--&gt;</span>
+                <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-emerald-700">
+              <MentionText text={toValue} />
+            </span>
+              </div>
+          );
+        })}
+      </div>
+  );
 }
 
 function derivePriorityPreview(
@@ -97,6 +134,14 @@ export default function SupportTicketDetailsPage() {
   const [editableUrgency, setEditableUrgency] = useState("Medium");
   const [editableStatus, setEditableStatus] = useState<SupportTicket["status"]>("ASSIGNED");
   const [canEditDetails, setCanEditDetails] = useState(false);
+  const isTicketLocked = ticket?.status === "RESOLVED" || ticket?.status === "CLOSED";
+  const mentionSearch = useCallback(
+      async (query: string) => {
+        if (!token) return [];
+        return searchUserMentions(token, query);
+      },
+      [token]
+  );
   const editablePriority = useMemo(
       () => (ticket ? derivePriorityPreview(ticket.ticketType, editableImpact, editableUrgency) : "P4"),
       [ticket, editableImpact, editableUrgency]
@@ -207,9 +252,15 @@ export default function SupportTicketDetailsPage() {
     const impactChanged = editableImpact !== ticket.impactLevel;
     const urgencyChanged = editableUrgency !== ticket.urgencyLevel;
     const statusChanged = editableStatus !== ticket.status;
+    const nonStateChanged = queueChanged || assigneeChanged || impactChanged || urgencyChanged || Boolean(normalizedClosureDetails);
 
     if (statusChanged && (editableStatus === "CLOSED" || editableStatus === "RESOLVED") && !normalizedClosureDetails) {
       toast.error("Closure details are required when state is RESOLVED or CLOSED.");
+      return;
+    }
+
+    if (isTicketLocked && nonStateChanged) {
+      toast.error("Only State can be changed when ticket is RESOLVED or CLOSED.");
       return;
     }
 
@@ -288,23 +339,23 @@ export default function SupportTicketDetailsPage() {
           <CardContent className="space-y-4 p-6">
             <div className="space-y-3">
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                <FloatingInputField label="Number" value={ticket.ticketNumber} readOnly />
-                <FloatingInputField label="Request Type" value={ticket.ticketType} readOnly />
+                <FloatingInputField label="Number" value={ticket.ticketNumber} readOnly disabled className={NON_EDITABLE_FIELD_CLASS} />
+                <FloatingInputField label="Request Type" value={ticket.ticketType} readOnly disabled className={NON_EDITABLE_FIELD_CLASS} />
               </div>
 
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                <FloatingInputField label="Category" value={`${ticket.categoryTitle} (${ticket.categoryCode})`} readOnly />
-                <FloatingInputField label="Subcategory" value={ticket.subcategoryTitle ?? ticket.subcategoryCode ?? "-"} readOnly />
+                <FloatingInputField label="Category" value={`${ticket.categoryTitle} (${ticket.categoryCode})`} readOnly disabled className={NON_EDITABLE_FIELD_CLASS} />
+                <FloatingInputField label="Subcategory" value={ticket.subcategoryTitle ?? ticket.subcategoryCode ?? "-"} readOnly disabled className={NON_EDITABLE_FIELD_CLASS} />
               </div>
 
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                <LabeledSelectField label="Assignment Group" value={editableQueueCode} onChange={(event) => setEditableQueueCode(event.target.value)} disabled={!canEditDetails}>
+                <LabeledSelectField label="Assignment Group" value={editableQueueCode} onChange={(event) => setEditableQueueCode(event.target.value)} disabled={!canEditDetails || isTicketLocked} className={!canEditDetails || isTicketLocked ? NON_EDITABLE_FIELD_CLASS : undefined}>
                   {queues.map((queue) => (
                       <option key={queue.queueId} value={queue.queueCode}>{queue.queueTitle}</option>
                   ))}
                 </LabeledSelectField>
 
-                <LabeledSelectField label="Assigned To" value={editableAssigneeUserId} onChange={(event) => setEditableAssigneeUserId(event.target.value)} disabled={!canEditDetails}>
+                <LabeledSelectField label="Assigned To" value={editableAssigneeUserId} onChange={(event) => setEditableAssigneeUserId(event.target.value)} disabled={!canEditDetails || isTicketLocked} className={!canEditDetails || isTicketLocked ? NON_EDITABLE_FIELD_CLASS : undefined}>
                   <option value="">Unassigned</option>
                   {!canEditDetails && editableAssigneeUserId ? (
                       <option value={editableAssigneeUserId}>{ticket.assigneeFullName ?? ticket.assigneeUsername}</option>
@@ -316,13 +367,13 @@ export default function SupportTicketDetailsPage() {
               </div>
 
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                <LabeledSelectField label="Impact" value={editableImpact} onChange={(event) => setEditableImpact(event.target.value)} disabled={!canEditDetails}>
+                <LabeledSelectField label="Impact" value={editableImpact} onChange={(event) => setEditableImpact(event.target.value)} disabled={!canEditDetails || isTicketLocked} className={!canEditDetails || isTicketLocked ? NON_EDITABLE_FIELD_CLASS : undefined}>
                   {IMPACT_OPTIONS.map((item) => (
                       <option key={item} value={item}>{item}</option>
                   ))}
                 </LabeledSelectField>
 
-                <LabeledSelectField label="Urgency" value={editableUrgency} onChange={(event) => setEditableUrgency(event.target.value)} disabled={!canEditDetails}>
+                <LabeledSelectField label="Urgency" value={editableUrgency} onChange={(event) => setEditableUrgency(event.target.value)} disabled={!canEditDetails || isTicketLocked} className={!canEditDetails || isTicketLocked ? NON_EDITABLE_FIELD_CLASS : undefined}>
                   {URGENCY_OPTIONS.map((item) => (
                       <option key={item} value={item}>{item}</option>
                   ))}
@@ -337,7 +388,7 @@ export default function SupportTicketDetailsPage() {
                   <option value="P4">P4</option>
                 </LabeledSelectField>
 
-                <LabeledSelectField label="State" value={editableStatus} onChange={(event) => setEditableStatus(event.target.value as SupportTicket["status"])} disabled={!canEditDetails}>
+                <LabeledSelectField label="State" value={editableStatus} onChange={(event) => setEditableStatus(event.target.value as SupportTicket["status"])} disabled={!canEditDetails} className={!canEditDetails ? NON_EDITABLE_FIELD_CLASS : undefined}>
                   {STATUS_OPTIONS.map((item) => (
                       <option key={item} value={item}>{item}</option>
                   ))}
@@ -345,20 +396,20 @@ export default function SupportTicketDetailsPage() {
               </div>
 
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                <FloatingInputField label="Requester" value={ticket.createdByUsername} readOnly />
-                <FloatingInputField label="Created On" value={new Date(ticket.createdAt).toLocaleString()} readOnly />
+                <FloatingInputField label="Requester" value={ticket.createdByUsername} readOnly disabled className={NON_EDITABLE_FIELD_CLASS} />
+                <FloatingInputField label="Created On" value={new Date(ticket.createdAt).toLocaleString()} readOnly disabled className={NON_EDITABLE_FIELD_CLASS} />
               </div>
 
-              <FloatingInputField label="Short Description" value={ticket.shortDescription} readOnly />
+              <FloatingInputField label="Short Description" value={ticket.shortDescription} readOnly disabled className={NON_EDITABLE_FIELD_CLASS} />
 
-              <FloatingTextareaField label="Description" value={ticket.description} readOnly />
+              <FloatingTextareaField label="Description" value={ticket.description} readOnly disabled className={NON_EDITABLE_FIELD_CLASS} />
 
               <FloatingTextareaField
                   label="Closure Details"
                   onChange={(event) => setClosureDetails(event.target.value)}
                   placeholder="Add closure details (saved to tracking comment on update)"
                   value={closureDetails}
-                  disabled={!canEditDetails}
+                  disabled={!canEditDetails || isTicketLocked}
               />
 
               {canEditDetails ? (
@@ -372,32 +423,43 @@ export default function SupportTicketDetailsPage() {
 
             {!canEditDetails ? (
                 <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-                  Only active members of this ticket&apos;s support group can edit Assignment Group, Assigned To, Impact, and State.
+                  Only active members of this ticket&apos;s support group can edit the ticket.
+                </div>
+            ) : isTicketLocked ? (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                  This ticket is RESOLVED/CLOSED, so only State can be changed.
                 </div>
             ) : null}
 
             <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
               <p className="text-sm font-semibold text-zinc-900">Comments</p>
-              <div className="mt-3 max-h-56 space-y-3 overflow-y-auto">
+              <div className="mt-3 flex gap-2">
+                <MentionTextareaField
+                    className="min-h-[72px]"
+                    label="Add a comment"
+                    mentionSearch={mentionSearch}
+                    onChange={setComment}
+                    value={comment}
+                    wrapperClassName="flex-1"
+                />
+                <Button disabled={isPosting || !comment.trim()} onClick={handlePostComment}>
+                  {isPosting ? "Posting..." : "Post"}
+                </Button>
+              </div>
+              <div className="mt-3 space-y-3">
                 {ticket.comments.length === 0 ? (
                     <div className="text-sm text-zinc-500">No comments yet.</div>
                 ) : (
-                    ticket.comments.map((item) => (
+                    [...ticket.comments].reverse().map((item) => (
                         <div key={item.id} className="rounded-md border border-zinc-100 bg-white p-3 text-sm">
                           <div className="flex items-center justify-between">
                             <span className="font-medium text-zinc-800">{item.actorUsername}</span>
                             <span className="text-xs text-zinc-500">{new Date(item.createdAt).toLocaleString()}</span>
                           </div>
-                          <div className="mt-1 text-zinc-700">{item.commentText}</div>
+                          {renderCommentText(item.commentText)}
                         </div>
                     ))
                 )}
-              </div>
-              <div className="mt-3 flex gap-2">
-                <Input onChange={(event) => setComment(event.target.value)} placeholder="Add a comment" value={comment} />
-                <Button disabled={isPosting || !comment.trim()} onClick={handlePostComment}>
-                  {isPosting ? "Posting..." : "Post"}
-                </Button>
               </div>
             </div>
           </CardContent>
