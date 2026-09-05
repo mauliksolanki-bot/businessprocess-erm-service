@@ -31,11 +31,12 @@ export default function LoginPage() {
 
     try {
       const response = await login({ username, password });
+      // store absolute expiry timestamp (ms since epoch) so client can detect expiration
       saveSession({
         accessToken: response.accessToken,
         username: response.username,
         roles: response.roles,
-        expiresInMs: response.expiresInMs,
+        expiresInMs: Date.now() + response.expiresInMs,
         tokenType: response.tokenType,
       });
       toast.success("Login successful");

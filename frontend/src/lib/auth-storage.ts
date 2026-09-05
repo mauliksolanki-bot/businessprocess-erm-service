@@ -19,7 +19,13 @@ export function loadSession(): SessionUser | null {
   }
 
   try {
-    return JSON.parse(raw) as SessionUser;
+    const session = JSON.parse(raw) as SessionUser;
+    // expiresInMs now stores absolute expiry timestamp (ms since epoch). If expired, clear and return null.
+    if (typeof session.expiresInMs === "number" && Date.now() > session.expiresInMs) {
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+      return null;
+    }
+    return session;
   } catch {
     localStorage.removeItem(AUTH_STORAGE_KEY);
     return null;
