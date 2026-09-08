@@ -1,9 +1,12 @@
 package com.org.erm.service;
 
+import com.org.erm.dto.response.UserAssignedProjectResponse;
 import com.org.erm.dto.response.UserProfileResponse;
 import com.org.erm.dto.response.UserMentionOptionResponse;
 import com.org.erm.model.ErmRole;
 import com.org.erm.model.ErmUser;
+import com.org.erm.model.ProjectAllocationStatus;
+import com.org.erm.repository.ErmProjectAllocationRepository;
 import com.org.erm.repository.ErmRoleRepository;
 import com.org.erm.repository.ErmUserRepository;
 import org.springframework.http.HttpStatus;
@@ -20,10 +23,14 @@ public class UserService {
 
     private final ErmUserRepository ermUserRepository;
     private final ErmRoleRepository ermRoleRepository;
+    private final ErmProjectAllocationRepository projectAllocationRepository;
 
-    public UserService(ErmUserRepository ermUserRepository, ErmRoleRepository ermRoleRepository) {
+    public UserService(ErmUserRepository ermUserRepository,
+                       ErmRoleRepository ermRoleRepository,
+                       ErmProjectAllocationRepository projectAllocationRepository) {
         this.ermUserRepository = ermUserRepository;
         this.ermRoleRepository = ermRoleRepository;
+        this.projectAllocationRepository = projectAllocationRepository;
     }
 
     public UserProfileResponse getCurrentUserProfile(String username) {
@@ -46,6 +53,17 @@ public class UserService {
                     .map(manager -> manager.getFullName() == null || manager.getFullName().isBlank() ? manager.getUsername() : manager.getFullName().trim())
                     .orElse(null);
         }
+        List<UserAssignedProjectResponse> assignedProjects = projectAllocationRepository
+                .findAllByEmployeeUserIdAndStatusOrderByUpdatedAtDesc(ermUser.getId(), ProjectAllocationStatus.ACTIVE)
+                .stream()
+                .map(allocation -> new UserAssignedProjectResponse(
+                        allocation.getId(),
+                        allocation.getProjectName(),
+                        allocation.getProjectCode(),
+                        allocation.getAllocationPercent(),
+                        allocation.getEndDate()
+                ))
+                .toList();
 
         return new UserProfileResponse(
                 ermUser.getId(),
@@ -55,7 +73,8 @@ public class UserService {
                 designation,
                 reportingManagerFullName,
                 ermUser.getReportingManagerRoleName(),
-                roleNames
+                roleNames,
+                assignedProjects
         );
     }
 

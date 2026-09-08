@@ -20,6 +20,15 @@ export type UserProfile = {
   reportingManagerFullName: string | null;
   reportingManagerRoleName: string | null;
   roles: string[];
+  assignedProjects: UserAssignedProject[];
+};
+
+export type UserAssignedProject = {
+  allocationId: number;
+  projectName: string;
+  projectCode: string;
+  allocationPercent: number;
+  allocationEndDate: string;
 };
 
 export type UserMentionOption = {
@@ -440,6 +449,82 @@ export type SelfDashboard = {
   reportingManagerFullName: string | null;
   reportingManagerRoleName: string | null;
   currentProjects: SelfProjectAssignment[];
+};
+
+export type TimesheetWorkType = "BILLABLE" | "NON_BILLABLE";
+
+export type TimesheetStatus = "PENDING_MANAGER_APPROVAL" | "APPROVED" | "REJECTED";
+
+export type TimesheetActionDecision = "APPROVE" | "REJECT";
+
+export type TimesheetEntry = {
+  id: number;
+  sortOrder: number;
+  workType: TimesheetWorkType;
+  projectAllocationId: number | null;
+  projectName: string | null;
+  projectCode: string | null;
+  taskName: string;
+  mondayHours: number;
+  tuesdayHours: number;
+  wednesdayHours: number;
+  thursdayHours: number;
+  fridayHours: number;
+  saturdayHours: number;
+  sundayHours: number;
+  totalHours: number;
+};
+
+export type TimesheetResponse = {
+  id: number;
+  timesheetCode: string;
+  employeeUserId: number;
+  employeeUsername: string;
+  employeeFullName: string;
+  reportingManagerUserId: number | null;
+  reportingManagerUsername: string | null;
+  reportingManagerFullName: string | null;
+  weekStartDate: string;
+  weekEndDate: string;
+  status: TimesheetStatus;
+  submissionComment: string | null;
+  managerActionByUsername: string | null;
+  managerActionAt: string | null;
+  managerComment: string | null;
+  totalHours: number;
+  billableHours: number;
+  nonBillableHours: number;
+  createdAt: string;
+  updatedAt: string;
+  rows: TimesheetEntry[];
+};
+
+export type TimesheetSubmitRow = {
+  workType: TimesheetWorkType;
+  projectAllocationId: number | null;
+  taskName: string;
+  mondayHours: number;
+  tuesdayHours: number;
+  wednesdayHours: number;
+  thursdayHours: number;
+  fridayHours: number;
+  saturdayHours: number;
+  sundayHours: number;
+};
+
+export type TimesheetSubmitRequest = {
+  weekStartDate: string;
+  submissionComment?: string;
+  rows: TimesheetSubmitRow[];
+};
+
+export type TimesheetActionRequest = {
+  decision: TimesheetActionDecision;
+  comment: string;
+};
+
+export type TimesheetApproverVisibilityResponse = {
+  showApproverRequests: boolean;
 };
 
 export type LeavePolicy = {
@@ -1475,6 +1560,53 @@ export async function getLeaveApproverVisibility(accessToken: string) {
       Authorization: "Bearer " + accessToken,
     },
     cache: "no-store",
+  });
+}
+
+export async function getMyTimesheets(accessToken: string) {
+  return request<TimesheetResponse[]>("/api/timesheets/my", {
+    headers: {
+      Authorization: "Bearer " + accessToken,
+    },
+    cache: "no-store",
+  });
+}
+
+export async function getTimesheetApprovals(accessToken: string) {
+  return request<TimesheetResponse[]>("/api/timesheets/approvals", {
+    headers: {
+      Authorization: "Bearer " + accessToken,
+    },
+    cache: "no-store",
+  });
+}
+
+export async function getTimesheetApproverVisibility(accessToken: string) {
+  return request<TimesheetApproverVisibilityResponse>("/api/timesheets/approver-visibility", {
+    headers: {
+      Authorization: "Bearer " + accessToken,
+    },
+    cache: "no-store",
+  });
+}
+
+export async function submitTimesheet(accessToken: string, payload: TimesheetSubmitRequest) {
+  return request<TimesheetResponse>("/api/timesheets", {
+    method: "POST",
+    headers: {
+      Authorization: "Bearer " + accessToken,
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function takeTimesheetAction(accessToken: string, timesheetId: number, payload: TimesheetActionRequest) {
+  return request<TimesheetResponse>(`/api/timesheets/${timesheetId}/actions`, {
+    method: "PATCH",
+    headers: {
+      Authorization: "Bearer " + accessToken,
+    },
+    body: JSON.stringify(payload),
   });
 }
 

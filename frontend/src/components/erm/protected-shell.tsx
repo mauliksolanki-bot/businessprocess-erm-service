@@ -87,6 +87,7 @@ export function ProtectedShell({ children }: ProtectedShellProps) {
       reportingManagerFullName: null,
       reportingManagerRoleName: null,
       roles: session.roles,
+      assignedProjects: [],
     });
   }, []);
 
@@ -462,7 +463,13 @@ export function ProtectedShell({ children }: ProtectedShellProps) {
 
   return (
       <div className="flex h-screen flex-col overflow-hidden bg-[radial-gradient(circle_at_top,#dbeafe_0,#f8fafc_42%,#f8fafc_100%)]">
-        <Topbar notificationError={notificationError} notifications={notifications} onLogout={handleLogout} user={shellUser} />
+        <Topbar
+            key={shellUser.username.toLowerCase()}
+            notificationError={notificationError}
+            notifications={notifications}
+            onLogout={handleLogout}
+            user={shellUser}
+        />
         {showBanner ? (
             <div className="flex shrink-0 items-center justify-between gap-3 bg-gradient-to-r from-violet-600 via-purple-600 to-fuchsia-600 px-4 py-2.5 text-white shadow-md">
               <div className="flex items-center gap-2 text-sm font-medium">
