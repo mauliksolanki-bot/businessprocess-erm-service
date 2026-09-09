@@ -87,6 +87,39 @@ export type RoleSummary = {
   description: string | null;
 };
 
+export type RoleConfig = {
+  id: number;
+  roleName: string;
+  roleDescription: string | null;
+  assignedUserCount: number;
+  roleNameEditable: boolean;
+};
+
+export type ReportingManagerConfig = {
+  id: number | null;
+  roleId: number;
+  designationRoleName: string;
+  reportsToRoleName: string | null;
+  sortOrder: number | null;
+  active: boolean;
+};
+
+export type OrganizationConfigResponse = {
+  roles: RoleSummary[];
+  reportingManagerConfigs: ReportingManagerConfig[];
+  roleConfigs: RoleConfig[];
+};
+
+export type ReportingManagerConfigRequest = {
+  designationRoleName: string;
+  reportsToRoleName: string;
+};
+
+export type RoleConfigRequest = {
+  roleName: string;
+  roleDescription: string;
+};
+
 export type AssignRolesResponse = {
   employee: Employee;
   createdRoleIds: number[];
@@ -854,6 +887,68 @@ export async function getAllRoles(accessToken: string) {
       Authorization: "Bearer " + accessToken,
     },
     cache: "no-store",
+  });
+}
+
+export async function getOrganizationConfigReportingManagerConfigs(accessToken: string) {
+  return request<OrganizationConfigResponse>("/api/organization-config/reporting-manager-configs", {
+    headers: {
+      Authorization: "Bearer " + accessToken,
+    },
+    cache: "no-store",
+  });
+}
+
+export async function createReportingManagerConfig(accessToken: string, payload: ReportingManagerConfigRequest) {
+  return request<ReportingManagerConfig>("/api/organization-config/reporting-manager-configs", {
+    method: "POST",
+    headers: {
+      Authorization: "Bearer " + accessToken,
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateReportingManagerConfig(
+    accessToken: string,
+    configId: number,
+    payload: ReportingManagerConfigRequest
+) {
+  return request<ReportingManagerConfig>(`/api/organization-config/reporting-manager-configs/${configId}`, {
+    method: "PUT",
+    headers: {
+      Authorization: "Bearer " + accessToken,
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function getOrganizationRoleConfig(accessToken: string, roleId: number) {
+  return request<RoleConfig>(`/api/organization-config/roles/${roleId}`, {
+    headers: {
+      Authorization: "Bearer " + accessToken,
+    },
+    cache: "no-store",
+  });
+}
+
+export async function createOrganizationRoleConfig(accessToken: string, payload: RoleConfigRequest) {
+  return request<RoleConfig>("/api/organization-config/roles", {
+    method: "POST",
+    headers: {
+      Authorization: "Bearer " + accessToken,
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateOrganizationRoleConfig(accessToken: string, roleId: number, payload: RoleConfigRequest) {
+  return request<RoleConfig>(`/api/organization-config/roles/${roleId}`, {
+    method: "PUT",
+    headers: {
+      Authorization: "Bearer " + accessToken,
+    },
+    body: JSON.stringify(payload),
   });
 }
 

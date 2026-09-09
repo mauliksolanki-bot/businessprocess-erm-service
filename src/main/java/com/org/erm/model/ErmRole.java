@@ -25,6 +25,9 @@ public class ErmRole {
     @Column(name = "ROLE_DESCRIPTION", length = 255)
     private String description;
 
+    @Column(name = "IS_SYSTEM", nullable = false)
+    private boolean system;
+
     @CreationTimestamp
     @Column(name = "CREATED_AT", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -47,6 +50,14 @@ public class ErmRole {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public boolean isSystem() {
+        return system;
+    }
+
+    public void setSystem(boolean system) {
+        this.system = system;
     }
 
     public LocalDateTime getCreatedAt() {

@@ -1,0 +1,16 @@
+UPDATE ERM_NAV_MENUS
+SET MENU_TITLE = 'Organization Configuration'
+WHERE MENU_CODE = 'settings';
+
+DELETE rnm
+FROM ERM_ROLE_NAV_MENUS rnm
+JOIN ERM_ROLES r ON r.ID = rnm.ROLE_ID
+JOIN ERM_NAV_MENUS m ON m.ID = rnm.MENU_ID
+WHERE m.MENU_CODE = 'settings'
+  AND r.ROLE_NAME NOT IN ('Super Admin', 'Admin');
+
+INSERT IGNORE INTO ERM_ROLE_NAV_MENUS (ROLE_ID, MENU_ID)
+SELECT r.ID, m.ID
+FROM ERM_ROLES r
+         JOIN ERM_NAV_MENUS m ON m.MENU_CODE = 'settings'
+WHERE r.ROLE_NAME IN ('Super Admin', 'Admin');

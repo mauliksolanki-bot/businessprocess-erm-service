@@ -37,6 +37,10 @@ public interface ErmUserRepository extends JpaRepository<ErmUser, Long> {
 
     List<ErmUser> findAllByReportingManagerUserIdOrderByFullNameAsc(Long reportingManagerUserId);
 
+    List<ErmUser> findAllByReportingManagerRoleNameIgnoreCase(String reportingManagerRoleName);
+
+    long countDistinctByRoles_Id(Long roleId);
+
     @Query("""
             SELECT DISTINCT u
             FROM ErmUser u

@@ -10,5 +10,7 @@ public interface ErmRoleRepository extends JpaRepository<ErmRole, Long> {
 
     Optional<ErmRole> findByNameIgnoreCase(String name);
 
+    boolean existsByNameIgnoreCase(String name);
+
     List<ErmRole> findAllByOrderByNameAsc();
 }

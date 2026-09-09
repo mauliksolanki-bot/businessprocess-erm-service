@@ -11,4 +11,9 @@ public interface ErmDesignationHierarchyRepository extends JpaRepository<ErmDesi
     List<ErmDesignationHierarchy> findAllByActiveTrueOrderBySortOrderAscDesignationRoleNameAsc();
 
     Optional<ErmDesignationHierarchy> findByDesignationRoleNameIgnoreCaseAndActiveTrue(String designationRoleName);
+
+    List<ErmDesignationHierarchy> findAllByDesignationRoleNameIgnoreCaseOrReportsToRoleNameIgnoreCase(
+            String designationRoleName,
+            String reportsToRoleName
+    );
 }
