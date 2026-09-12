@@ -8,7 +8,7 @@ import { CommentsConversationModal } from "@/components/erm/comments-conversatio
 import { DataTablePagination } from "@/components/erm/data-table-pagination";
 import { Spinner } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { MentionTextareaField } from "@/components/ui/mention-textarea-field";
 import {
   ApiError,
@@ -938,9 +938,16 @@ export default function OnboardingPage() {
         )}
 
         {viewRequest ? (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
-              <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-3xl border border-zinc-200 bg-white shadow-2xl shadow-slate-300/40">
-                <div className="border-b border-zinc-200 bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 px-6 py-5 text-white">
+            <div
+                className="fixed inset-0 z-50 flex items-stretch justify-end bg-slate-950/45 backdrop-blur-sm"
+                onClick={(event) => {
+                  if (event.target === event.currentTarget) {
+                    setViewRequest(null);
+                  }
+                }}
+            >
+              <div className="ml-auto flex h-full w-full max-w-4xl flex-col overflow-hidden border-l border-white/50 bg-white shadow-2xl shadow-slate-300/40">
+                <div className="border-b border-zinc-200 bg-linear-to-r from-indigo-600 via-violet-600 to-fuchsia-600 px-6 py-5 text-white">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <h3 className="flex items-center gap-2 text-xl font-semibold">
@@ -961,7 +968,7 @@ export default function OnboardingPage() {
                   </div>
                 </div>
 
-                <div className="space-y-4 p-6">
+                <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-6">
                   <div className="grid gap-3 md:grid-cols-2">
                     <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 text-sm text-zinc-700">
                       <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Requester</p>
@@ -1025,22 +1032,40 @@ export default function OnboardingPage() {
         ) : null}
 
         {selectedRequest ? (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
-              <div className="w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-5 shadow-xl">
-                <h3 className="text-lg font-semibold text-zinc-900">
-                  {actionType === "APPROVE" ? "Approve request" : actionType === "REJECT" ? "Reject request" : "Refer back request"} #{selectedRequest.id}
-                </h3>
-                <p className="mt-1 text-sm text-zinc-600">
-                  Candidate: {selectedRequest.firstName} {selectedRequest.lastName}
-                </p>
-                <MentionTextareaField
-                    className="mt-4"
-                    label={actionType === "REFER_BACK" ? "Clarification / Change Comment *" : "Approval Comment *"}
-                    mentionSearch={mentionSearch}
-                    onChange={setActionComment}
-                    value={actionComment}
-                />
-                <div className="mt-4 flex justify-end gap-2">
+            <div
+                className="fixed inset-0 z-50 flex items-stretch justify-end bg-slate-950/45 backdrop-blur-sm"
+                onClick={(event) => {
+                  if (event.target === event.currentTarget) {
+                    setSelectedRequest(null);
+                  }
+                }}
+            >
+              <div className="ml-auto flex h-full w-full max-w-2xl flex-col overflow-hidden border-l border-white/50 bg-white shadow-2xl shadow-slate-300/40">
+                <div className="border-b border-zinc-200 bg-linear-to-r from-indigo-600 via-violet-600 to-fuchsia-600 px-6 py-5 text-white">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-xl font-semibold text-white">
+                        {actionType === "APPROVE" ? "Approve request" : actionType === "REJECT" ? "Reject request" : "Refer back request"} #{selectedRequest.id}
+                      </h3>
+                      <p className="mt-1 text-sm text-indigo-100">
+                        Candidate: {selectedRequest.firstName} {selectedRequest.lastName}
+                      </p>
+                    </div>
+                    <Button className="border-white/30 bg-white/10 text-white hover:bg-white/20" onClick={() => setSelectedRequest(null)} variant="outline">
+                      Close
+                    </Button>
+                  </div>
+                </div>
+                <div className="min-h-0 flex-1 overflow-y-auto p-6">
+                  <MentionTextareaField
+                      className="min-h-35"
+                      label={actionType === "REFER_BACK" ? "Clarification / Change Comment *" : "Approval Comment *"}
+                      mentionSearch={mentionSearch}
+                      onChange={setActionComment}
+                      value={actionComment}
+                  />
+                </div>
+                <div className="flex items-center justify-end gap-2 border-t border-zinc-200 px-6 py-4">
                   <Button onClick={() => setSelectedRequest(null)} variant="outline">
                     Cancel
                   </Button>
@@ -1063,9 +1088,9 @@ export default function OnboardingPage() {
                     commentsRequest.workflowStage !== "Cancelled"
                 }
                 isSendingComment={isCommenting}
-                mentionSearch={mentionSearch}
-                onSendComment={(comment) => submitComment(comment)}
-                onClose={() => setCommentsRequest(null)}
+                mentionSearchAction={mentionSearch}
+                onSendCommentAction={(comment) => submitComment(comment)}
+                onCloseAction={() => setCommentsRequest(null)}
                 subtitle={`Request #${commentsRequest.id}`}
                 title={`Comments: ${commentsRequest.firstName} ${commentsRequest.lastName}`}
             />
