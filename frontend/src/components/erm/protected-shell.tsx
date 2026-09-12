@@ -87,6 +87,7 @@ export function ProtectedShell({ children }: ProtectedShellProps) {
       reportingManagerFullName: null,
       reportingManagerRoleName: null,
       roles: session.roles,
+      currentProjects: [],
     });
   }, []);
 
