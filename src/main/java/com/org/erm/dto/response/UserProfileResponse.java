@@ -10,6 +10,7 @@ public record UserProfileResponse(
         String designation,
         String reportingManagerFullName,
         String reportingManagerRoleName,
-        List<String> roles
+        List<String> roles,
+        List<SelfProjectAssignmentResponse> currentProjects
 ) {
 }

@@ -20,6 +20,7 @@ export type UserProfile = {
   reportingManagerFullName: string | null;
   reportingManagerRoleName: string | null;
   roles: string[];
+  currentProjects: SelfProjectAssignment[];
 };
 
 export type UserMentionOption = {
