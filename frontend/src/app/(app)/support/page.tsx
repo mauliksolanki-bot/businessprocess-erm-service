@@ -106,7 +106,7 @@ export default function SupportPage() {
         subtitle: "You can track your tickets here.",
       };
 
-  const loadTickets = async () => {
+  const loadTickets = useCallback(async () => {
     if (!token) return;
     setIsLoading(true);
     try {
@@ -126,12 +126,14 @@ export default function SupportPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [canViewAssignedTickets, token]);
 
   useEffect(() => {
-    void loadTickets();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canViewAssignedTickets]);
+    const timer = window.setTimeout(() => {
+      void loadTickets();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [loadTickets]);
 
   const refreshMine = async () => {
     if (!token) return;
@@ -358,8 +360,15 @@ export default function SupportPage() {
         </Card>
 
         {selectedTicket ? (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
-              <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-3xl border border-zinc-200 bg-white shadow-2xl shadow-slate-300/40">
+            <div
+                className="fixed inset-0 z-50 flex items-stretch justify-end bg-slate-950/45 backdrop-blur-sm"
+                onClick={(event) => {
+                  if (event.target === event.currentTarget) {
+                    setSelectedTicket(null);
+                  }
+                }}
+            >
+              <div className="ml-auto flex h-full w-full max-w-4xl flex-col overflow-hidden border-l border-white/50 bg-white shadow-2xl shadow-slate-300/40">
                 <div className="border-b border-zinc-200 bg-linear-to-r from-indigo-600 via-violet-600 to-fuchsia-600 px-6 py-5 text-white">
                   <div className="flex items-start justify-between gap-3">
                     <div>
@@ -378,93 +387,92 @@ export default function SupportPage() {
                   </div>
                 </div>
 
-                <div className="space-y-4 p-6">
-                  <div className="grid gap-3 md:grid-cols-2">
-                    <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 text-sm text-zinc-700">
-                      <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Ticket Number</p>
-                      <p className="mt-1 font-medium text-zinc-900">{selectedTicket.ticketNumber}</p>
+                <div className="min-h-0 flex-1 overflow-y-auto p-6">
+                  <div className="space-y-4">
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 text-sm text-zinc-700">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Ticket Number</p>
+                        <p className="mt-1 font-medium text-zinc-900">{selectedTicket.ticketNumber}</p>
+                      </div>
+                      <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 text-sm text-zinc-700">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Type</p>
+                        <p className="mt-1 font-medium text-zinc-900">{selectedTicket.ticketType}</p>
+                      </div>
+                      <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 text-sm text-zinc-700">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Category</p>
+                        <p className="mt-1 font-medium text-zinc-900">{selectedTicket.categoryTitle} ({selectedTicket.categoryCode})</p>
+                      </div>
+                      <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 text-sm text-zinc-700">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Subcategory</p>
+                        <p className="mt-1 font-medium text-zinc-900">{selectedTicket.subcategoryTitle ?? selectedTicket.subcategoryCode ?? "-"}</p>
+                      </div>
+                      <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 text-sm text-zinc-700">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Impact / Urgency</p>
+                        <p className="mt-1 font-medium text-zinc-900">{selectedTicket.impactLevel} / {selectedTicket.urgencyLevel}</p>
+                      </div>
+                      <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 text-sm text-zinc-700">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Priority</p>
+                        <p className="mt-1 font-medium text-zinc-900">{selectedTicket.priorityCode}</p>
+                      </div>
+                      <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 text-sm text-zinc-700">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Queue</p>
+                        <p className="mt-1 font-medium text-zinc-900">{selectedTicket.queueTitle ?? selectedTicket.queueCode ?? "-"}</p>
+                      </div>
+                      <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 text-sm text-zinc-700">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Source</p>
+                        <p className="mt-1 font-medium text-zinc-900">{selectedTicket.source}</p>
+                      </div>
+                      <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 text-sm text-zinc-700">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Requester</p>
+                        <p className="mt-1 font-medium text-zinc-900">{selectedTicket.createdByUsername}</p>
+                      </div>
+                      <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 text-sm text-zinc-700">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Assignee</p>
+                        <p className="mt-1 font-medium text-zinc-900">{selectedTicket.assigneeFullName ?? selectedTicket.assigneeUsername ?? "Unassigned"}</p>
+                      </div>
+                      <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 text-sm text-zinc-700">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Created</p>
+                        <p className="mt-1 font-medium text-zinc-900">{new Date(selectedTicket.createdAt).toLocaleString()}</p>
+                      </div>
+                      <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 text-sm text-zinc-700">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Updated</p>
+                        <p className="mt-1 font-medium text-zinc-900">{new Date(selectedTicket.updatedAt).toLocaleString()}</p>
+                      </div>
                     </div>
-                    <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 text-sm text-zinc-700">
-                      <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Type</p>
-                      <p className="mt-1 font-medium text-zinc-900">{selectedTicket.ticketType}</p>
-                    </div>
-                    <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 text-sm text-zinc-700">
-                      <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Category</p>
-                      <p className="mt-1 font-medium text-zinc-900">{selectedTicket.categoryTitle} ({selectedTicket.categoryCode})</p>
-                    </div>
-                    <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 text-sm text-zinc-700">
-                      <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Subcategory</p>
-                      <p className="mt-1 font-medium text-zinc-900">{selectedTicket.subcategoryTitle ?? selectedTicket.subcategoryCode ?? "-"}</p>
-                    </div>
-                    <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 text-sm text-zinc-700">
-                      <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Impact / Urgency</p>
-                      <p className="mt-1 font-medium text-zinc-900">{selectedTicket.impactLevel} / {selectedTicket.urgencyLevel}</p>
-                    </div>
-                    <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 text-sm text-zinc-700">
-                      <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Priority</p>
-                      <p className="mt-1 font-medium text-zinc-900">{selectedTicket.priorityCode}</p>
-                    </div>
-                    <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 text-sm text-zinc-700">
-                      <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Queue</p>
-                      <p className="mt-1 font-medium text-zinc-900">{selectedTicket.queueTitle ?? selectedTicket.queueCode ?? "-"}</p>
-                    </div>
-                    <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 text-sm text-zinc-700">
-                      <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Source</p>
-                      <p className="mt-1 font-medium text-zinc-900">{selectedTicket.source}</p>
-                    </div>
-                    <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 text-sm text-zinc-700">
-                      <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Requester</p>
-                      <p className="mt-1 font-medium text-zinc-900">{selectedTicket.createdByUsername}</p>
-                    </div>
-                    <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 text-sm text-zinc-700">
-                      <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Assignee</p>
-                      <p className="mt-1 font-medium text-zinc-900">{selectedTicket.assigneeFullName ?? selectedTicket.assigneeUsername ?? "Unassigned"}</p>
-                    </div>
-                    <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 text-sm text-zinc-700">
-                      <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Created</p>
-                      <p className="mt-1 font-medium text-zinc-900">{new Date(selectedTicket.createdAt).toLocaleString()}</p>
-                    </div>
-                    <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 text-sm text-zinc-700">
-                      <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Updated</p>
-                      <p className="mt-1 font-medium text-zinc-900">{new Date(selectedTicket.updatedAt).toLocaleString()}</p>
-                    </div>
-                  </div>
 
-                  <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-700">
-                    <p className="font-semibold text-zinc-900">Description</p>
-                    <p className="mt-1 whitespace-pre-wrap">{selectedTicket.description}</p>
-                  </div>
-                  <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-700">
-                    <p className="font-semibold text-zinc-900">Comments</p>
-                    <div className="mt-2 max-h-112 space-y-3 overflow-y-auto">
-                      {selectedTicket.comments.length === 0 ? (
-                          <div className="text-sm text-zinc-500">No comments yet.</div>
-                      ) : (
-                          selectedTicket.comments.map((item) => (
-                              <div key={item.id} className="rounded-md border border-zinc-100 bg-white p-3 text-sm">
-                                <div className="flex items-center justify-between">
-                                  <div className="font-medium text-zinc-700">{item.actorUsername}</div>
-                                  <div className="text-xs text-zinc-500">{new Date(item.createdAt).toLocaleString()}</div>
+                    <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-700">
+                      <p className="font-semibold text-zinc-900">Description</p>
+                      <p className="mt-1 whitespace-pre-wrap">{selectedTicket.description}</p>
+                    </div>
+                    <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-700">
+                      <p className="font-semibold text-zinc-900">Comments</p>
+                      <div className="mt-2 max-h-112 space-y-3 overflow-y-auto">
+                        {selectedTicket.comments.length === 0 ? (
+                            <div className="text-sm text-zinc-500">No comments yet.</div>
+                        ) : (
+                            selectedTicket.comments.map((item) => (
+                                <div key={item.id} className="rounded-md border border-zinc-100 bg-white p-3 text-sm">
+                                  <div className="flex items-center justify-between">
+                                    <div className="font-medium text-zinc-700">{item.actorUsername}</div>
+                                    <div className="text-xs text-zinc-500">{new Date(item.createdAt).toLocaleString()}</div>
+                                  </div>
+                                  {renderCommentText(item.commentText)}
                                 </div>
-                                {renderCommentText(item.commentText)}
-                              </div>
-                          ))
-                      )}
+                            ))
+                        )}
+                      </div>
+                      <div className="mt-3 flex gap-2">
+                        <MentionTextareaField
+                            className="min-h-[72px]"
+                            label="Add a comment"
+                            mentionSearch={mentionSearch}
+                            onChange={setComment}
+                            value={comment}
+                            wrapperClassName="flex-1"
+                        />
+                        <Button onClick={handleComment} disabled={!comment.trim()}>Post</Button>
+                      </div>
                     </div>
-                    <div className="mt-3 flex gap-2">
-                      <MentionTextareaField
-                          className="min-h-[72px]"
-                          label="Add a comment"
-                          mentionSearch={mentionSearch}
-                          onChange={setComment}
-                          value={comment}
-                          wrapperClassName="flex-1"
-                      />
-                      <Button onClick={handleComment} disabled={!comment.trim()}>Post</Button>
-                    </div>
-                  </div>
-                  <div className="mt-4 flex justify-end gap-2">
-                    <Button variant="outline" onClick={() => setSelectedTicket(null)}>Close</Button>
                   </div>
                 </div>
               </div>
