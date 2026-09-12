@@ -11,6 +11,7 @@ import {
   ApiError,
   getSupportCatalog,
   getSupportQueueAssignees,
+  getSupportWorkbenchQueues,
   getSupportTicketByNumber,
   type SupportAssigneeOption,
   type SupportQueueSummary,
@@ -48,7 +49,6 @@ export default function SupportTicketDetailsPage() {
   const params = useParams<{ ticketNumber: string }>();
   const session = useMemo(() => loadSession(), []);
   const token = session?.accessToken ?? null;
-  const username = (session?.username ?? "").trim().toLowerCase();
   const ticketNumber = decodeURIComponent(params?.ticketNumber ?? "");
 
   const [ticket, setTicket] = useState<SupportTicket | null>(null);
@@ -114,15 +114,15 @@ export default function SupportTicketDetailsPage() {
         return;
       }
       try {
-        const queueMembers = await getSupportQueueAssignees(token, ticket.queueCode);
-        const isMember = queueMembers.some((member) => member.username.trim().toLowerCase() === username);
+        const queues = await getSupportWorkbenchQueues(token);
+        const isMember = queues.some((queue) => queue.queueCode.trim().toLowerCase() === ticket.queueCode.trim().toLowerCase());
         setCanEditDetails(isMember);
       } catch {
         setCanEditDetails(false);
       }
     };
     void evaluateEditAccess();
-  }, [token, ticket?.queueCode, username]);
+  }, [token, ticket?.queueCode]);
 
   useEffect(() => {
     const loadAssignees = async () => {
