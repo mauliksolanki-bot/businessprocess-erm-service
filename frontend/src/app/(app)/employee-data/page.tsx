@@ -394,8 +394,15 @@ export default function EmployeeDataPage() {
         </Card>
 
         {viewChangesRequest ? (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
-              <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-3xl border border-zinc-200 bg-white shadow-2xl shadow-slate-300/40">
+            <div
+                className="fixed inset-0 z-50 flex items-stretch justify-end bg-slate-950/45 backdrop-blur-sm"
+                onClick={(event) => {
+                  if (event.target === event.currentTarget) {
+                    setViewChangesRequest(null);
+                  }
+                }}
+            >
+              <div className="ml-auto flex h-full w-full max-w-4xl flex-col overflow-hidden border-l border-white/50 bg-white shadow-2xl shadow-slate-300/40">
                 <div className="border-b border-zinc-200 bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-600 px-6 py-5 text-white">
                   <div className="flex items-start justify-between gap-3">
                     <div>
@@ -421,7 +428,7 @@ export default function EmployeeDataPage() {
                   </div>
                 </div>
 
-                <div className="space-y-4 p-6">
+                <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-6">
                   {buildRequestedChanges(viewChangesRequest).length === 0 ? (
                       <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-600">
                         No field changes detected for this request.
@@ -457,23 +464,44 @@ export default function EmployeeDataPage() {
         ) : null}
 
         {selectedRequest ? (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
-              <div className="w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-5 shadow-xl">
-                <h3 className="text-lg font-semibold text-zinc-900">
-                  {actionType === "APPROVE"
-                      ? "Approve request"
-                      : actionType === "REJECT"
-                          ? "Reject request"
-                          : "Cancel request"} #{selectedRequest.id}
-                </h3>
-                <MentionTextareaField
-                    className="mt-4"
-                    label={actionType === "CANCEL" ? "Cancellation Comment" : "Approval Comment *"}
-                    mentionSearch={mentionSearch}
-                    onChange={setActionComment}
-                    value={actionComment}
-                />
-                <div className="mt-4 flex justify-end gap-2">
+            <div
+                className="fixed inset-0 z-50 flex items-stretch justify-end bg-slate-950/45 backdrop-blur-sm"
+                onClick={(event) => {
+                  if (event.target === event.currentTarget) {
+                    setSelectedRequest(null);
+                  }
+                }}
+            >
+              <div className="ml-auto flex h-full w-full max-w-2xl flex-col overflow-hidden border-l border-white/50 bg-white shadow-2xl shadow-slate-300/40">
+                <div className="border-b border-zinc-200 bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-600 px-6 py-5 text-white">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-xl font-semibold text-white">
+                        {actionType === "APPROVE"
+                            ? "Approve request"
+                            : actionType === "REJECT"
+                                ? "Reject request"
+                                : "Cancel request"} #{selectedRequest.id}
+                      </h3>
+                      <p className="mt-1 text-sm text-indigo-100">
+                        {selectedRequest.currentFullName} ({selectedRequest.employeeUsername})
+                      </p>
+                    </div>
+                    <Button className="border-white/30 bg-white/10 text-white hover:bg-white/20" onClick={() => setSelectedRequest(null)} variant="outline">
+                      Close
+                    </Button>
+                  </div>
+                </div>
+                <div className="min-h-0 flex-1 overflow-y-auto p-6">
+                  <MentionTextareaField
+                      className="min-h-[140px]"
+                      label={actionType === "CANCEL" ? "Cancellation Comment" : "Approval Comment *"}
+                      mentionSearch={mentionSearch}
+                      onChange={setActionComment}
+                      value={actionComment}
+                  />
+                </div>
+                <div className="flex items-center justify-end gap-2 border-t border-zinc-200 px-6 py-4">
                   <Button onClick={() => setSelectedRequest(null)} variant="outline">
                     Cancel
                   </Button>
@@ -495,9 +523,9 @@ export default function EmployeeDataPage() {
                     commentsRequest.workflowStage !== "Cancelled"
                 }
                 isSendingComment={isCommenting}
-                mentionSearch={mentionSearch}
-                onSendComment={(comment) => submitComment(comment)}
-                onClose={() => setCommentsRequest(null)}
+                mentionSearchAction={mentionSearch}
+                onSendCommentAction={(comment) => submitComment(comment)}
+                onCloseAction={() => setCommentsRequest(null)}
                 subtitle={`Request #${commentsRequest.id}`}
                 title={`Comments: ${commentsRequest.currentFullName}`}
             />

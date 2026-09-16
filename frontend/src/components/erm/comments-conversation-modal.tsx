@@ -14,9 +14,9 @@ type CommentsConversationModalProps = {
   items: OnboardingApprovalTrailItem[];
   canSendComment?: boolean;
   isSendingComment?: boolean;
-  onSendComment?: (comment: string) => Promise<void>;
-  mentionSearch?: (query: string) => Promise<UserMentionOption[]>;
-  onClose: () => void;
+  onSendCommentAction?: (comment: string) => Promise<void>;
+  mentionSearchAction?: (query: string) => Promise<UserMentionOption[]>;
+  onCloseAction: () => void;
 };
 
 function decisionClasses(decision: string) {
@@ -59,31 +59,38 @@ export function CommentsConversationModal({
                                             items,
                                             canSendComment = false,
                                             isSendingComment = false,
-                                            onSendComment,
-                                            mentionSearch,
-                                            onClose,
+                                            onSendCommentAction,
+                                            mentionSearchAction,
+                                            onCloseAction,
                                           }: CommentsConversationModalProps) {
   const [comment, setComment] = useState("");
 
   async function handleSend() {
     const trimmed = comment.trim();
-    if (!trimmed || !onSendComment) {
+    if (!trimmed || !onSendCommentAction) {
       return;
     }
-    await onSendComment(trimmed);
+    await onSendCommentAction(trimmed);
     setComment("");
   }
 
   return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
-        <div className="flex max-h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-zinc-200 bg-white shadow-2xl shadow-slate-200/70">
-          <div className="border-b border-zinc-200 bg-gradient-to-r from-slate-50 via-white to-blue-50 px-5 py-4">
+      <div
+          className="fixed inset-0 z-50 flex items-stretch justify-end bg-slate-950/45 backdrop-blur-sm"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              onCloseAction();
+            }
+          }}
+      >
+        <div className="ml-auto flex h-full w-full max-w-3xl flex-col overflow-hidden border-l border-white/50 bg-white shadow-2xl shadow-slate-200/70">
+          <div className="border-b border-zinc-200 bg-linear-to-r from-slate-50 via-white to-blue-50 px-5 py-4">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h3 className="text-lg font-semibold text-zinc-900">{title}</h3>
                 <p className="text-sm text-zinc-600">{subtitle}</p>
               </div>
-              <Button onClick={onClose} variant="outline">
+              <Button className="border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50" onClick={onCloseAction} variant="outline">
                 Close
               </Button>
             </div>
@@ -100,7 +107,7 @@ export function CommentsConversationModal({
                     const styles = decisionClasses(item.decision);
                     return (
                         <div
-                            className={`rounded-2xl border border-zinc-200 border-l-4 bg-gradient-to-r ${styles.glow} p-4 shadow-sm`}
+                            className={`rounded-2xl border border-zinc-200 border-l-4 bg-linear-to-r ${styles.glow} p-4 shadow-sm`}
                             key={`${item.actor}-${item.actionAt ?? "na"}-${index}`}
                         >
                           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -125,12 +132,12 @@ export function CommentsConversationModal({
             )}
           </div>
 
-          {canSendComment && onSendComment ? (
+          {canSendComment && onSendCommentAction ? (
               <div className="border-t border-zinc-200 bg-white px-5 py-4">
                 <div className="flex items-end gap-3">
                   <MentionTextareaField
-                      mentionSearch={mentionSearch}
-                      className="min-h-[72px] flex-1"
+                      mentionSearch={mentionSearchAction}
+                      className="min-h-18 flex-1"
                       label="Write a comment"
                       onChange={setComment}
                       value={comment}
@@ -138,7 +145,7 @@ export function CommentsConversationModal({
                   />
                   <Button
                       aria-label="Send comment"
-                      className="h-11 w-11 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 p-0 text-white hover:from-blue-500 hover:to-indigo-500"
+                      className="h-11 w-11 rounded-full bg-linear-to-r from-blue-600 to-indigo-600 p-0 text-white hover:from-blue-500 hover:to-indigo-500"
                       disabled={isSendingComment || !comment.trim()}
                       onClick={() => void handleSend()}
                       type="button"
