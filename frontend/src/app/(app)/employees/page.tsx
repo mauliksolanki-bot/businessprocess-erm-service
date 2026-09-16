@@ -154,13 +154,13 @@ export default function EmployeesPage() {
 
     try {
       const promises: [Promise<Employee>, Promise<OnboardingDesignationOption[]>?] = [getEmployeeById(accessToken, employeeId)];
-    if (mode === "edit" && hasSeniorHrRole) {
+      if (mode === "edit" && hasSeniorHrRole) {
         promises.push(getOnboardingDesignationOptions(accessToken));
       }
       const [employee, designations] = await Promise.all(promises);
       setDialogEmployee(employee);
 
-    if (mode === "edit" && hasSeniorHrRole) {
+      if (mode === "edit" && hasSeniorHrRole) {
         // Check for pending request before allowing edit
         const { hasPendingRequest: pending } = await checkPendingProfileUpdateRequest(accessToken, employeeId);
         setHasPendingRequest(pending);
@@ -270,8 +270,8 @@ export default function EmployeesPage() {
     try {
       if (hasSeniorHrRole) {
         const requiresReassignment =
-          dialogEmployee &&
-          getEmployeeDesignation(dialogEmployee).toLowerCase() !== payload.designationRoleName.trim().toLowerCase();
+            dialogEmployee &&
+            getEmployeeDesignation(dialogEmployee).toLowerCase() !== payload.designationRoleName.trim().toLowerCase();
         if (!payload.designationRoleName.trim()) {
           toast.error("Please select designation.");
           return;
@@ -295,8 +295,8 @@ export default function EmployeesPage() {
           designationRoleName: payload.designationRoleName,
           reportingManagerUserId: Number(payload.reportingManagerUserId),
           replacementTeamLeadUserId: payload.replacementTeamLeadUserId
-            ? Number(payload.replacementTeamLeadUserId)
-            : undefined,
+              ? Number(payload.replacementTeamLeadUserId)
+              : undefined,
         });
         toast.success("Update request submitted for approval.");
       } else {
@@ -351,211 +351,218 @@ export default function EmployeesPage() {
   }, []);
 
   return (
-    <>
-      <Card className="mb-6 overflow-hidden border-blue-100 shadow-md shadow-blue-100/40">
-        <CardHeader className="flex min-h-[152px] flex-col gap-3 rounded-t-2xl bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-600 px-5 py-4 text-white sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0">
-            <CardTitle className="flex items-center gap-2 text-white">
-              <Sparkles className="h-5 w-5" />
-              Employees
-            </CardTitle>
-            <CardDescription className="text-indigo-100">Search employee records, inspect details, and update data in the same premium workflow style.</CardDescription>
-          </div>
-          <div className="grid w-full gap-3 sm:grid-cols-2 md:max-w-[360px]">
-            <SummaryPill label="Visible employees" value={totalElements} />
-            <SummaryPill label="Current page" value={page + 1} />
-          </div>
-        </CardHeader>
-        <CardContent className="pt-6">
-          <form className="mb-3 grid gap-3 rounded-2xl border border-blue-100 bg-gradient-to-r from-blue-50 via-indigo-50 to-cyan-50 p-4 md:grid-cols-5" onSubmit={handleSearch}>
-            <FloatingInputField
-              label="Employee Name"
-              onChange={(event) => setFilters((value) => ({ ...value, employeeName: event.target.value }))}
-              value={filters.employeeName}
-            />
-            <FloatingInputField label="Role" onChange={(event) => setFilters((value) => ({ ...value, role: event.target.value }))} value={filters.role} />
-            <FloatingInputField
-              label="Department"
-              onChange={(event) => setFilters((value) => ({ ...value, department: event.target.value }))}
-              value={filters.department}
-            />
-            <LabeledSelectField
-              label="Status"
-              onChange={(event) => setFilters((value) => ({ ...value, status: event.target.value }))}
-              value={filters.status}
-            >
-              <option value="">Any status</option>
-              <option value="Active">Active</option>
-              <option value="Inactive">Inactive</option>
-            </LabeledSelectField>
-            <div className="flex gap-2">
-              <Button className="gap-2" type="submit" variant="secondary">
-                <Search className="h-4 w-4" />
-                Search
-              </Button>
-              <Button
-                onClick={() => {
-                  setFilters(initialFilters);
-                  setHasSearched(true);
-                  setIsLoading(true);
-                  setPage(0);
-                  void fetchEmployees(initialFilters, 0, pageSize);
-                }}
-                type="button"
-                variant="outline"
+      <>
+        <Card className="mb-6 overflow-hidden border-blue-100 shadow-md shadow-blue-100/40">
+          <CardHeader className="flex min-h-[152px] flex-col gap-3 rounded-t-2xl bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-600 px-5 py-4 text-white sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <CardTitle className="flex items-center gap-2 text-white">
+                <Sparkles className="h-5 w-5" />
+                Employees
+              </CardTitle>
+              <CardDescription className="text-indigo-100">Search employee records, inspect details, and update data in the same premium workflow style.</CardDescription>
+            </div>
+            <div className="grid w-full gap-3 sm:grid-cols-2 md:max-w-[360px]">
+              <SummaryPill label="Visible employees" value={totalElements} />
+              <SummaryPill label="Current page" value={page + 1} />
+            </div>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <form className="mb-3 grid gap-3 rounded-2xl border border-blue-100 bg-gradient-to-r from-blue-50 via-indigo-50 to-cyan-50 p-4 md:grid-cols-5" onSubmit={handleSearch}>
+              <FloatingInputField
+                  label="Employee Name"
+                  onChange={(event) => setFilters((value) => ({ ...value, employeeName: event.target.value }))}
+                  value={filters.employeeName}
+              />
+              <FloatingInputField label="Role" onChange={(event) => setFilters((value) => ({ ...value, role: event.target.value }))} value={filters.role} />
+              <FloatingInputField
+                  label="Department"
+                  onChange={(event) => setFilters((value) => ({ ...value, department: event.target.value }))}
+                  value={filters.department}
+              />
+              <LabeledSelectField
+                  label="Status"
+                  onChange={(event) => setFilters((value) => ({ ...value, status: event.target.value }))}
+                  value={filters.status}
               >
-                Reset
-              </Button>
-            </div>
-          </form>
-          {isInitialLoading ? (
-            <div className="flex min-h-[22rem] items-center justify-center rounded-2xl border border-dashed border-sky-200 bg-white/70">
-              <Spinner size="lg" />
-            </div>
-          ) : (
-            <div className="overflow-x-auto rounded-2xl border border-zinc-200 bg-white">
-              <table className="w-full min-w-[760px] text-sm">
-                <thead className="bg-gradient-to-r from-indigo-50 via-violet-50 to-cyan-50 text-left text-zinc-800">
-                  <tr>
-                    <th className="px-4 py-3 font-medium">Employee</th>
-                    <th className="px-4 py-3 font-medium">Roles</th>
-                    <th className="px-4 py-3 font-medium">Department</th>
-                    <th className="px-4 py-3 font-medium">Status</th>
-                    <th className="px-4 py-3 font-medium">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {isLoading ? (
+                <option value="">Any status</option>
+                <option value="Active">Active</option>
+                <option value="Inactive">Inactive</option>
+              </LabeledSelectField>
+              <div className="flex gap-2">
+                <Button className="gap-2" type="submit" variant="secondary">
+                  <Search className="h-4 w-4" />
+                  Search
+                </Button>
+                <Button
+                    onClick={() => {
+                      setFilters(initialFilters);
+                      setHasSearched(true);
+                      setIsLoading(true);
+                      setPage(0);
+                      void fetchEmployees(initialFilters, 0, pageSize);
+                    }}
+                    type="button"
+                    variant="outline"
+                >
+                  Reset
+                </Button>
+              </div>
+            </form>
+            {isInitialLoading ? (
+                <div className="flex min-h-[22rem] items-center justify-center rounded-2xl border border-dashed border-sky-200 bg-white/70">
+                  <Spinner size="lg" />
+                </div>
+            ) : (
+                <div className="overflow-x-auto rounded-2xl border border-zinc-200 bg-white">
+                  <table className="w-full min-w-[760px] text-sm">
+                    <thead className="bg-gradient-to-r from-indigo-50 via-violet-50 to-cyan-50 text-left text-zinc-800">
                     <tr>
-                      <td colSpan={5}>
-                        <div className="flex justify-center py-10">
-                          <Spinner size="md" label="Fetching employees..." />
-                        </div>
-                      </td>
+                      <th className="px-4 py-3 font-medium">Employee</th>
+                      <th className="px-4 py-3 font-medium">Roles</th>
+                      <th className="px-4 py-3 font-medium">Department</th>
+                      <th className="px-4 py-3 font-medium">Status</th>
+                      <th className="px-4 py-3 font-medium">Actions</th>
                     </tr>
-                  ) : !hasSearched ? (
-                    <tr>
-                      <td className="px-4 py-6 text-zinc-500" colSpan={5}>
-                        Enter any filter value and click Search to view matching employees.
-                      </td>
-                    </tr>
-                  ) : employees.length === 0 ? (
-                    <tr>
-                      <td className="px-4 py-6 text-zinc-500" colSpan={5}>
-                        No employees found for selected filters.
-                      </td>
-                    </tr>
-                  ) : (
-                    employees.map((employee) => (
-                      <tr className="border-t border-zinc-200 hover:bg-blue-50/30" key={employee.id}>
-                        <td className="px-4 py-3">
-                          <p className="font-semibold text-zinc-900">{employee.fullName}</p>
-                          <p className="text-xs text-zinc-500">{employee.email}</p>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex flex-wrap gap-1.5">
-                            {employee.roles.map((role) => (
-                              <span className="rounded-full border border-blue-200 bg-blue-50 px-2 py-1 text-xs text-blue-700" key={role}>
+                    </thead>
+                    <tbody>
+                    {isLoading ? (
+                        <tr>
+                          <td colSpan={5}>
+                            <div className="flex justify-center py-10">
+                              <Spinner size="md" label="Fetching employees..." />
+                            </div>
+                          </td>
+                        </tr>
+                    ) : !hasSearched ? (
+                        <tr>
+                          <td className="px-4 py-6 text-zinc-500" colSpan={5}>
+                            Enter any filter value and click Search to view matching employees.
+                          </td>
+                        </tr>
+                    ) : employees.length === 0 ? (
+                        <tr>
+                          <td className="px-4 py-6 text-zinc-500" colSpan={5}>
+                            No employees found for selected filters.
+                          </td>
+                        </tr>
+                    ) : (
+                        employees.map((employee) => (
+                            <tr className="border-t border-zinc-200 hover:bg-blue-50/30" key={employee.id}>
+                              <td className="px-4 py-3">
+                                <p className="font-semibold text-zinc-900">{employee.fullName}</p>
+                                <p className="text-xs text-zinc-500">{employee.email}</p>
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="flex flex-wrap gap-1.5">
+                                  {employee.roles.map((role) => (
+                                      <span className="rounded-full border border-blue-200 bg-blue-50 px-2 py-1 text-xs text-blue-700" key={role}>
                                 {role}
                               </span>
-                            ))}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-zinc-700">{employee.department}</td>
-                        <td className="px-4 py-3">
+                                  ))}
+                                </div>
+                              </td>
+                              <td className="px-4 py-3 text-zinc-700">{employee.department}</td>
+                              <td className="px-4 py-3">
                           <span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${statusClass(employee.employmentStatus)}`}>
                             {employee.employmentStatus}
                           </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex gap-2">
-                            <Button
-                              aria-label={`View ${employee.fullName}`}
-                              className="h-9 w-9 rounded-full border-sky-200 bg-sky-50 p-0 text-sky-700 hover:bg-sky-100"
-                              onClick={() => void openEmployeeDialog(employee.id, "view")}
-                              size="sm"
-                              title="View employee"
-                              variant="outline"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            {canEditEmployees ? (
-                              <Button
-                                aria-label={`Edit ${employee.fullName}`}
-                                className="h-9 w-9 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 p-0 text-white hover:from-blue-500 hover:to-indigo-500"
-                                onClick={() => void openEmployeeDialog(employee.id, "edit")}
-                                size="sm"
-                                title="Edit employee"
-                              >
-                                <PencilLine className="h-4 w-4" />
-                              </Button>
-                            ) : null}
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
-          {hasSearched && !isLoading && totalPages > 0 ? (
-            <DataTablePagination
-              page={page}
-              size={pageSize}
-              totalElements={totalElements}
-              totalPages={totalPages}
-              onPageChange={(nextPage) => {
-                setIsLoading(true);
-                void fetchEmployees(filters, nextPage, pageSize);
-              }}
-              onSizeChange={(nextSize) => {
-                setIsLoading(true);
-                setPage(0);
-                void fetchEmployees(filters, 0, nextSize);
-              }}
-            />
-          ) : null}
-        </CardContent>
-      </Card>
-      {dialogOpen ? (
-        dialogLoading ? (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 backdrop-blur-sm">
-            <div className="flex flex-col items-center gap-4 rounded-2xl bg-white px-8 py-7 shadow-xl">
-              <Spinner size="md" label="Loading employee details..." />
-            </div>
-          </div>
-        ) : (
-          <EmployeeDialog
-            key={dialogEmployee ? `${dialogMode}-${dialogEmployee.id}-${dialogEmployee.updatedAt}` : dialogMode}
-            employee={dialogEmployee}
-            mode={dialogMode}
-            hasPendingRequest={hasPendingRequest}
-            onClose={closeDialog}
-            designationOptions={designationOptions}
-            managerOptions={managerOptions}
-            managerRoleName={managerRoleName}
-            managersLoading={isLoadingManagers}
-            managerEditable={hasSeniorHrRole}
-            directReports={directReports}
-            replacementTeamLeadOptions={replacementTeamLeadOptions}
-            replacementOptionsLoading={isLoadingPromotionReassignment}
-            onDesignationChange={(designationRoleName) => void handleDesignationChange(designationRoleName)}
-            onSave={handleSaveEmployee}
-            open={dialogOpen}
-            saving={dialogSaving}
-          />
-        )
-      ) : null}
-    </>
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="flex gap-2">
+                                  <Button
+                                      aria-label={`View ${employee.fullName}`}
+                                      className="h-9 w-9 rounded-full border-sky-200 bg-sky-50 p-0 text-sky-700 hover:bg-sky-100"
+                                      onClick={() => void openEmployeeDialog(employee.id, "view")}
+                                      size="sm"
+                                      title="View employee"
+                                      variant="outline"
+                                  >
+                                    <Eye className="h-4 w-4" />
+                                  </Button>
+                                  {canEditEmployees ? (
+                                      <Button
+                                          aria-label={`Edit ${employee.fullName}`}
+                                          className="h-9 w-9 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 p-0 text-white hover:from-blue-500 hover:to-indigo-500"
+                                          onClick={() => void openEmployeeDialog(employee.id, "edit")}
+                                          size="sm"
+                                          title="Edit employee"
+                                      >
+                                        <PencilLine className="h-4 w-4" />
+                                      </Button>
+                                  ) : null}
+                                </div>
+                              </td>
+                            </tr>
+                        ))
+                    )}
+                    </tbody>
+                  </table>
+                </div>
+            )}
+            {hasSearched && !isLoading && totalPages > 0 ? (
+                <DataTablePagination
+                    page={page}
+                    size={pageSize}
+                    totalElements={totalElements}
+                    totalPages={totalPages}
+                    onPageChange={(nextPage) => {
+                      setIsLoading(true);
+                      void fetchEmployees(filters, nextPage, pageSize);
+                    }}
+                    onSizeChange={(nextSize) => {
+                      setIsLoading(true);
+                      setPage(0);
+                      void fetchEmployees(filters, 0, nextSize);
+                    }}
+                />
+            ) : null}
+          </CardContent>
+        </Card>
+        {dialogOpen ? (
+            dialogLoading ? (
+                <div
+                    onClick={(event) => {
+                      if (event.target === event.currentTarget) {
+                        closeDialog();
+                      }
+                    }}
+                    className="fixed inset-0 z-50 flex items-stretch justify-end bg-slate-950/45 backdrop-blur-sm"
+                >
+                  <div className="ml-auto flex h-full w-full max-w-3xl items-center justify-center border-l border-white/50 bg-white shadow-2xl shadow-slate-900/20">
+                    <Spinner size="md" label="Loading employee details..." />
+                  </div>
+                </div>
+            ) : (
+                <EmployeeDialog
+                    key={dialogEmployee ? `${dialogMode}-${dialogEmployee.id}-${dialogEmployee.updatedAt}` : dialogMode}
+                    employee={dialogEmployee}
+                    mode={dialogMode}
+                    hasPendingRequest={hasPendingRequest}
+                    onClose={closeDialog}
+                    designationOptions={designationOptions}
+                    managerOptions={managerOptions}
+                    managerRoleName={managerRoleName}
+                    managersLoading={isLoadingManagers}
+                    managerEditable={hasSeniorHrRole}
+                    directReports={directReports}
+                    replacementTeamLeadOptions={replacementTeamLeadOptions}
+                    replacementOptionsLoading={isLoadingPromotionReassignment}
+                    onDesignationChange={(designationRoleName) => void handleDesignationChange(designationRoleName)}
+                    onSave={handleSaveEmployee}
+                    open={dialogOpen}
+                    saving={dialogSaving}
+                />
+            )
+        ) : null}
+      </>
   );
 }
 
 function SummaryPill({ label, value }: { label: string; value: number }) {
   return (
-    <div className="h-[68px] w-full min-w-0 overflow-hidden rounded-2xl bg-white/15 px-4 py-3 ring-1 ring-white/20">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.25em] text-white/65">{label}</p>
-      <p className="mt-1 text-xl font-semibold leading-none tabular-nums text-white">{value.toLocaleString()}</p>
-    </div>
+      <div className="h-[68px] w-full min-w-0 overflow-hidden rounded-2xl bg-white/15 px-4 py-3 ring-1 ring-white/20">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.25em] text-white/65">{label}</p>
+        <p className="mt-1 text-xl font-semibold leading-none tabular-nums text-white">{value.toLocaleString()}</p>
+      </div>
   );
 }
