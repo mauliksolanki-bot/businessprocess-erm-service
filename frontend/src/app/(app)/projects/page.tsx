@@ -1,6 +1,7 @@
 "use client";
 
-import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { FormEvent, ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Bell, Check, CheckCircle2, ChevronDown, CornerUpLeft, Eye, KanbanSquare, Loader2, MessageSquareQuote, PencilLine, PlusCircle, RefreshCcw, Send, ShieldX } from "lucide-react";
 import { toast } from "sonner";
 
@@ -317,6 +318,10 @@ export default function ProjectsPage() {
           ].filter((value): value is ProjectTopTab => value !== null),
       [canCreate, canCreateAllocation, canManageAllocation, canUseManageProjects, canUseProjectMaster, canViewProjectTrackers]
   );
+  const activeProjectTopTab = useMemo(
+      () => (visibleProjectTabs.includes(projectTopTab) ? projectTopTab : visibleProjectTabs[0] ?? projectTopTab),
+      [projectTopTab, visibleProjectTabs]
+  );
   const projectMasterById = useMemo(() => {
     const entries = projectMasterProjects.map((item) => [item.id, item] as const);
     return new Map<number, ProjectRequest>(entries);
@@ -614,15 +619,6 @@ export default function ProjectsPage() {
         projectOwners.length,
       ]
   );
-
-  useEffect(() => {
-    if (visibleProjectTabs.length === 0) {
-      return;
-    }
-    if (!visibleProjectTabs.includes(projectTopTab)) {
-      activateProjectTab(visibleProjectTabs[0]);
-    }
-  }, [activateProjectTab, projectTopTab, visibleProjectTabs]);
 
   function validateForm(current: ProjectForm) {
     if (current.projectName.trim().length < 3) return "Project name must be at least 3 characters.";
@@ -1203,63 +1199,63 @@ export default function ProjectsPage() {
         <div className="mb-5 flex flex-wrap gap-2 rounded-2xl border border-zinc-200 bg-white p-2 shadow-sm">
           {canCreate ? (
               <Button
-                  className={projectTopTab === "raiseProject" ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-500 hover:to-indigo-500" : ""}
+                  className={activeProjectTopTab === "raiseProject" ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-500 hover:to-indigo-500" : ""}
                   onClick={() => activateProjectTab("raiseProject")}
-                  variant={projectTopTab === "raiseProject" ? "default" : "ghost"}
+                  variant={activeProjectTopTab === "raiseProject" ? "default" : "ghost"}
               >
                 Request New Project
               </Button>
           ) : null}
           {canCreate || canViewProjectTrackers ? (
               <Button
-                  className={projectTopTab === "projectTracker" ? "bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white hover:from-violet-500 hover:to-fuchsia-500" : ""}
+                  className={activeProjectTopTab === "projectTracker" ? "bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white hover:from-violet-500 hover:to-fuchsia-500" : ""}
                   onClick={() => activateProjectTab("projectTracker")}
-                  variant={projectTopTab === "projectTracker" ? "default" : "ghost"}
+                  variant={activeProjectTopTab === "projectTracker" ? "default" : "ghost"}
               >
                 Track New Project Request
               </Button>
           ) : null}
           {canCreate ? (
               <Button
-                  className={projectTopTab === "manageProjects" ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white hover:from-emerald-500 hover:to-teal-500" : ""}
+                  className={activeProjectTopTab === "manageProjects" ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white hover:from-emerald-500 hover:to-teal-500" : ""}
                   onClick={() => activateProjectTab("manageProjects")}
-                  variant={projectTopTab === "manageProjects" ? "default" : "ghost"}
+                  variant={activeProjectTopTab === "manageProjects" ? "default" : "ghost"}
               >
                 Change Request (Project Details)
               </Button>
           ) : null}
           {canUseManageProjects ? (
               <Button
-                  className={projectTopTab === "changeTracker" ? "bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white hover:from-violet-500 hover:to-fuchsia-500" : ""}
+                  className={activeProjectTopTab === "changeTracker" ? "bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white hover:from-violet-500 hover:to-fuchsia-500" : ""}
                   onClick={() => activateProjectTab("changeTracker")}
-                  variant={projectTopTab === "changeTracker" ? "default" : "ghost"}
+                  variant={activeProjectTopTab === "changeTracker" ? "default" : "ghost"}
               >
                 Track Project Update Request
               </Button>
           ) : null}
           {canUseProjectMaster ? (
               <Button
-                  className={projectTopTab === "projectMaster" ? "bg-gradient-to-r from-emerald-700 to-cyan-700 text-white hover:from-emerald-600 hover:to-cyan-600" : ""}
+                  className={activeProjectTopTab === "projectMaster" ? "bg-gradient-to-r from-emerald-700 to-cyan-700 text-white hover:from-emerald-600 hover:to-cyan-600" : ""}
                   onClick={() => activateProjectTab("projectMaster")}
-                  variant={projectTopTab === "projectMaster" ? "default" : "ghost"}
+                  variant={activeProjectTopTab === "projectMaster" ? "default" : "ghost"}
               >
                 Project Master
               </Button>
           ) : null}
           {canCreateAllocation ? (
               <Button
-                  className={projectTopTab === "projectAllocation" ? "bg-gradient-to-r from-cyan-600 to-blue-600 text-white hover:from-cyan-500 hover:to-blue-500" : ""}
+                  className={activeProjectTopTab === "projectAllocation" ? "bg-gradient-to-r from-cyan-600 to-blue-600 text-white hover:from-cyan-500 hover:to-blue-500" : ""}
                   onClick={() => activateProjectTab("projectAllocation")}
-                  variant={projectTopTab === "projectAllocation" ? "default" : "ghost"}
+                  variant={activeProjectTopTab === "projectAllocation" ? "default" : "ghost"}
               >
                 Project Allocation
               </Button>
           ) : null}
           {canCreateAllocation || canManageAllocation ? (
               <Button
-                  className={projectTopTab === "allocationTracker" ? "bg-gradient-to-r from-slate-700 to-cyan-700 text-white hover:from-slate-600 hover:to-cyan-600" : ""}
+                  className={activeProjectTopTab === "allocationTracker" ? "bg-gradient-to-r from-slate-700 to-cyan-700 text-white hover:from-slate-600 hover:to-cyan-600" : ""}
                   onClick={() => activateProjectTab("allocationTracker")}
-                  variant={projectTopTab === "allocationTracker" ? "default" : "ghost"}
+                  variant={activeProjectTopTab === "allocationTracker" ? "default" : "ghost"}
               >
                 Allocation Tracker
               </Button>
@@ -2281,16 +2277,34 @@ export default function ProjectsPage() {
         ) : null}
 
         {selectedRequest ? (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
-              <div className="w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-5 shadow-xl">
-                <h3 className="text-lg font-semibold text-zinc-900">
-                  {actionType === "APPROVE" ? "Approve" : actionType === "REJECT" ? "Reject" : "Refer Back"} project #{selectedRequest.id}
-                </h3>
-                <p className="mt-1 text-sm text-zinc-600">
-                  {selectedRequest.projectName} ({selectedRequest.projectCode})
-                </p>
-                <MentionTextareaField className="mt-4" label="Action Comment *" mentionSearch={mentionSearch} value={actionComment} onChange={setActionComment} />
-                <div className="mt-4 flex justify-end gap-2">
+            <div
+                className="fixed inset-0 z-50 flex items-stretch justify-end bg-slate-950/45 backdrop-blur-sm"
+                onClick={(event) => {
+                  if (event.target === event.currentTarget) {
+                    setSelectedRequest(null);
+                  }
+                }}
+            >
+              <div className="ml-auto flex h-full w-full max-w-2xl flex-col overflow-hidden border-l border-white/50 bg-white shadow-2xl shadow-slate-300/40">
+                <div className="border-b border-zinc-200 bg-linear-to-r from-indigo-600 via-violet-600 to-fuchsia-600 px-6 py-5 text-white">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-xl font-semibold text-white">
+                        {actionType === "APPROVE" ? "Approve" : actionType === "REJECT" ? "Reject" : "Refer Back"} project #{selectedRequest.id}
+                      </h3>
+                      <p className="mt-1 text-sm text-indigo-100">
+                        {selectedRequest.projectName} ({selectedRequest.projectCode})
+                      </p>
+                    </div>
+                    <Button className="border-white/30 bg-white/10 text-white hover:bg-white/20" onClick={() => setSelectedRequest(null)} variant="outline">
+                      Close
+                    </Button>
+                  </div>
+                </div>
+                <div className="min-h-0 flex-1 overflow-y-auto p-6">
+                  <MentionTextareaField className="min-h-35" label="Action Comment *" mentionSearch={mentionSearch} value={actionComment} onChange={setActionComment} />
+                </div>
+                <div className="flex items-center justify-end gap-2 border-t border-zinc-200 px-6 py-4">
                   <Button onClick={() => setSelectedRequest(null)} variant="outline">
                     Cancel
                   </Button>
@@ -2304,9 +2318,16 @@ export default function ProjectsPage() {
         ) : null}
 
         {viewRequest ? (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
-              <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-3xl border border-zinc-200 bg-white shadow-2xl shadow-slate-300/40">
-                <div className="border-b border-zinc-200 bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 px-6 py-5 text-white">
+            <div
+                className="fixed inset-0 z-50 flex items-stretch justify-end bg-slate-950/45 backdrop-blur-sm"
+                onClick={(event) => {
+                  if (event.target === event.currentTarget) {
+                    setViewRequest(null);
+                  }
+                }}
+            >
+              <div className="ml-auto flex h-full w-full max-w-4xl flex-col overflow-hidden border-l border-white/50 bg-white shadow-2xl shadow-slate-300/40">
+                <div className="border-b border-zinc-200 bg-linear-to-r from-indigo-600 via-violet-600 to-fuchsia-600 px-6 py-5 text-white">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <h3 className="flex items-center gap-2 text-xl font-semibold">
@@ -2327,7 +2348,7 @@ export default function ProjectsPage() {
                   </div>
                 </div>
 
-                <div className="space-y-4 p-6">
+                <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-6">
                   <div className="grid gap-3 md:grid-cols-2">
                     <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 text-sm text-zinc-700">
                       <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Client</p>
@@ -2427,29 +2448,57 @@ export default function ProjectsPage() {
         ) : null}
 
         {bulkAllocationActionOpen ? (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
-              <div className="w-full max-w-2xl rounded-2xl border border-zinc-200 bg-white p-5 shadow-xl">
-                <h3 className="text-lg font-semibold text-zinc-900">
-                  {bulkAllocationActionType === "APPROVE" ? "Approve" : bulkAllocationActionType === "REJECT" ? "Reject" : "Refer Back"} selected allocations
-                </h3>
-                <p className="mt-1 text-sm text-zinc-600">
-                  {selectedPendingAllocations.length} pending allocation{selectedPendingAllocations.length > 1 ? "s" : ""} will be updated.
-                </p>
-                <div className="mt-4 max-h-40 space-y-2 overflow-y-auto rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-sm text-zinc-700">
-                  {selectedPendingAllocations.map((allocation) => (
-                      <div className="flex items-center justify-between gap-3 rounded-lg bg-white px-3 py-2" key={allocation.id}>
-                  <span className="min-w-0">
-                    <span className="block truncate font-medium">{allocation.allocationCode}</span>
-                    <span className="block truncate text-xs text-zinc-500">
-                      {allocation.projectName} • {allocation.employeeName}
-                    </span>
-                  </span>
-                        <span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${stageClass(allocation.status)}`}>{allocation.status}</span>
-                      </div>
-                  ))}
+            <div
+                className="fixed inset-0 z-50 flex items-stretch justify-end bg-slate-950/45 backdrop-blur-sm"
+                onClick={(event) => {
+                  if (event.target === event.currentTarget) {
+                    setBulkAllocationActionOpen(false);
+                    setBulkAllocationActionComment("");
+                  }
+                }}
+            >
+              <div className="ml-auto flex h-full w-full max-w-2xl flex-col overflow-hidden border-l border-white/50 bg-white shadow-2xl shadow-slate-300/40">
+                <div className="border-b border-zinc-200 bg-linear-to-r from-indigo-600 via-violet-600 to-fuchsia-600 px-6 py-5 text-white">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-xl font-semibold text-white">
+                        {bulkAllocationActionType === "APPROVE" ? "Approve" : bulkAllocationActionType === "REJECT" ? "Reject" : "Refer Back"} selected allocations
+                      </h3>
+                      <p className="mt-1 text-sm text-indigo-100">
+                        {selectedPendingAllocations.length} pending allocation{selectedPendingAllocations.length > 1 ? "s" : ""} will be updated.
+                      </p>
+                    </div>
+                    <Button
+                        className="border-white/30 bg-white/10 text-white hover:bg-white/20"
+                        onClick={() => {
+                          setBulkAllocationActionOpen(false);
+                          setBulkAllocationActionComment("");
+                        }}
+                        variant="outline"
+                    >
+                      Close
+                    </Button>
+                  </div>
                 </div>
-                <MentionTextareaField className="mt-4" label="Action Comment *" mentionSearch={mentionSearch} value={bulkAllocationActionComment} onChange={setBulkAllocationActionComment} />
-                <div className="mt-4 flex justify-end gap-2">
+                <div className="min-h-0 flex-1 overflow-y-auto p-6">
+                  <div className="max-h-40 space-y-2 overflow-y-auto rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-sm text-zinc-700">
+                    {selectedPendingAllocations.map((allocation) => (
+                        <div className="flex items-center justify-between gap-3 rounded-lg bg-white px-3 py-2" key={allocation.id}>
+                        <span className="min-w-0">
+                          <span className="block truncate font-medium">{allocation.allocationCode}</span>
+                          <span className="block truncate text-xs text-zinc-500">
+                            {allocation.projectName} • {allocation.employeeName}
+                          </span>
+                        </span>
+                          <span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${stageClass(allocation.status)}`}>
+                          {allocation.status}
+                        </span>
+                        </div>
+                    ))}
+                  </div>
+                  <MentionTextareaField className="mt-4 min-h-35" label="Action Comment *" mentionSearch={mentionSearch} value={bulkAllocationActionComment} onChange={setBulkAllocationActionComment} />
+                </div>
+                <div className="flex items-center justify-end gap-2 border-t border-zinc-200 px-6 py-4">
                   <Button
                       onClick={() => {
                         setBulkAllocationActionOpen(false);
@@ -2476,9 +2525,9 @@ export default function ProjectsPage() {
                     commentsRequest.workflowStage !== "Rejected"
                 }
                 isSendingComment={isCommentingRequest}
-                mentionSearch={mentionSearch}
-                onSendComment={(comment) => submitProjectRequestComment(comment)}
-                onClose={() => setCommentsRequest(null)}
+                mentionSearchAction={mentionSearch}
+                onSendCommentAction={(comment) => submitProjectRequestComment(comment)}
+                onCloseAction={() => setCommentsRequest(null)}
                 subtitle={`Request #${commentsRequest.id}`}
                 title={`Project comments: ${commentsRequest.projectName}`}
             />
@@ -2489,101 +2538,127 @@ export default function ProjectsPage() {
                 items={commentsManagedProject.approvalTrail}
                 canSendComment={false}
                 isSendingComment={false}
-                onClose={() => setCommentsManagedProject(null)}
+                onCloseAction={() => setCommentsManagedProject(null)}
                 subtitle={`Project #${commentsManagedProject.projectCode}`}
                 title={`Project comments: ${commentsManagedProject.projectName}`}
             />
         ) : null}
 
         {manageProject ? (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
-              <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-2xl border border-zinc-200 bg-white p-5 shadow-xl">
-                <h3 className="text-lg font-semibold text-zinc-900">Manage project #{manageProject.projectCode}</h3>
-                <p className="mt-1 text-sm text-zinc-600">
-                  Update the details below. Changes will move to Director and then CTO approval.
-                </p>
-                <div className="mt-4 grid gap-4 md:grid-cols-2">
-                  <Input label="Project Name *" value={manageProjectForm.projectName} onChange={(v) => setManageProjectForm((s) => ({ ...s, projectName: v }))} />
-                  <Input label="Project Code *" value={manageProjectForm.projectCode} onChange={(v) => setManageProjectForm((s) => ({ ...s, projectCode: v.toUpperCase() }))} />
-                  <Input label="Client Name *" value={manageProjectForm.clientName} onChange={(v) => setManageProjectForm((s) => ({ ...s, clientName: v }))} />
-                  <Select label="Project Type *" value={manageProjectForm.projectType} onChange={(v) => setManageProjectForm((s) => ({ ...s, projectType: v }))}>
-                    <option value="">Select project type</option>
-                    {projectTypes.map((type) => (
-                        <option key={type} value={type}>
-                          {type}
-                        </option>
-                    ))}
-                  </Select>
-                  <Select label="Priority *" value={manageProjectForm.priority} onChange={(v) => setManageProjectForm((s) => ({ ...s, priority: v }))}>
-                    <option value="">Select priority</option>
-                    {priorities.map((value) => (
-                        <option key={value} value={value}>
-                          {value}
-                        </option>
-                    ))}
-                  </Select>
-                  <Select label="Project Status *" value={manageProjectForm.projectStatus} onChange={(v) => setManageProjectForm((s) => ({ ...s, projectStatus: v as ProjectStatus | "" }))}>
-                    <option value="">Select project status</option>
-                    {projectStatuses.map((status) => (
-                        <option key={status} value={status}>
-                          {status}
-                        </option>
-                    ))}
-                  </Select>
-                  <Input label="Planned Start Date *" type="date" value={manageProjectForm.plannedStartDate} onChange={(v) => setManageProjectForm((s) => ({ ...s, plannedStartDate: v }))} />
-                  <Input label="Planned End Date *" type="date" value={manageProjectForm.plannedEndDate} onChange={(v) => setManageProjectForm((s) => ({ ...s, plannedEndDate: v }))} />
-                  <Input label="Budget Amount *" type="number" value={manageProjectForm.budgetAmount} onChange={(v) => setManageProjectForm((s) => ({ ...s, budgetAmount: v }))} />
-                  <Input label="Currency *" value={manageProjectForm.currency} onChange={(v) => setManageProjectForm((s) => ({ ...s, currency: v.toUpperCase() }))} />
-                  <Select
-                      label="Delivery Manager *"
-                      value={manageProjectForm.deliveryManagerUserId}
-                      onChange={(v) => setManageProjectForm((s) => ({ ...s, deliveryManagerUserId: v }))}
-                      onFocus={() => {
-                        if (deliveryManagers.length === 0) void loadDeliveryManagers();
-                      }}
-                  >
-                    <option value="">Select delivery manager</option>
-                    {deliveryManagers.map((manager) => (
-                        <option key={manager.id} value={String(manager.id)}>
-                          {manager.fullName} ({manager.username})
-                        </option>
-                    ))}
-                  </Select>
-                  <Select
-                      label="Project Owner * (Editable)"
-                      value={manageProjectForm.projectOwnerUserId}
-                      onChange={(v) => setManageProjectForm((s) => ({ ...s, projectOwnerUserId: v }))}
-                      onFocus={() => {
-                        if (projectOwners.length === 0) void loadProjectOwners();
-                      }}
-                  >
-                    <option value="">Select project owner</option>
-                    {projectOwners.map((owner) => (
-                        <option key={owner.id} value={String(owner.id)}>
-                          {owner.fullName} ({owner.username})
-                        </option>
-                    ))}
-                  </Select>
-                  <Select
-                      label="Project Director * (Editable)"
-                      value={manageProjectForm.projectDirectorUserId}
-                      onChange={(v) => setManageProjectForm((s) => ({ ...s, projectDirectorUserId: v }))}
-                      onFocus={() => {
-                        if (projectDirectors.length === 0) void loadProjectDirectors();
-                      }}
-                  >
-                    <option value="">Select project director</option>
-                    {projectDirectors.map((director) => (
-                        <option key={director.id} value={String(director.id)}>
-                          {director.fullName} ({director.username})
-                        </option>
-                    ))}
-                  </Select>
-                  <Textarea className="md:col-span-2" label="Project Description *" value={manageProjectForm.description} onChange={(v) => setManageProjectForm((s) => ({ ...s, description: v }))} />
-                  <Textarea className="md:col-span-2" label="Risk Notes" value={manageProjectForm.riskNotes} onChange={(v) => setManageProjectForm((s) => ({ ...s, riskNotes: v }))} />
-                  <Textarea className="md:col-span-2" label="Reason for change *" value={manageProjectForm.reason} onChange={(v) => setManageProjectForm((s) => ({ ...s, reason: v }))} />
+            <div
+                className="fixed inset-0 z-50 flex items-stretch justify-end bg-slate-950/45 backdrop-blur-sm"
+                onClick={(event) => {
+                  if (event.target === event.currentTarget) {
+                    setManageProject(null);
+                    setManageProjectForm(initialManageProjectForm);
+                  }
+                }}
+            >
+              <div className="ml-auto flex h-full w-full max-w-4xl flex-col overflow-hidden border-l border-white/50 bg-white shadow-2xl shadow-slate-300/40">
+                <div className="border-b border-zinc-200 bg-linear-to-r from-indigo-600 via-violet-600 to-fuchsia-600 px-6 py-5 text-white">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-xl font-semibold text-white">Manage project #{manageProject.projectCode}</h3>
+                      <p className="mt-1 text-sm text-indigo-100">
+                        Update the details below. Changes will move to Director and then CTO approval.
+                      </p>
+                    </div>
+                    <Button
+                        className="border-white/30 bg-white/10 text-white hover:bg-white/20"
+                        onClick={() => {
+                          setManageProject(null);
+                          setManageProjectForm(initialManageProjectForm);
+                        }}
+                        variant="outline"
+                    >
+                      Close
+                    </Button>
+                  </div>
                 </div>
-                <div className="mt-4 flex justify-end gap-2">
+                <div className="min-h-0 flex-1 overflow-y-auto p-6">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <Input label="Project Name *" value={manageProjectForm.projectName} onChange={(v) => setManageProjectForm((s) => ({ ...s, projectName: v }))} />
+                    <Input label="Project Code *" value={manageProjectForm.projectCode} onChange={(v) => setManageProjectForm((s) => ({ ...s, projectCode: v.toUpperCase() }))} />
+                    <Input label="Client Name *" value={manageProjectForm.clientName} onChange={(v) => setManageProjectForm((s) => ({ ...s, clientName: v }))} />
+                    <Select label="Project Type *" value={manageProjectForm.projectType} onChange={(v) => setManageProjectForm((s) => ({ ...s, projectType: v }))}>
+                      <option value="">Select project type</option>
+                      {projectTypes.map((type) => (
+                          <option key={type} value={type}>
+                            {type}
+                          </option>
+                      ))}
+                    </Select>
+                    <Select label="Priority *" value={manageProjectForm.priority} onChange={(v) => setManageProjectForm((s) => ({ ...s, priority: v }))}>
+                      <option value="">Select priority</option>
+                      {priorities.map((value) => (
+                          <option key={value} value={value}>
+                            {value}
+                          </option>
+                      ))}
+                    </Select>
+                    <Select label="Project Status *" value={manageProjectForm.projectStatus} onChange={(v) => setManageProjectForm((s) => ({ ...s, projectStatus: v as ProjectStatus | "" }))}>
+                      <option value="">Select project status</option>
+                      {projectStatuses.map((status) => (
+                          <option key={status} value={status}>
+                            {status}
+                          </option>
+                      ))}
+                    </Select>
+                    <Input label="Planned Start Date *" type="date" value={manageProjectForm.plannedStartDate} onChange={(v) => setManageProjectForm((s) => ({ ...s, plannedStartDate: v }))} />
+                    <Input label="Planned End Date *" type="date" value={manageProjectForm.plannedEndDate} onChange={(v) => setManageProjectForm((s) => ({ ...s, plannedEndDate: v }))} />
+                    <Input label="Budget Amount *" type="number" value={manageProjectForm.budgetAmount} onChange={(v) => setManageProjectForm((s) => ({ ...s, budgetAmount: v }))} />
+                    <Input label="Currency *" value={manageProjectForm.currency} onChange={(v) => setManageProjectForm((s) => ({ ...s, currency: v.toUpperCase() }))} />
+                    <Select
+                        label="Delivery Manager *"
+                        value={manageProjectForm.deliveryManagerUserId}
+                        onChange={(v) => setManageProjectForm((s) => ({ ...s, deliveryManagerUserId: v }))}
+                        onFocus={() => {
+                          if (deliveryManagers.length === 0) void loadDeliveryManagers();
+                        }}
+                    >
+                      <option value="">Select delivery manager</option>
+                      {deliveryManagers.map((manager) => (
+                          <option key={manager.id} value={String(manager.id)}>
+                            {manager.fullName} ({manager.username})
+                          </option>
+                      ))}
+                    </Select>
+                    <Select
+                        label="Project Owner * (Editable)"
+                        value={manageProjectForm.projectOwnerUserId}
+                        onChange={(v) => setManageProjectForm((s) => ({ ...s, projectOwnerUserId: v }))}
+                        onFocus={() => {
+                          if (projectOwners.length === 0) void loadProjectOwners();
+                        }}
+                    >
+                      <option value="">Select project owner</option>
+                      {projectOwners.map((owner) => (
+                          <option key={owner.id} value={String(owner.id)}>
+                            {owner.fullName} ({owner.username})
+                          </option>
+                      ))}
+                    </Select>
+                    <Select
+                        label="Project Director * (Editable)"
+                        value={manageProjectForm.projectDirectorUserId}
+                        onChange={(v) => setManageProjectForm((s) => ({ ...s, projectDirectorUserId: v }))}
+                        onFocus={() => {
+                          if (projectDirectors.length === 0) void loadProjectDirectors();
+                        }}
+                    >
+                      <option value="">Select project director</option>
+                      {projectDirectors.map((director) => (
+                          <option key={director.id} value={String(director.id)}>
+                            {director.fullName} ({director.username})
+                          </option>
+                      ))}
+                    </Select>
+                    <Textarea className="md:col-span-2" label="Project Description *" value={manageProjectForm.description} onChange={(v) => setManageProjectForm((s) => ({ ...s, description: v }))} />
+                    <Textarea className="md:col-span-2" label="Risk Notes" value={manageProjectForm.riskNotes} onChange={(v) => setManageProjectForm((s) => ({ ...s, riskNotes: v }))} />
+                    <Textarea className="md:col-span-2" label="Reason for change *" value={manageProjectForm.reason} onChange={(v) => setManageProjectForm((s) => ({ ...s, reason: v }))} />
+                  </div>
+                </div>
+                <div className="flex items-center justify-end gap-2 border-t border-zinc-200 px-6 py-4">
                   <Button
                       onClick={() => {
                         setManageProject(null);
@@ -2603,16 +2678,34 @@ export default function ProjectsPage() {
         ) : null}
 
         {selectedChangeRequest ? (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
-              <div className="w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-5 shadow-xl">
-                <h3 className="text-lg font-semibold text-zinc-900">
-                  {changeActionType === "APPROVE" ? "Approve" : "Reject"} project change #{selectedChangeRequest.id}
-                </h3>
-                <p className="mt-1 text-sm text-zinc-600">
-                  {selectedChangeRequest.projectName} ({selectedChangeRequest.projectCode})
-                </p>
-                <MentionTextareaField className="mt-4" label="Action Comment *" mentionSearch={mentionSearch} value={changeActionComment} onChange={setChangeActionComment} />
-                <div className="mt-4 flex justify-end gap-2">
+            <div
+                className="fixed inset-0 z-50 flex items-stretch justify-end bg-slate-950/45 backdrop-blur-sm"
+                onClick={(event) => {
+                  if (event.target === event.currentTarget) {
+                    setSelectedChangeRequest(null);
+                  }
+                }}
+            >
+              <div className="ml-auto flex h-full w-full max-w-2xl flex-col overflow-hidden border-l border-white/50 bg-white shadow-2xl shadow-slate-300/40">
+                <div className="border-b border-zinc-200 bg-linear-to-r from-fuchsia-600 via-violet-600 to-indigo-600 px-6 py-5 text-white">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-xl font-semibold text-white">
+                        {changeActionType === "APPROVE" ? "Approve" : "Reject"} project change #{selectedChangeRequest.id}
+                      </h3>
+                      <p className="mt-1 text-sm text-fuchsia-100">
+                        {selectedChangeRequest.projectName} ({selectedChangeRequest.projectCode})
+                      </p>
+                    </div>
+                    <Button className="border-white/30 bg-white/10 text-white hover:bg-white/20" onClick={() => setSelectedChangeRequest(null)} variant="outline">
+                      Close
+                    </Button>
+                  </div>
+                </div>
+                <div className="min-h-0 flex-1 overflow-y-auto p-6">
+                  <MentionTextareaField className="min-h-35" label="Action Comment *" mentionSearch={mentionSearch} value={changeActionComment} onChange={setChangeActionComment} />
+                </div>
+                <div className="flex items-center justify-end gap-2 border-t border-zinc-200 px-6 py-4">
                   <Button onClick={() => setSelectedChangeRequest(null)} variant="outline">
                     Cancel
                   </Button>
@@ -2626,9 +2719,16 @@ export default function ProjectsPage() {
         ) : null}
 
         {viewChangeRequest ? (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
-              <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-3xl border border-zinc-200 bg-white shadow-2xl shadow-slate-300/40">
-                <div className="border-b border-zinc-200 bg-gradient-to-r from-fuchsia-600 via-violet-600 to-indigo-600 px-6 py-5 text-white">
+            <div
+                className="fixed inset-0 z-50 flex items-stretch justify-end bg-slate-950/45 backdrop-blur-sm"
+                onClick={(event) => {
+                  if (event.target === event.currentTarget) {
+                    setViewChangeRequest(null);
+                  }
+                }}
+            >
+              <div className="ml-auto flex h-full w-full max-w-4xl flex-col overflow-hidden border-l border-white/50 bg-white shadow-2xl shadow-slate-300/40">
+                <div className="border-b border-zinc-200 bg-linear-to-r from-fuchsia-600 via-violet-600 to-indigo-600 px-6 py-5 text-white">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <h3 className="flex items-center gap-2 text-xl font-semibold">
@@ -2649,7 +2749,7 @@ export default function ProjectsPage() {
                   </div>
                 </div>
 
-                <div className="space-y-4 p-6">
+                <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-6">
                   <div className="grid gap-3 md:grid-cols-2">
                     <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3 text-sm text-zinc-700">
                       <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Client</p>
@@ -2747,22 +2847,40 @@ export default function ProjectsPage() {
         ) : null}
 
         {selectedAllocation ? (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
-              <div className="w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-5 shadow-xl">
-                <h3 className="text-lg font-semibold text-zinc-900">
-                  {allocationActionType === "APPROVE" ? "Approve" : allocationActionType === "REJECT" ? "Reject" : "Refer Back"} allocation #{selectedAllocation.id}
-                </h3>
-                <p className="mt-1 text-sm text-zinc-600">
-                  {selectedAllocation.projectName} ({selectedAllocation.allocationCode})
-                </p>
-                <MentionTextareaField
-                    className="mt-4"
-                    label="Action Comment *"
-                    mentionSearch={mentionSearch}
-                    value={allocationActionComment}
-                    onChange={setAllocationActionComment}
-                />
-                <div className="mt-4 flex justify-end gap-2">
+            <div
+                className="fixed inset-0 z-50 flex items-stretch justify-end bg-slate-950/45 backdrop-blur-sm"
+                onClick={(event) => {
+                  if (event.target === event.currentTarget) {
+                    setSelectedAllocation(null);
+                  }
+                }}
+            >
+              <div className="ml-auto flex h-full w-full max-w-2xl flex-col overflow-hidden border-l border-white/50 bg-white shadow-2xl shadow-slate-300/40">
+                <div className="border-b border-zinc-200 bg-linear-to-r from-indigo-600 via-violet-600 to-fuchsia-600 px-6 py-5 text-white">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-xl font-semibold text-white">
+                        {allocationActionType === "APPROVE" ? "Approve" : allocationActionType === "REJECT" ? "Reject" : "Refer Back"} allocation #{selectedAllocation.id}
+                      </h3>
+                      <p className="mt-1 text-sm text-indigo-100">
+                        {selectedAllocation.projectName} ({selectedAllocation.allocationCode})
+                      </p>
+                    </div>
+                    <Button className="border-white/30 bg-white/10 text-white hover:bg-white/20" onClick={() => setSelectedAllocation(null)} variant="outline">
+                      Close
+                    </Button>
+                  </div>
+                </div>
+                <div className="min-h-0 flex-1 overflow-y-auto p-6">
+                  <MentionTextareaField
+                      className="min-h-35"
+                      label="Action Comment *"
+                      mentionSearch={mentionSearch}
+                      value={allocationActionComment}
+                      onChange={setAllocationActionComment}
+                  />
+                </div>
+                <div className="flex items-center justify-end gap-2 border-t border-zinc-200 px-6 py-4">
                   <Button onClick={() => setSelectedAllocation(null)} variant="outline">
                     Cancel
                   </Button>
@@ -2776,45 +2894,70 @@ export default function ProjectsPage() {
         ) : null}
 
         {manageAllocation ? (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
-              <div className="w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-5 shadow-xl">
-                <h3 className="text-lg font-semibold text-zinc-900">Manage allocation #{manageAllocation.id}</h3>
-                <p className="mt-1 text-sm text-zinc-600">
-                  {manageAllocation.projectName} • {manageAllocation.employeeName}
-                </p>
-                <Select
-                    label="Manage Action"
-                    value={manageForm.action}
-                    onChange={(v) => setManageForm((s) => ({ ...s, action: v as AllocationManageForm["action"] }))}
-                    className="mt-4"
-                >
-                  <option value="EXTEND">Extend</option>
-                  <option value="REDUCE">Reduce</option>
-                  <option value="RELEASE">Release</option>
-                </Select>
-                {manageForm.action !== "RELEASE" ? (
-                    <div className="mt-4 grid gap-4 md:grid-cols-2">
-                      <Input
-                          label={manageForm.action === "EXTEND" ? "New End Date *" : "New End Date"}
-                          type="date"
-                          value={manageForm.endDate}
-                          onChange={(v) => setManageForm((s) => ({ ...s, endDate: v }))}
-                      />
-                      <Input
-                          label={manageForm.action === "REDUCE" ? "New Allocation Percent *" : "Allocation Percent"}
-                          type="number"
-                          value={manageForm.allocationPercent}
-                          onChange={(v) => setManageForm((s) => ({ ...s, allocationPercent: v }))}
-                      />
+            <div
+                className="fixed inset-0 z-50 flex items-stretch justify-end bg-slate-950/45 backdrop-blur-sm"
+                onClick={(event) => {
+                  if (event.target === event.currentTarget) {
+                    setManageAllocation(null);
+                    setManageForm(initialManageForm);
+                  }
+                }}
+            >
+              <div className="ml-auto flex h-full w-full max-w-2xl flex-col overflow-hidden border-l border-white/50 bg-white shadow-2xl shadow-slate-300/40">
+                <div className="border-b border-zinc-200 bg-linear-to-r from-indigo-600 via-violet-600 to-fuchsia-600 px-6 py-5 text-white">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-xl font-semibold text-white">Manage allocation #{manageAllocation.id}</h3>
+                      <p className="mt-1 text-sm text-indigo-100">
+                        {manageAllocation.projectName} • {manageAllocation.employeeName}
+                      </p>
                     </div>
-                ) : null}
-                <Textarea
-                    className="mt-4"
-                    label="Manage Comment *"
-                    value={manageForm.comment}
-                    onChange={(v) => setManageForm((s) => ({ ...s, comment: v }))}
-                />
-                <div className="mt-4 flex justify-end gap-2">
+                    <Button
+                        className="border-white/30 bg-white/10 text-white hover:bg-white/20"
+                        onClick={() => {
+                          setManageAllocation(null);
+                          setManageForm(initialManageForm);
+                        }}
+                        variant="outline"
+                    >
+                      Close
+                    </Button>
+                  </div>
+                </div>
+                <div className="min-h-0 flex-1 overflow-y-auto p-6">
+                  <Select
+                      label="Manage Action"
+                      value={manageForm.action}
+                      onChange={(v) => setManageForm((s) => ({ ...s, action: v as AllocationManageForm["action"] }))}
+                  >
+                    <option value="EXTEND">Extend</option>
+                    <option value="REDUCE">Reduce</option>
+                    <option value="RELEASE">Release</option>
+                  </Select>
+                  {manageForm.action !== "RELEASE" ? (
+                      <div className="mt-4 grid gap-4 md:grid-cols-2">
+                        <Input
+                            label={manageForm.action === "EXTEND" ? "New End Date *" : "New End Date"}
+                            type="date"
+                            value={manageForm.endDate}
+                            onChange={(v) => setManageForm((s) => ({ ...s, endDate: v }))}
+                        />
+                        <Input
+                            label={manageForm.action === "REDUCE" ? "New Allocation Percent *" : "Allocation Percent"}
+                            type="number"
+                            value={manageForm.allocationPercent}
+                            onChange={(v) => setManageForm((s) => ({ ...s, allocationPercent: v }))}
+                        />
+                      </div>
+                  ) : null}
+                  <Textarea
+                      className="mt-4"
+                      label="Manage Comment *"
+                      value={manageForm.comment}
+                      onChange={(v) => setManageForm((s) => ({ ...s, comment: v }))}
+                  />
+                </div>
+                <div className="flex items-center justify-end gap-2 border-t border-zinc-200 px-6 py-4">
                   <Button
                       onClick={() => {
                         setManageAllocation(null);
@@ -2838,8 +2981,8 @@ export default function ProjectsPage() {
                 items={commentsAllocation.approvalTrail}
                 canSendComment={commentsAllocation.status !== "Released" && commentsAllocation.status !== "Rejected"}
                 isSendingComment={isCommentingAllocation}
-                onSendComment={(comment) => submitProjectAllocationComment(comment)}
-                onClose={() => setCommentsAllocation(null)}
+                onSendCommentAction={(comment) => submitProjectAllocationComment(comment)}
+                onCloseAction={() => setCommentsAllocation(null)}
                 subtitle={`Allocation #${commentsAllocation.allocationCode}`}
                 title={`Allocation comments: ${commentsAllocation.projectName}`}
             />
@@ -2850,8 +2993,8 @@ export default function ProjectsPage() {
                 items={commentsChangeRequest.approvalTrail}
                 canSendComment={commentsChangeRequest.workflowStage !== "Approved" && commentsChangeRequest.workflowStage !== "Rejected"}
                 isSendingComment={isCommentingChangeRequest}
-                onSendComment={(comment) => submitProjectChangeComment(comment)}
-                onClose={() => setCommentsChangeRequest(null)}
+                onSendCommentAction={(comment) => submitProjectChangeComment(comment)}
+                onCloseAction={() => setCommentsChangeRequest(null)}
                 subtitle={`Change Request #${commentsChangeRequest.id}`}
                 title={`Project change comments: ${commentsChangeRequest.projectName}`}
             />
