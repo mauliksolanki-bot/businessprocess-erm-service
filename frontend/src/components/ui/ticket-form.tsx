@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { loadSession } from "@/lib/auth-storage";
 import { Button } from "@/components/ui/button";
 import { FloatingInputField, FloatingTextareaField, LabeledSelectField } from "@/components/ui/form-fields";
-import { getSupportQueueAssignees, createSupportTicket, ApiError } from "@/lib/api";
+import { createSupportTicket, ApiError } from "@/lib/api";
 
 type RequestTypeOption = "Service Request" | "Incident - Application" | "Incident - Security";
 
@@ -39,7 +39,6 @@ export default function TicketForm() {
   const [urgency, setUrgency] = useState("Medium");
   const [priority, setPriority] = useState<{ label: string; rank: number }>({ label: "Medium", rank: 3 });
   const [assignmentGroup, setAssignmentGroup] = useState<string>(requestTypeToAssignmentGroup[requestType]);
-  const [assigneeOptions, setAssigneeOptions] = useState<{ id: number; username: string; fullName: string; email?: string }[]>([]);
   const [assigneeId, setAssigneeId] = useState<number | "">("");
   const [shortDescription, setShortDescription] = useState("");
   const [description, setDescription] = useState("");
@@ -53,21 +52,6 @@ export default function TicketForm() {
     // update assignment group
     setAssignmentGroup(requestTypeToAssignmentGroup[requestType]);
   }, [requestType]);
-
-  useEffect(() => {
-    if (!assignmentGroup || !token) {
-      setAssigneeOptions([]);
-      return;
-    }
-    getSupportQueueAssignees(token, assignmentGroup)
-        .then((res) => {
-          setAssigneeOptions(res ?? []);
-        })
-        .catch(() => {
-          setAssigneeOptions([]);
-          toast.error("Unable to load assignees.");
-        });
-  }, [assignmentGroup, token]);
 
   useEffect(() => {
     // compute priority from impact and urgency
@@ -211,11 +195,6 @@ export default function TicketForm() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <LabeledSelectField label="Assign To" value={assigneeId ?? ""} onChange={(e) => setAssigneeId(Number(e.target.value) || "")} disabled className="bg-zinc-50 text-zinc-600 cursor-not-allowed">
             <option value="">Auto-assign</option>
-            {assigneeOptions.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.fullName} • {m.username}
-                </option>
-            ))}
           </LabeledSelectField>
         </div>
 
