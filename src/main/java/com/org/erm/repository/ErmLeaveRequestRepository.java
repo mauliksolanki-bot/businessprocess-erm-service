@@ -21,6 +21,13 @@ public interface ErmLeaveRequestRepository extends JpaRepository<ErmLeaveRequest
             LocalDate monthStart
     );
 
+    List<ErmLeaveRequest> findAllByEmployeeUserIdAndRequestStatusAndStartDateLessThanEqualAndEndDateGreaterThanEqualOrderByStartDateAsc(
+            Long employeeUserId,
+            LeaveRequestStatus requestStatus,
+            LocalDate monthEnd,
+            LocalDate monthStart
+    );
+
     @Query("""
             SELECT COALESCE(SUM(r.requestedDays), 0)
             FROM ErmLeaveRequest r
