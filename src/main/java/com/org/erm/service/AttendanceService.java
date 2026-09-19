@@ -38,6 +38,7 @@ import java.time.LocalDateTime;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -50,6 +51,10 @@ import java.util.stream.Collectors;
 public class AttendanceService {
 
     private static final BigDecimal MAX_BILLABLE_HOURS_PER_DAY = new BigDecimal("8.00");
+    private static final Set<LeaveRequestStatus> ATTENDANCE_BLOCKING_LEAVE_STATUSES = EnumSet.of(
+            LeaveRequestStatus.PENDING,
+            LeaveRequestStatus.APPROVED
+    );
 
     private final ErmUserRepository userRepository;
     private final ErmProjectAllocationRepository projectAllocationRepository;
@@ -92,23 +97,7 @@ public class AttendanceService {
                 .sorted(Comparator.comparing(ErmProjectAllocation::getProjectName, String.CASE_INSENSITIVE_ORDER))
                 .toList());
 
-        List<ErmLeaveRequest> approvedLeaves = leaveRequestRepository
-                .findAllByEmployeeUserIdAndRequestStatusAndStartDateLessThanEqualAndEndDateGreaterThanEqualOrderByStartDateAsc(
-                        user.getId(),
-                        LeaveRequestStatus.APPROVED,
-                        weekEnd,
-                        weekStart
-                );
-
-        Map<LocalDate, ErmLeaveRequest> leaveByDate = new LinkedHashMap<>();
-        for (ErmLeaveRequest leaveRequest : approvedLeaves) {
-            LocalDate cursor = leaveRequest.getStartDate().isBefore(weekStart) ? weekStart : leaveRequest.getStartDate();
-            LocalDate leaveEnd = leaveRequest.getEndDate().isAfter(weekEnd) ? weekEnd : leaveRequest.getEndDate();
-            while (!cursor.isAfter(leaveEnd)) {
-                leaveByDate.put(cursor, leaveRequest);
-                cursor = cursor.plusDays(1);
-            }
-        }
+        Map<LocalDate, ErmLeaveRequest> leaveByDate = loadLeaves(user.getId(), weekStart, weekEnd);
 
         ErmAttendanceTimesheet timesheet = timesheetRepository.findByEmployeeUserIdAndWeekStartDate(user.getId(), weekStart)
                 .orElse(null);
@@ -132,7 +121,7 @@ public class AttendanceService {
                     workDate.getDayOfWeek().name().substring(0, 3),
                     weekend,
                     leaveRequest != null,
-                    leaveRequest == null ? null : leaveRequest.getLeaveCategory().getLabel(),
+                    leaveRequest == null ? null : leaveLabel(leaveRequest),
                     entry == null ? BigDecimal.ZERO : scaleHours(entry.getBillableHours()),
                     entry == null ? BigDecimal.ZERO : scaleHours(entry.getNonBillableHours()),
                     entry == null ? null : entry.getBillableProjectAllocationId(),
@@ -368,9 +357,9 @@ public class AttendanceService {
     }
 
     private Map<LocalDate, ErmLeaveRequest> loadLeaves(Long userId, LocalDate weekStart, LocalDate weekEnd) {
-        List<ErmLeaveRequest> approvedLeaves = leaveRequestRepository.findAllByEmployeeUserIdAndRequestStatusAndStartDateLessThanEqualAndEndDateGreaterThanEqualOrderByStartDateAsc(
+        List<ErmLeaveRequest> approvedLeaves = leaveRequestRepository.findAllByEmployeeUserIdAndRequestStatusInAndStartDateLessThanEqualAndEndDateGreaterThanEqualOrderByStartDateAsc(
                 userId,
-                LeaveRequestStatus.APPROVED,
+                ATTENDANCE_BLOCKING_LEAVE_STATUSES,
                 weekEnd,
                 weekStart
         );
@@ -384,6 +373,13 @@ public class AttendanceService {
             }
         }
         return leaveByDate;
+    }
+
+    private String leaveLabel(ErmLeaveRequest leaveRequest) {
+        if (leaveRequest.getRequestStatus() == LeaveRequestStatus.PENDING) {
+            return leaveRequest.getLeaveCategory().getLabel() + " (Pending)";
+        }
+        return leaveRequest.getLeaveCategory().getLabel();
     }
 
     private List<ErmProjectAllocation> loadAssignments(Long userId, LocalDate weekStart, LocalDate weekEnd) {
