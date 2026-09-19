@@ -54,10 +54,10 @@ public class FlywayStartupConfig {
                             1, ?, 'Baseline existing schema', 'BASELINE', '<< Flyway Baseline >>', NULL, SUBSTRING_INDEX(USER(), '@', 1), CURRENT_TIMESTAMP, 0, 1
                         )
                         """)) {
-                    preparedStatement.setString(1, "4");
+                    preparedStatement.setString(1, "0");
                     preparedStatement.executeUpdate();
                 }
-                LOGGER.info("Initialized {} with baseline version 4.", FLYWAY_TABLE);
+                LOGGER.info("Initialized {} with baseline version 0.", FLYWAY_TABLE);
             }
         } catch (Exception exception) {
             throw new IllegalStateException("Failed to prepare Flyway schema history table", exception);
