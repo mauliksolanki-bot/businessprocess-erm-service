@@ -34,15 +34,18 @@ public class LeaveService {
     private final ErmLeaveRequestRepository leaveRequestRepository;
     private final ErmUserRepository userRepository;
     private final MentionNotificationService mentionNotificationService;
+    private final AttendanceLeaveReconciliationService attendanceLeaveReconciliationService;
 
     public LeaveService(ErmLeavePolicyRepository leavePolicyRepository,
                         ErmLeaveRequestRepository leaveRequestRepository,
                         ErmUserRepository userRepository,
-                        MentionNotificationService mentionNotificationService) {
+                        MentionNotificationService mentionNotificationService,
+                        AttendanceLeaveReconciliationService attendanceLeaveReconciliationService) {
         this.leavePolicyRepository = leavePolicyRepository;
         this.leaveRequestRepository = leaveRequestRepository;
         this.userRepository = userRepository;
         this.mentionNotificationService = mentionNotificationService;
+        this.attendanceLeaveReconciliationService = attendanceLeaveReconciliationService;
     }
 
     @Transactional(readOnly = true)
@@ -86,6 +89,14 @@ public class LeaveService {
         if (usedDays + requestedDays > policy.getMaxDaysPerYear()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Requested days exceed remaining yearly balance for this category");
         }
+        if (leaveRequestRepository.existsByEmployeeUserIdAndRequestStatusInAndStartDateLessThanEqualAndEndDateGreaterThanEqual(
+                user.getId(),
+                APPLICABLE_STATUSES,
+                request.endDate(),
+                request.startDate()
+        )) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "An overlapping leave request already exists for the selected dates");
+        }
 
         ErmLeaveRequest leaveRequest = new ErmLeaveRequest();
         leaveRequest.setEmployeeUserId(user.getId());
@@ -101,7 +112,9 @@ public class LeaveService {
         leaveRequest.setReason(normalizeRequired(request.reason(), "Reason is required"));
         leaveRequest.setRequestStatus(LeaveRequestStatus.PENDING);
 
-        return toLeaveResponse(leaveRequestRepository.save(leaveRequest));
+        leaveRequest = leaveRequestRepository.save(leaveRequest);
+        attendanceLeaveReconciliationService.handleLeaveApplied(leaveRequest);
+        return toLeaveResponse(leaveRequest);
     }
 
     @Transactional(readOnly = true)
@@ -149,6 +162,9 @@ public class LeaveService {
         leaveRequest.setApproverComment(normalizeRequired(request.comment(), "Comment is required"));
         leaveRequest.setApproverActionAt(LocalDateTime.now());
         leaveRequest = leaveRequestRepository.save(leaveRequest);
+        if (leaveRequest.getRequestStatus() == LeaveRequestStatus.REJECTED) {
+            attendanceLeaveReconciliationService.handleLeaveRejected(leaveRequest);
+        }
         mentionNotificationService.notifyMentions(
                 manager.getUsername(),
                 leaveRequest.getApproverComment(),

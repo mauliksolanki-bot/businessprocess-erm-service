@@ -86,6 +86,33 @@ public class MentionNotificationService {
                 .toList();
     }
 
+    @Transactional
+    public void notifyUsers(Set<String> recipientUsernames,
+                            String actorUsername,
+                            String contextType,
+                            Long contextId,
+                            String message,
+                            String href) {
+        if (recipientUsernames == null || recipientUsernames.isEmpty() || !StringUtils.hasText(actorUsername)
+                || !StringUtils.hasText(message) || !StringUtils.hasText(href)) {
+            return;
+        }
+
+        for (String recipientUsername : recipientUsernames) {
+            if (!StringUtils.hasText(recipientUsername)) {
+                continue;
+            }
+            ErmMentionNotification notification = new ErmMentionNotification();
+            notification.setRecipientUsername(recipientUsername.trim());
+            notification.setActorUsername(actorUsername.trim());
+            notification.setContextType(contextType);
+            notification.setContextId(contextId);
+            notification.setMessageText(message);
+            notification.setHref(href);
+            mentionNotificationRepository.save(notification);
+        }
+    }
+
     private Set<String> extractMentionedUsernames(String text) {
         Set<String> usernames = new LinkedHashSet<>();
         Matcher matcher = USERNAME_MENTION_PATTERN.matcher(text);
