@@ -15,7 +15,13 @@ RUN mvn dependency:go-offline -B
 COPY src ./src
 
 # Build Spring Boot JAR
-RUN mvn clean package -DskipTests
+RUN mvn clean package -DskipTests \
+    && curl -fsSL -o /tmp/newrelic-java.zip https://download.newrelic.com/newrelic/java-agent/newrelic-agent/current/newrelic-java.zip \
+    && mkdir -p /opt/newrelic \
+    && jar xf /tmp/newrelic-java.zip \
+    && cp newrelic/newrelic.jar /opt/newrelic/newrelic.jar \
+    && cp newrelic/newrelic.yml /opt/newrelic/newrelic.yml \
+    && rm -rf /tmp/newrelic-java.zip newrelic
 
 
 # =========================
@@ -24,6 +30,9 @@ RUN mvn clean package -DskipTests
 FROM eclipse-temurin:21-jre
 
 WORKDIR /app
+
+# Copy the New Relic agent from the build stage so the runtime image has the jar on disk.
+COPY --from=build /opt/newrelic /opt/newrelic
 
 # Copy generated JAR from build stage
 COPY --from=build /app/target/*.jar app.jar
@@ -34,4 +43,5 @@ ENV PORT=8080
 EXPOSE 8080
 
 # Start Spring Boot
+# Set JAVA_TOOL_OPTIONS to include -javaagent:/path/to/newrelic.jar when the agent is mounted or baked in.
 ENTRYPOINT ["sh", "-c", "java -jar app.jar --server.port=${PORT}"]
