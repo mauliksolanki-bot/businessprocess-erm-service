@@ -25,6 +25,14 @@ FROM eclipse-temurin:21-jre
 
 WORKDIR /app
 
+# Download the New Relic Java agent so JAVA_TOOL_OPTIONS can point at a real jar.
+ADD https://download.newrelic.com/newrelic/java-agent/newrelic-agent/current/newrelic-java.zip /tmp/newrelic-java.zip
+RUN mkdir -p /opt/newrelic \
+    && jar xf /tmp/newrelic-java.zip \
+    && cp newrelic/newrelic.jar /opt/newrelic/newrelic.jar \
+    && cp newrelic/newrelic.yml /opt/newrelic/newrelic.yml \
+    && rm -rf /tmp/newrelic-java.zip newrelic
+
 # Copy generated JAR from build stage
 COPY --from=build /app/target/*.jar app.jar
 
