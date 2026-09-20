@@ -34,4 +34,5 @@ ENV PORT=8080
 EXPOSE 8080
 
 # Start Spring Boot
+# Set JAVA_TOOL_OPTIONS to include -javaagent:/path/to/newrelic.jar when the agent is mounted or baked in.
 ENTRYPOINT ["sh", "-c", "java -jar app.jar --server.port=${PORT}"]

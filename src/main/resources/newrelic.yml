@@ -1,0 +1,16 @@
+common: &default_settings
+  app_name: ${NEW_RELIC_APP_NAME:ERM Service}
+  license_key: ${NEW_RELIC_LICENSE_KEY:}
+  log_level: info
+  audit_mode: false
+  distributed_tracing:
+    enabled: true
+
+development:
+  <<: *default_settings
+
+production:
+  <<: *default_settings
+
+staging:
+  <<: *default_settings
