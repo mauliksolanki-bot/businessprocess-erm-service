@@ -78,11 +78,15 @@ public class ErmOnboardingRequest {
     @Column(name = "HEAD_HR_COMMENT", length = 500)
     private String headHrComment;
 
-    @Column(name = "CHRO_COMMENT", length = 500)
-    private String chroComment;
+    @Column(name = "ADMIN_COMMENT", length = 500)
+    private String adminComment;
 
-    @Column(name = "SUPER_ADMIN_COMMENT", length = 500)
-    private String superAdminComment;
+    @Column(name = "ADDITIONAL_APPROVER_COMMENT", length = 500)
+    private String additionalApproverComment;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "ADDITIONAL_APPROVER_DESIGNATION", length = 30)
+    private OnboardingAdditionalApproverDesignation additionalApproverDesignation;
 
     @Column(name = "HR_ACTION_BY", length = 100)
     private String hrActionBy;
@@ -90,11 +94,11 @@ public class ErmOnboardingRequest {
     @Column(name = "HEAD_HR_ACTION_BY", length = 100)
     private String headHrActionBy;
 
-    @Column(name = "CHRO_ACTION_BY", length = 100)
-    private String chroActionBy;
+    @Column(name = "ADMIN_ACTION_BY", length = 100)
+    private String adminActionBy;
 
-    @Column(name = "SUPER_ADMIN_ACTION_BY", length = 100)
-    private String superAdminActionBy;
+    @Column(name = "ADDITIONAL_APPROVER_ACTION_BY", length = 100)
+    private String additionalApproverActionBy;
 
     @Column(name = "HR_ACTION_AT")
     private LocalDateTime hrActionAt;
@@ -102,11 +106,11 @@ public class ErmOnboardingRequest {
     @Column(name = "HEAD_HR_ACTION_AT")
     private LocalDateTime headHrActionAt;
 
-    @Column(name = "CHRO_ACTION_AT")
-    private LocalDateTime chroActionAt;
+    @Column(name = "ADMIN_ACTION_AT")
+    private LocalDateTime adminActionAt;
 
-    @Column(name = "SUPER_ADMIN_ACTION_AT")
-    private LocalDateTime superAdminActionAt;
+    @Column(name = "ADDITIONAL_APPROVER_ACTION_AT")
+    private LocalDateTime additionalApproverActionAt;
 
     @Column(name = "REFER_BACK_BY", length = 100)
     private String referBackBy;
@@ -304,20 +308,28 @@ public class ErmOnboardingRequest {
         this.headHrComment = headHrComment;
     }
 
-    public String getChroComment() {
-        return chroComment;
+    public String getAdminComment() {
+        return adminComment;
     }
 
-    public void setChroComment(String chroComment) {
-        this.chroComment = chroComment;
+    public void setAdminComment(String adminComment) {
+        this.adminComment = adminComment;
     }
 
-    public String getSuperAdminComment() {
-        return superAdminComment;
+    public String getAdditionalApproverComment() {
+        return additionalApproverComment;
     }
 
-    public void setSuperAdminComment(String superAdminComment) {
-        this.superAdminComment = superAdminComment;
+    public void setAdditionalApproverComment(String additionalApproverComment) {
+        this.additionalApproverComment = additionalApproverComment;
+    }
+
+    public OnboardingAdditionalApproverDesignation getAdditionalApproverDesignation() {
+        return additionalApproverDesignation;
+    }
+
+    public void setAdditionalApproverDesignation(OnboardingAdditionalApproverDesignation additionalApproverDesignation) {
+        this.additionalApproverDesignation = additionalApproverDesignation;
     }
 
     public String getHrActionBy() {
@@ -336,20 +348,20 @@ public class ErmOnboardingRequest {
         this.headHrActionBy = headHrActionBy;
     }
 
-    public String getChroActionBy() {
-        return chroActionBy;
+    public String getAdminActionBy() {
+        return adminActionBy;
     }
 
-    public void setChroActionBy(String chroActionBy) {
-        this.chroActionBy = chroActionBy;
+    public void setAdminActionBy(String adminActionBy) {
+        this.adminActionBy = adminActionBy;
     }
 
-    public String getSuperAdminActionBy() {
-        return superAdminActionBy;
+    public String getAdditionalApproverActionBy() {
+        return additionalApproverActionBy;
     }
 
-    public void setSuperAdminActionBy(String superAdminActionBy) {
-        this.superAdminActionBy = superAdminActionBy;
+    public void setAdditionalApproverActionBy(String additionalApproverActionBy) {
+        this.additionalApproverActionBy = additionalApproverActionBy;
     }
 
     public LocalDateTime getHrActionAt() {
@@ -368,20 +380,20 @@ public class ErmOnboardingRequest {
         this.headHrActionAt = headHrActionAt;
     }
 
-    public LocalDateTime getChroActionAt() {
-        return chroActionAt;
+    public LocalDateTime getAdminActionAt() {
+        return adminActionAt;
     }
 
-    public void setChroActionAt(LocalDateTime chroActionAt) {
-        this.chroActionAt = chroActionAt;
+    public void setAdminActionAt(LocalDateTime adminActionAt) {
+        this.adminActionAt = adminActionAt;
     }
 
-    public LocalDateTime getSuperAdminActionAt() {
-        return superAdminActionAt;
+    public LocalDateTime getAdditionalApproverActionAt() {
+        return additionalApproverActionAt;
     }
 
-    public void setSuperAdminActionAt(LocalDateTime superAdminActionAt) {
-        this.superAdminActionAt = superAdminActionAt;
+    public void setAdditionalApproverActionAt(LocalDateTime additionalApproverActionAt) {
+        this.additionalApproverActionAt = additionalApproverActionAt;
     }
 
     public String getReferBackBy() {

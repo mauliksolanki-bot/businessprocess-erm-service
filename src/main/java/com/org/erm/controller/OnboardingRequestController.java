@@ -31,7 +31,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/onboarding-requests")
 @Tag(name = "Onboarding Requests", description = "HR onboarding request management")
-@PreAuthorize("hasAnyAuthority('ROLE_SUPER_ADMIN','ROLE_CHRO','ROLE_HR_HEAD','ROLE_SENIOR_HR','ROLE_JUNIOR_HR')")
+@PreAuthorize("hasAnyAuthority('ROLE_SUPER_ADMIN','ROLE_CHRO','ROLE_ADMIN','ROLE_CEO','ROLE_CTO','ROLE_HR_HEAD','ROLE_SENIOR_HR','ROLE_JUNIOR_HR')")
 public class OnboardingRequestController {
 
     private final OnboardingRequestService onboardingRequestService;

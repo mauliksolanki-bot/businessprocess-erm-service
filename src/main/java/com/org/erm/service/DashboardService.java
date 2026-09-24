@@ -44,7 +44,7 @@ public class DashboardService {
     private static final Set<OnboardingWorkflowStage> OPEN_ONBOARDING_STAGES = EnumSet.of(
             OnboardingWorkflowStage.HR_SUBMITTED,
             OnboardingWorkflowStage.HEAD_HR_APPROVED,
-            OnboardingWorkflowStage.CHRO_APPROVED
+            OnboardingWorkflowStage.ADDITIONAL_APPROVAL_PENDING
     );
 
     private final ErmUserRepository userRepository;
