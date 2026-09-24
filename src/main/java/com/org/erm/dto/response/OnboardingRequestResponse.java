@@ -1,5 +1,6 @@
 package com.org.erm.dto.response;
 
+import com.org.erm.model.OnboardingAdditionalApproverDesignation;
 import com.org.erm.model.OnboardingInterviewStage;
 import com.org.erm.model.OnboardingWorkflowStage;
 
@@ -23,6 +24,7 @@ public record OnboardingRequestResponse(
         String educationQualification,
         OnboardingInterviewStage interviewStage,
         OnboardingWorkflowStage workflowStage,
+        OnboardingAdditionalApproverDesignation additionalApproverDesignation,
         String createdByUsername,
         String generatedEmployeeId,
         String generatedEmailAddress,

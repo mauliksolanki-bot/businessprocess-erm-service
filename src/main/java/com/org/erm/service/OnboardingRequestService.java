@@ -15,6 +15,7 @@ import com.org.erm.model.ErmOnboardingRequestComment;
 import com.org.erm.model.ErmRole;
 import com.org.erm.model.ErmUser;
 import com.org.erm.model.OnboardingActionDecision;
+import com.org.erm.model.OnboardingAdditionalApproverDesignation;
 import com.org.erm.model.OnboardingInterviewStage;
 import com.org.erm.model.OnboardingWorkflowStage;
 import com.org.erm.repository.ErmDesignationHierarchyRepository;
@@ -32,6 +33,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -83,9 +85,7 @@ public class OnboardingRequestService {
         ErmOnboardingRequest onboardingRequest = onboardingRequestRepository.findById(onboardingRequestId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Onboarding request not found"));
 
-        if (onboardingRequest.getWorkflowStage() == OnboardingWorkflowStage.SUPER_ADMIN_APPROVED
-                || onboardingRequest.getWorkflowStage() == OnboardingWorkflowStage.REJECTED
-                || onboardingRequest.getWorkflowStage() == OnboardingWorkflowStage.CANCELLED) {
+        if (onboardingRequest.getWorkflowStage().isClosed()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Comments are disabled for closed requests");
         }
 
@@ -100,42 +100,93 @@ public class OnboardingRequestService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Onboarding request not found"));
 
         OnboardingWorkflowStage stage = onboardingRequest.getWorkflowStage();
-        if (stage == OnboardingWorkflowStage.SUPER_ADMIN_APPROVED || stage == OnboardingWorkflowStage.REJECTED) {
+        if (stage.isClosed()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Request is already closed");
         }
 
         String actor = authentication.getName();
         String comment = request.comment().trim();
         LocalDateTime now = LocalDateTime.now();
+        boolean createsProfile = false;
 
         if (stage == OnboardingWorkflowStage.HR_SUBMITTED) {
             ensureHeadHr(authentication);
-            applyActionForStage(onboardingRequest, request.decision(), actor, comment, now,
-                    "Head HR Review", OnboardingWorkflowStage.HEAD_HR_APPROVED,
-                    OnboardingWorkflowStage.HR_SUBMITTED);
+            if (request.decision() == OnboardingActionDecision.REFER_BACK) {
+                onboardingRequest.setHeadHrActionBy(actor);
+                onboardingRequest.setHeadHrActionAt(now);
+                onboardingRequest.setHeadHrComment(comment);
+                setReferBack(onboardingRequest, "Head HR Review", actor, comment, now);
+            } else {
+                onboardingRequest.setHeadHrActionBy(actor);
+                onboardingRequest.setHeadHrActionAt(now);
+                onboardingRequest.setHeadHrComment(comment);
+                onboardingRequest.setWorkflowStage(request.decision() == OnboardingActionDecision.APPROVE
+                        ? OnboardingWorkflowStage.HEAD_HR_APPROVED : OnboardingWorkflowStage.REJECTED);
+            }
         } else if (stage == OnboardingWorkflowStage.HEAD_HR_APPROVED) {
-            ensureChro(authentication);
-            applyActionForStage(onboardingRequest, request.decision(), actor, comment, now,
-                    "CHRO Review", OnboardingWorkflowStage.CHRO_APPROVED,
-                    OnboardingWorkflowStage.HEAD_HR_APPROVED);
-        } else if (stage == OnboardingWorkflowStage.CHRO_APPROVED) {
-            ensureSuperAdmin(authentication);
-            applyActionForStage(onboardingRequest, request.decision(), actor, comment, now,
-                    "Super Admin Review", OnboardingWorkflowStage.SUPER_ADMIN_APPROVED,
-                    OnboardingWorkflowStage.CHRO_APPROVED);
-
-            if (request.decision() == OnboardingActionDecision.APPROVE && !StringUtils.hasText(onboardingRequest.getGeneratedEmployeeId())) {
-                onboardingRequest.setInterviewStage(OnboardingInterviewStage.COMPLETED);
-                assignGeneratedIdentity(onboardingRequest);
-                createEmployeeProfile(onboardingRequest);
+            ensureAdmin(authentication);
+            if (request.decision() == OnboardingActionDecision.REFER_BACK) {
+                onboardingRequest.setAdminActionBy(actor);
+                onboardingRequest.setAdminActionAt(now);
+                onboardingRequest.setAdminComment(comment);
+                setReferBack(onboardingRequest, "Admin Review", actor, comment, now);
+            } else if (request.decision() == OnboardingActionDecision.REJECT) {
+                onboardingRequest.setAdminActionBy(actor);
+                onboardingRequest.setAdminActionAt(now);
+                onboardingRequest.setAdminComment(comment);
+                onboardingRequest.setWorkflowStage(OnboardingWorkflowStage.REJECTED);
+            } else {
+                onboardingRequest.setAdminActionBy(actor);
+                onboardingRequest.setAdminActionAt(now);
+                onboardingRequest.setAdminComment(comment);
+                if (request.additionalApproverDesignation() != null) {
+                    onboardingRequest.setAdditionalApproverDesignation(request.additionalApproverDesignation());
+                    onboardingRequest.setWorkflowStage(OnboardingWorkflowStage.ADDITIONAL_APPROVAL_PENDING);
+                } else {
+                    onboardingRequest.setWorkflowStage(OnboardingWorkflowStage.ADMIN_APPROVED);
+                    createsProfile = true;
+                }
+            }
+        } else if (stage == OnboardingWorkflowStage.ADDITIONAL_APPROVAL_PENDING) {
+            OnboardingAdditionalApproverDesignation designation = onboardingRequest.getAdditionalApproverDesignation();
+            ensureAdditionalApprover(authentication, designation);
+            if (request.decision() == OnboardingActionDecision.REFER_BACK) {
+                onboardingRequest.setAdditionalApproverActionBy(actor);
+                onboardingRequest.setAdditionalApproverActionAt(now);
+                onboardingRequest.setAdditionalApproverComment(comment);
+                setReferBack(onboardingRequest, designation == null ? "Additional Approval" : designation.getLabel() + " Review", actor, comment, now);
+            } else {
+                onboardingRequest.setAdditionalApproverActionBy(actor);
+                onboardingRequest.setAdditionalApproverActionAt(now);
+                onboardingRequest.setAdditionalApproverComment(comment);
+                if (request.decision() == OnboardingActionDecision.APPROVE) {
+                    onboardingRequest.setWorkflowStage(OnboardingWorkflowStage.ADDITIONAL_APPROVAL_APPROVED);
+                    createsProfile = true;
+                } else {
+                    onboardingRequest.setWorkflowStage(OnboardingWorkflowStage.REJECTED);
+                }
             }
         } else {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Workflow stage cannot be actioned");
         }
 
+        if (createsProfile && !StringUtils.hasText(onboardingRequest.getGeneratedEmployeeId())) {
+            onboardingRequest.setInterviewStage(OnboardingInterviewStage.COMPLETED);
+            assignGeneratedIdentity(onboardingRequest);
+            createEmployeeProfile(onboardingRequest);
+        }
+
         onboardingRequest = onboardingRequestRepository.save(onboardingRequest);
         appendTrail(onboardingRequest, stageLabel(stage), actor, decisionLabel(request.decision()), comment, now);
         return toResponse(onboardingRequest);
+    }
+
+    private void setReferBack(ErmOnboardingRequest onboardingRequest, String referBackStageLabel, String actor, String comment, LocalDateTime now) {
+        onboardingRequest.setWorkflowStage(OnboardingWorkflowStage.REFER_BACK);
+        onboardingRequest.setReferBackBy(actor);
+        onboardingRequest.setReferBackAt(now);
+        onboardingRequest.setReferBackComment(comment);
+        onboardingRequest.setReferBackStage(referBackStageLabel);
     }
 
     @Transactional
@@ -204,12 +255,13 @@ public class OnboardingRequestService {
         onboardingRequest.setHeadHrActionBy(null);
         onboardingRequest.setHeadHrActionAt(null);
         onboardingRequest.setHeadHrComment(null);
-        onboardingRequest.setChroActionBy(null);
-        onboardingRequest.setChroActionAt(null);
-        onboardingRequest.setChroComment(null);
-        onboardingRequest.setSuperAdminActionBy(null);
-        onboardingRequest.setSuperAdminActionAt(null);
-        onboardingRequest.setSuperAdminComment(null);
+        onboardingRequest.setAdminActionBy(null);
+        onboardingRequest.setAdminActionAt(null);
+        onboardingRequest.setAdminComment(null);
+        onboardingRequest.setAdditionalApproverActionBy(null);
+        onboardingRequest.setAdditionalApproverActionAt(null);
+        onboardingRequest.setAdditionalApproverComment(null);
+        onboardingRequest.setAdditionalApproverDesignation(null);
         onboardingRequest.setGeneratedEmployeeId(null);
         onboardingRequest.setGeneratedEmailAddress(null);
 
@@ -218,60 +270,13 @@ public class OnboardingRequestService {
         return toResponse(onboardingRequest);
     }
 
-    private void applyActionForStage(ErmOnboardingRequest onboardingRequest,
-                                     OnboardingActionDecision decision,
-                                     String actor,
-                                     String comment,
-                                     LocalDateTime now,
-                                     String referBackStageLabel,
-                                     OnboardingWorkflowStage nextApproveStage,
-                                     OnboardingWorkflowStage currentStage) {
-        if (decision == OnboardingActionDecision.REFER_BACK) {
-            if (currentStage == OnboardingWorkflowStage.HR_SUBMITTED) {
-                onboardingRequest.setHeadHrActionBy(actor);
-                onboardingRequest.setHeadHrActionAt(now);
-                onboardingRequest.setHeadHrComment(comment);
-            } else if (currentStage == OnboardingWorkflowStage.HEAD_HR_APPROVED) {
-                onboardingRequest.setChroActionBy(actor);
-                onboardingRequest.setChroActionAt(now);
-                onboardingRequest.setChroComment(comment);
-            } else if (currentStage == OnboardingWorkflowStage.CHRO_APPROVED) {
-                onboardingRequest.setSuperAdminActionBy(actor);
-                onboardingRequest.setSuperAdminActionAt(now);
-                onboardingRequest.setSuperAdminComment(comment);
-            }
-            onboardingRequest.setWorkflowStage(OnboardingWorkflowStage.REFER_BACK);
-            onboardingRequest.setReferBackBy(actor);
-            onboardingRequest.setReferBackAt(now);
-            onboardingRequest.setReferBackComment(comment);
-            onboardingRequest.setReferBackStage(referBackStageLabel);
-            return;
-        }
-
-        if (currentStage == OnboardingWorkflowStage.HR_SUBMITTED) {
-            onboardingRequest.setHeadHrActionBy(actor);
-            onboardingRequest.setHeadHrActionAt(now);
-            onboardingRequest.setHeadHrComment(comment);
-        } else if (currentStage == OnboardingWorkflowStage.HEAD_HR_APPROVED) {
-            onboardingRequest.setChroActionBy(actor);
-            onboardingRequest.setChroActionAt(now);
-            onboardingRequest.setChroComment(comment);
-        } else if (currentStage == OnboardingWorkflowStage.CHRO_APPROVED) {
-            onboardingRequest.setSuperAdminActionBy(actor);
-            onboardingRequest.setSuperAdminActionAt(now);
-            onboardingRequest.setSuperAdminComment(comment);
-        }
-
-        onboardingRequest.setWorkflowStage(decision == OnboardingActionDecision.APPROVE ? nextApproveStage : OnboardingWorkflowStage.REJECTED);
-    }
-
     @Transactional
     public OnboardingRequestResponse sendReminder(Long onboardingRequestId, Authentication authentication) {
         ErmOnboardingRequest onboardingRequest = onboardingRequestRepository.findById(onboardingRequestId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Onboarding request not found"));
 
         OnboardingWorkflowStage stage = onboardingRequest.getWorkflowStage();
-        if (stage == OnboardingWorkflowStage.SUPER_ADMIN_APPROVED || stage == OnboardingWorkflowStage.REJECTED) {
+        if (stage.isClosed()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Reminder can only be sent for pending requests");
         }
 
@@ -298,23 +303,32 @@ public class OnboardingRequestService {
 
     @Transactional(readOnly = true)
     public List<OnboardingRequestResponse> getPendingRequestsForApprover(Authentication authentication) {
-        List<OnboardingWorkflowStage> stages = new ArrayList<>();
+        List<OnboardingRequestResponse> results = new ArrayList<>();
         if (hasAnyAuthority(authentication, "ROLE_HR_HEAD")) {
-            stages.add(OnboardingWorkflowStage.HR_SUBMITTED);
+            results.addAll(onboardingRequestRepository
+                    .findAllByWorkflowStageInOrderByCreatedAtDesc(List.of(OnboardingWorkflowStage.HR_SUBMITTED))
+                    .stream().map(this::toResponse).toList());
         }
-        if (hasAnyAuthority(authentication, "ROLE_CHRO")) {
-            stages.add(OnboardingWorkflowStage.HEAD_HR_APPROVED);
+        if (hasAnyAuthority(authentication, "ROLE_ADMIN")) {
+            results.addAll(onboardingRequestRepository
+                    .findAllByWorkflowStageInOrderByCreatedAtDesc(List.of(OnboardingWorkflowStage.HEAD_HR_APPROVED))
+                    .stream().map(this::toResponse).toList());
         }
-        if (hasAnyAuthority(authentication, "ROLE_SUPER_ADMIN")) {
-            stages.add(OnboardingWorkflowStage.CHRO_APPROVED);
-        }
-        if (stages.isEmpty()) {
-            return List.of();
-        }
-        return onboardingRequestRepository.findAllByWorkflowStageInOrderByCreatedAtDesc(stages)
-                .stream()
-                .map(this::toResponse)
+        List<String> callerAuthorities = authentication.getAuthorities().stream()
+                .map(grantedAuthority -> grantedAuthority.getAuthority())
                 .toList();
+        boolean callerHasAdditionalApproverRole = Arrays.stream(OnboardingAdditionalApproverDesignation.values())
+                .anyMatch(designation -> callerAuthorities.contains(designation.getAuthority()));
+        if (callerHasAdditionalApproverRole) {
+            results.addAll(onboardingRequestRepository
+                    .findAllByWorkflowStageInOrderByCreatedAtDesc(List.of(OnboardingWorkflowStage.ADDITIONAL_APPROVAL_PENDING))
+                    .stream()
+                    .filter(item -> item.getAdditionalApproverDesignation() != null
+                            && callerAuthorities.contains(item.getAdditionalApproverDesignation().getAuthority()))
+                    .map(this::toResponse)
+                    .toList());
+        }
+        return results;
     }
 
     @Transactional(readOnly = true)
@@ -453,6 +467,9 @@ public class OnboardingRequestService {
         user.setActive(true);
         user.setReportingManagerUserId(onboardingRequest.getReportingManagerUserId());
         user.setReportingManagerRoleName(onboardingRequest.getReportingManagerRoleName());
+        user.setPersonalEmailAddress(onboardingRequest.getPersonalEmailAddress());
+        user.setPhoneNumber(onboardingRequest.getPhoneNumber());
+        user.setEducationQualification(onboardingRequest.getEducationQualification());
         if (!StringUtils.hasText(user.getPasswordHash())) {
             user.setPasswordHash(passwordEncoder.encode(username));
         }
@@ -507,18 +524,21 @@ public class OnboardingRequestService {
         throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only Head HR can action this stage");
     }
 
-    private void ensureChro(Authentication authentication) {
-        if (hasAnyAuthority(authentication, "ROLE_CHRO")) {
+    private void ensureAdmin(Authentication authentication) {
+        if (hasAnyAuthority(authentication, "ROLE_ADMIN")) {
             return;
         }
-        throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only CHRO can action this stage");
+        throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only Admin can action this stage");
     }
 
-    private void ensureSuperAdmin(Authentication authentication) {
-        if (hasAnyAuthority(authentication, "ROLE_SUPER_ADMIN")) {
+    private void ensureAdditionalApprover(Authentication authentication, OnboardingAdditionalApproverDesignation designation) {
+        if (designation == null) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Additional approver designation is missing");
+        }
+        if (hasAnyAuthority(authentication, designation.getAuthority())) {
             return;
         }
-        throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only Super Admin can action this stage");
+        throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only " + designation.getLabel() + " can action this stage");
     }
 
     private boolean hasAnyAuthority(Authentication authentication, String... authorities) {
@@ -552,11 +572,17 @@ public class OnboardingRequestService {
         if (StringUtils.hasText(onboardingRequest.getHeadHrActionBy())) {
             addTrailItem(trail, "Head HR Review", onboardingRequest.getHeadHrActionBy(), headHrDecision(onboardingRequest), onboardingRequest.getHeadHrComment(), onboardingRequest.getHeadHrActionAt());
         }
-        if (StringUtils.hasText(onboardingRequest.getChroActionBy())) {
-            addTrailItem(trail, "CHRO Review", onboardingRequest.getChroActionBy(), chroDecision(onboardingRequest), onboardingRequest.getChroComment(), onboardingRequest.getChroActionAt());
+        if (StringUtils.hasText(onboardingRequest.getAdminActionBy())) {
+            addTrailItem(trail, "Admin Review", onboardingRequest.getAdminActionBy(), adminDecision(onboardingRequest), onboardingRequest.getAdminComment(), onboardingRequest.getAdminActionAt());
         }
-        if (StringUtils.hasText(onboardingRequest.getSuperAdminActionBy())) {
-            addTrailItem(trail, "Super Admin Review", onboardingRequest.getSuperAdminActionBy(), onboardingRequest.getWorkflowStage() == OnboardingWorkflowStage.REFER_BACK ? "Refer Back" : onboardingRequest.getWorkflowStage() == OnboardingWorkflowStage.REJECTED ? "Rejected" : "Approved", onboardingRequest.getSuperAdminComment(), onboardingRequest.getSuperAdminActionAt());
+        if (StringUtils.hasText(onboardingRequest.getAdditionalApproverActionBy())) {
+            String step = onboardingRequest.getAdditionalApproverDesignation() != null
+                    ? onboardingRequest.getAdditionalApproverDesignation().getLabel() + " Review"
+                    : "Additional Approval Review";
+            addTrailItem(trail, step, onboardingRequest.getAdditionalApproverActionBy(),
+                    onboardingRequest.getWorkflowStage() == OnboardingWorkflowStage.REFER_BACK ? "Refer Back"
+                            : onboardingRequest.getWorkflowStage() == OnboardingWorkflowStage.REJECTED ? "Rejected" : "Approved",
+                    onboardingRequest.getAdditionalApproverComment(), onboardingRequest.getAdditionalApproverActionAt());
         }
         trail.sort((left, right) -> {
             if (left.actionAt() == null && right.actionAt() == null) {
@@ -616,10 +642,10 @@ public class OnboardingRequestService {
             return "Head HR Review";
         }
         if (stage == OnboardingWorkflowStage.HEAD_HR_APPROVED) {
-            return "CHRO Review";
+            return "Admin Review";
         }
-        if (stage == OnboardingWorkflowStage.CHRO_APPROVED) {
-            return "Super Admin Review";
+        if (stage == OnboardingWorkflowStage.ADDITIONAL_APPROVAL_PENDING) {
+            return "Additional Approval Review";
         }
         return "Review";
     }
@@ -628,10 +654,12 @@ public class OnboardingRequestService {
         if (onboardingRequest.getWorkflowStage() == OnboardingWorkflowStage.REFER_BACK && StringUtils.hasText(onboardingRequest.getHeadHrActionBy())) {
             return "Refer Back";
         }
-        if (StringUtils.hasText(onboardingRequest.getChroActionBy())
-                || StringUtils.hasText(onboardingRequest.getSuperAdminActionBy())
-                || onboardingRequest.getWorkflowStage() == OnboardingWorkflowStage.CHRO_APPROVED
-                || onboardingRequest.getWorkflowStage() == OnboardingWorkflowStage.SUPER_ADMIN_APPROVED) {
+        if (StringUtils.hasText(onboardingRequest.getAdminActionBy())
+                || StringUtils.hasText(onboardingRequest.getAdditionalApproverActionBy())
+                || onboardingRequest.getWorkflowStage() == OnboardingWorkflowStage.HEAD_HR_APPROVED
+                || onboardingRequest.getWorkflowStage() == OnboardingWorkflowStage.ADDITIONAL_APPROVAL_PENDING
+                || onboardingRequest.getWorkflowStage() == OnboardingWorkflowStage.ADMIN_APPROVED
+                || onboardingRequest.getWorkflowStage() == OnboardingWorkflowStage.ADDITIONAL_APPROVAL_APPROVED) {
             return "Approved";
         }
         if (onboardingRequest.getWorkflowStage() == OnboardingWorkflowStage.REJECTED) {
@@ -640,12 +668,14 @@ public class OnboardingRequestService {
         return "Approved";
     }
 
-    private String chroDecision(ErmOnboardingRequest onboardingRequest) {
-        if (onboardingRequest.getWorkflowStage() == OnboardingWorkflowStage.REFER_BACK && StringUtils.hasText(onboardingRequest.getChroActionBy())) {
+    private String adminDecision(ErmOnboardingRequest onboardingRequest) {
+        if (onboardingRequest.getWorkflowStage() == OnboardingWorkflowStage.REFER_BACK && StringUtils.hasText(onboardingRequest.getAdminActionBy())) {
             return "Refer Back";
         }
-        if (StringUtils.hasText(onboardingRequest.getSuperAdminActionBy())
-                || onboardingRequest.getWorkflowStage() == OnboardingWorkflowStage.SUPER_ADMIN_APPROVED) {
+        if (StringUtils.hasText(onboardingRequest.getAdditionalApproverActionBy())
+                || onboardingRequest.getWorkflowStage() == OnboardingWorkflowStage.ADDITIONAL_APPROVAL_PENDING
+                || onboardingRequest.getWorkflowStage() == OnboardingWorkflowStage.ADMIN_APPROVED
+                || onboardingRequest.getWorkflowStage() == OnboardingWorkflowStage.ADDITIONAL_APPROVAL_APPROVED) {
             return "Approved";
         }
         if (onboardingRequest.getWorkflowStage() == OnboardingWorkflowStage.REJECTED) {
@@ -672,6 +702,7 @@ public class OnboardingRequestService {
                 onboardingRequest.getEducationQualification(),
                 onboardingRequest.getInterviewStage(),
                 onboardingRequest.getWorkflowStage(),
+                onboardingRequest.getAdditionalApproverDesignation(),
                 onboardingRequest.getCreatedByUsername(),
                 onboardingRequest.getGeneratedEmployeeId(),
                 onboardingRequest.getGeneratedEmailAddress(),

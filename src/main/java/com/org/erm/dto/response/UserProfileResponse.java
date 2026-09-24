@@ -11,6 +11,11 @@ public record UserProfileResponse(
         String reportingManagerFullName,
         String reportingManagerRoleName,
         List<String> roles,
-        List<SelfProjectAssignmentResponse> currentProjects
+        List<SelfProjectAssignmentResponse> currentProjects,
+        String personalEmailAddress,
+        String phoneNumber,
+        String educationQualification,
+        boolean bankDetailsEditWindowOpen,
+        String bankDetailsEditWindowMessage
 ) {
 }

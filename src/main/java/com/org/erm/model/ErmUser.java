@@ -53,6 +53,15 @@ public class ErmUser {
     @Column(name = "PASSWORD_HASH", nullable = false, length = 255)
     private String passwordHash;
 
+    @Column(name = "PERSONAL_EMAIL_ADDRESS", length = 150)
+    private String personalEmailAddress;
+
+    @Column(name = "PHONE_NUMBER", length = 25)
+    private String phoneNumber;
+
+    @Column(name = "EDUCATION_QUALIFICATION", length = 255)
+    private String educationQualification;
+
     @Column(name = "IS_ACTIVE", nullable = false)
     private boolean active = true;
 
@@ -146,6 +155,30 @@ public class ErmUser {
 
     public void setPasswordHash(String passwordHash) {
         this.passwordHash = passwordHash;
+    }
+
+    public String getPersonalEmailAddress() {
+        return personalEmailAddress;
+    }
+
+    public void setPersonalEmailAddress(String personalEmailAddress) {
+        this.personalEmailAddress = personalEmailAddress;
+    }
+
+    public String getPhoneNumber() {
+        return phoneNumber;
+    }
+
+    public void setPhoneNumber(String phoneNumber) {
+        this.phoneNumber = phoneNumber;
+    }
+
+    public String getEducationQualification() {
+        return educationQualification;
+    }
+
+    public void setEducationQualification(String educationQualification) {
+        this.educationQualification = educationQualification;
     }
 
     public boolean isActive() {

@@ -8,6 +8,11 @@ import java.util.Arrays;
 public enum OnboardingWorkflowStage {
     HR_SUBMITTED("HR Submitted"),
     HEAD_HR_APPROVED("Head HR Approved"),
+    ADDITIONAL_APPROVAL_PENDING("Additional Approval Pending"),
+    ADMIN_APPROVED("Admin Approved"),
+    ADDITIONAL_APPROVAL_APPROVED("Additional Approval Approved"),
+    // Retained for the (separate, unrelated) employee profile-update-request approval workflow,
+    // which reuses this enum and still has its own 4-stage HR -> Head HR -> CHRO -> Super Admin chain.
     CHRO_APPROVED("CHRO Approved"),
     SUPER_ADMIN_APPROVED("Super Admin Approved"),
     REFER_BACK("Refer Back"),
@@ -23,6 +28,11 @@ public enum OnboardingWorkflowStage {
     @JsonValue
     public String getLabel() {
         return label;
+    }
+
+    public boolean isClosed() {
+        return this == ADMIN_APPROVED || this == ADDITIONAL_APPROVAL_APPROVED
+                || this == REJECTED || this == CANCELLED;
     }
 
     @JsonCreator
