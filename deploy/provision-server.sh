@@ -44,6 +44,11 @@ export DEBIAN_FRONTEND=noninteractive
 # (re)configured Jenkins repo setup later in this script.
 rm -f /etc/apt/sources.list.d/jenkins.list /usr/share/keyrings/jenkins-keyring.asc /usr/share/keyrings/jenkins-keyring.gpg
 
+log "Freeing disk space (apt cache, old journal logs, stale tmp dirs)"
+apt-get clean || true
+journalctl --vacuum-time=3d >/dev/null 2>&1 || true
+rm -rf /tmp/ermservice-deploy* /tmp/ermui-deploy* /tmp/ermui-jenkins-build 2>/dev/null || true
+
 apt-get update -y
 apt-get install -y openjdk-21-jdk maven git curl unzip gnupg ufw ca-certificates
 
@@ -73,6 +78,13 @@ PROD_DB_URL=jdbc:mysql://REPLACE_ME:3306/REPLACE_ME
 PROD_DB_USERNAME=REPLACE_ME
 PROD_DB_PASSWORD=REPLACE_ME
 PROD_JWT_SECRET=REPLACE_ME
+# GitHub issue sync (required for creating GitHub issues from support tickets):
+GITHUB_INTEGRATION_ENABLED=true
+GITHUB_TOKEN=REPLACE_ME
+GITHUB_REPOSITORY=mauliksolanki-bot/businessprocess-erm-ui
+GITHUB_PROJECT_OWNER=mauliksolanki-bot
+GITHUB_PROJECT_NUMBER=1
+GITHUB_BACKLOG_STATUS_NAME=Backlog
 EOF
   chown "${APP_USER}:${APP_USER}" "${ENV_FILE}"
   chmod 600 "${ENV_FILE}"
@@ -195,6 +207,7 @@ log "Granting jenkins user scoped sudo rights to deploy ${SERVICE_NAME}"
 cat > /etc/sudoers.d/jenkins-ermservice <<EOF
 jenkins ALL=(root) NOPASSWD: /bin/systemctl restart ${SERVICE_NAME}
 jenkins ALL=(root) NOPASSWD: /bin/systemctl status ${SERVICE_NAME}
+jenkins ALL=(root) NOPASSWD: /bin/systemctl is-active ${SERVICE_NAME}
 jenkins ALL=(root) NOPASSWD: /bin/cp /tmp/ermservice-deploy.jar ${APP_JAR}
 jenkins ALL=(root) NOPASSWD: /bin/chown ${APP_USER}\:${APP_USER} ${APP_JAR}
 EOF
