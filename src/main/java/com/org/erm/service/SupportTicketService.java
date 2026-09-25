@@ -319,17 +319,17 @@ public class SupportTicketService {
             }
             LocalDateTime now = LocalDateTime.now();
             applyStatusTransition(ticket, nextStatus, now);
-            ticket.setUpdatedByUsername(actorLabel);
+            ticket.setUpdatedByUsername(ticket.getAssigneeFullName());
             ticketRepository.save(ticket);
 
             ErmSupportTicketComment comment = new ErmSupportTicketComment();
             comment.setTicketId(ticket.getId());
-            comment.setActorUsername(actorLabel);
+            comment.setActorUsername(ticket.getAssigneeFullName());
             comment.setActionType("STATUS_CHANGE");
             comment.setCommentText(note);
             commentRepository.save(comment);
 
-            recordAudit(ticket.getId(), actorLabel, "STATUS_CHANGE", previousStatus.name(), nextStatus.name(), note);
+            recordAudit(ticket.getId(), ticket.getAssigneeFullName(), "STATUS_CHANGE", previousStatus.name(), nextStatus.name(), note);
             recordNotification(ticket.getId(), ticket.getRequesterUsername(), "IN_APP", "STATUS_CHANGE",
                     "Ticket " + ticket.getTicketNumber() + " moved to " + nextStatus.name());
         });
