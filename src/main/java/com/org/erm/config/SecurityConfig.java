@@ -53,6 +53,8 @@ public class SecurityConfig {
 
                         .requestMatchers("/api/auth/login").permitAll()
 
+                        .requestMatchers("/api/webhooks/github").permitAll()
+
                         .requestMatchers("/error", "/error/**").permitAll()
 
                         .anyRequest().authenticated()

@@ -11,6 +11,7 @@ import com.org.erm.dto.request.SupportTicketCreateRequest;
 import com.org.erm.dto.request.SupportTicketDetailsUpdateRequest;
 import com.org.erm.dto.response.SupportTicketResponse;
 import com.org.erm.dto.request.SupportTicketStatusRequest;
+import com.org.erm.event.SupportTicketCreatedEvent;
 import com.org.erm.model.ErmSupportAuditLog;
 import com.org.erm.model.ErmSupportCategory;
 import com.org.erm.model.ErmSupportNotification;
@@ -35,6 +36,7 @@ import com.org.erm.repository.ErmSupportTicketCommentRepository;
 import com.org.erm.repository.ErmSupportTicketRepository;
 import com.org.erm.repository.ErmUserRepository;
 import org.springframework.http.HttpStatus;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -80,6 +82,7 @@ public class SupportTicketService {
     private final ErmSupportNotificationRepository notificationRepository;
     private final ErmUserRepository userRepository;
     private final MentionNotificationService mentionNotificationService;
+    private final ApplicationEventPublisher eventPublisher;
 
     public SupportTicketService(ErmSupportTicketRepository ticketRepository,
                                 ErmSupportTicketCommentRepository commentRepository,
@@ -91,7 +94,8 @@ public class SupportTicketService {
                                 ErmSupportAuditLogRepository auditLogRepository,
                                 ErmSupportNotificationRepository notificationRepository,
                                 ErmUserRepository userRepository,
-                                MentionNotificationService mentionNotificationService) {
+                                MentionNotificationService mentionNotificationService,
+                                ApplicationEventPublisher eventPublisher) {
         this.ticketRepository = ticketRepository;
         this.commentRepository = commentRepository;
         this.categoryRepository = categoryRepository;
@@ -103,6 +107,7 @@ public class SupportTicketService {
         this.notificationRepository = notificationRepository;
         this.userRepository = userRepository;
         this.mentionNotificationService = mentionNotificationService;
+        this.eventPublisher = eventPublisher;
     }
 
     @Transactional
@@ -162,6 +167,7 @@ public class SupportTicketService {
             }
 
             ticket = ticketRepository.save(ticket);
+            eventPublisher.publishEvent(new SupportTicketCreatedEvent(ticket.getId(), requester.getFullName(), requester.getEmployeeId()));
 
             recordAudit(ticket.getId(), requester.getUsername(), "CREATED", null, ticket.getStatus().name(), "Support ticket created");
             recordNotification(ticket.getId(), requester.getUsername(), "IN_APP", "CREATED", "Ticket " + ticket.getTicketNumber() + " created");
@@ -297,6 +303,36 @@ public class SupportTicketService {
         recordAudit(ticket.getId(), currentUser.getUsername(), "STATUS_CHANGE", previousStatus.name(), nextStatus.name(), "Status changed");
         recordNotification(ticket.getId(), ticket.getRequesterUsername(), "IN_APP", "STATUS_CHANGE", "Ticket " + ticket.getTicketNumber() + " moved to " + nextStatus.name());
         return toResponse(ticket, true);
+    }
+
+    /**
+     * Applies a status change coming from an external system (currently: the GitHub issues
+     * webhook) rather than an authenticated in-app user. No-ops if the ticket isn't found or is
+     * already in the requested status, to avoid noisy duplicate audit/comment entries.
+     */
+    @Transactional
+    public void applyExternalStatusUpdate(int githubIssueNumber, SupportTicketStatus nextStatus, String actorLabel, String note) {
+        ticketRepository.findByGithubIssueNumber(githubIssueNumber).ifPresent(ticket -> {
+            SupportTicketStatus previousStatus = ticket.getStatus();
+            if (previousStatus == nextStatus) {
+                return;
+            }
+            LocalDateTime now = LocalDateTime.now();
+            applyStatusTransition(ticket, nextStatus, now);
+            ticket.setUpdatedByUsername(actorLabel);
+            ticketRepository.save(ticket);
+
+            ErmSupportTicketComment comment = new ErmSupportTicketComment();
+            comment.setTicketId(ticket.getId());
+            comment.setActorUsername(actorLabel);
+            comment.setActionType("STATUS_CHANGE");
+            comment.setCommentText(note);
+            commentRepository.save(comment);
+
+            recordAudit(ticket.getId(), actorLabel, "STATUS_CHANGE", previousStatus.name(), nextStatus.name(), note);
+            recordNotification(ticket.getId(), ticket.getRequesterUsername(), "IN_APP", "STATUS_CHANGE",
+                    "Ticket " + ticket.getTicketNumber() + " moved to " + nextStatus.name());
+        });
     }
 
     @Transactional
@@ -830,6 +866,8 @@ public class SupportTicketService {
                 ticket.getClosedAt(),
                 ticket.getCreatedByUsername(),
                 ticket.getUpdatedByUsername(),
+                ticket.getGithubIssueNumber() != null ? "#" + ticket.getGithubIssueNumber() : null,
+                ticket.getGithubIssueUrl(),
                 comments,
                 ticket.getCreatedAt(),
                 ticket.getUpdatedAt()

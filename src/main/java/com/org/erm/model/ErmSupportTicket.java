@@ -116,6 +116,18 @@ public class ErmSupportTicket {
     @Column(name = "UPDATED_BY_USERNAME", nullable = false, length = 100)
     private String updatedByUsername;
 
+    @Column(name = "GITHUB_ISSUE_NUMBER")
+    private Integer githubIssueNumber;
+
+    @Column(name = "GITHUB_ISSUE_URL", length = 500)
+    private String githubIssueUrl;
+
+    @Column(name = "GITHUB_ISSUE_NODE_ID", length = 100)
+    private String githubIssueNodeId;
+
+    @Column(name = "GITHUB_PROJECT_ITEM_ID", length = 100)
+    private String githubProjectItemId;
+
     @Version
     @Column(name = "VERSION", nullable = false)
     private Long version;
@@ -370,6 +382,38 @@ public class ErmSupportTicket {
 
     public void setUpdatedByUsername(String updatedByUsername) {
         this.updatedByUsername = updatedByUsername;
+    }
+
+    public Integer getGithubIssueNumber() {
+        return githubIssueNumber;
+    }
+
+    public void setGithubIssueNumber(Integer githubIssueNumber) {
+        this.githubIssueNumber = githubIssueNumber;
+    }
+
+    public String getGithubIssueUrl() {
+        return githubIssueUrl;
+    }
+
+    public void setGithubIssueUrl(String githubIssueUrl) {
+        this.githubIssueUrl = githubIssueUrl;
+    }
+
+    public String getGithubIssueNodeId() {
+        return githubIssueNodeId;
+    }
+
+    public void setGithubIssueNodeId(String githubIssueNodeId) {
+        this.githubIssueNodeId = githubIssueNodeId;
+    }
+
+    public String getGithubProjectItemId() {
+        return githubProjectItemId;
+    }
+
+    public void setGithubProjectItemId(String githubProjectItemId) {
+        this.githubProjectItemId = githubProjectItemId;
     }
 
     public LocalDateTime getCreatedAt() {
