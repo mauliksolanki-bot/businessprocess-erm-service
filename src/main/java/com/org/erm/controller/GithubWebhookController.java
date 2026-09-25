@@ -66,13 +66,16 @@ public class GithubWebhookController {
 
         try {
             JsonNode payload = objectMapper.readTree(rawBody);
+            log.info("Received GitHub webhook event={} action={} delivery={}", eventType,
+                    payload.path("action").asText("unknown"), deliveryId);
             if ("issues".equals(eventType)) {
                 processIssueEvent(payload, deliveryId);
-            } else {
-                processIssueCommentEvent(payload, deliveryId);
+            } else if (!processIssueCommentEvent(payload, deliveryId)) {
+                return ResponseEntity.status(503).body("Support ticket is not linked to this GitHub issue yet");
             }
         } catch (Exception ex) {
             log.error("Error processing GitHub {} webhook payload", eventType, ex);
+            return ResponseEntity.status(500).body("Unable to process GitHub webhook");
         }
         return ResponseEntity.ok("Processed");
     }
@@ -96,13 +99,14 @@ public class GithubWebhookController {
         supportTicketService.applyExternalIssueEvent(issueNumber, deliveryId, actor, action, details, status, priority);
     }
 
-    private void processIssueCommentEvent(JsonNode payload, String deliveryId) {
+    private boolean processIssueCommentEvent(JsonNode payload, String deliveryId) {
         JsonNode issue = payload.path("issue");
         JsonNode comment = payload.path("comment");
         if (!issue.has("number") || comment.isMissingNode()) {
-            return;
+            log.warn("Ignoring malformed GitHub issue_comment webhook delivery {}", deliveryId);
+            return true;
         }
-        supportTicketService.applyExternalIssueComment(
+        return supportTicketService.applyExternalIssueComment(
                 issue.path("number").asInt(),
                 deliveryId,
                 comment.path("id").isNumber() ? comment.path("id").asLong() : null,

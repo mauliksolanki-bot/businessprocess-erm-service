@@ -35,6 +35,8 @@ import com.org.erm.repository.ErmSupportSlaPolicyRepository;
 import com.org.erm.repository.ErmSupportTicketCommentRepository;
 import com.org.erm.repository.ErmSupportTicketRepository;
 import com.org.erm.repository.ErmUserRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.core.Authentication;
@@ -55,6 +57,8 @@ import java.util.stream.Collectors;
 
 @Service
 public class SupportTicketService {
+
+    private static final Logger log = LoggerFactory.getLogger(SupportTicketService.class);
 
     private static final String QUEUE_CODE_APP_SUPPORT = "ERM_APP_SUPPORT";
     private static final String QUEUE_CODE_IT_SUPPORT = "ERM_IT_SUPPORT";
@@ -348,43 +352,47 @@ public class SupportTicketService {
 
     /** Stores or updates a GitHub issue comment, using its id to make webhook retries idempotent. */
     @Transactional
-    public void applyExternalIssueComment(int githubIssueNumber, String deliveryId, Long githubCommentId, String actorLabel,
-                                          String action, String body) {
-        ticketRepository.findByGithubIssueNumber(githubIssueNumber).ifPresent(ticket -> {
-            String actor = StringUtils.hasText(actorLabel) ? actorLabel : "github-webhook";
-            if (StringUtils.hasText(deliveryId) && commentRepository.existsByGithubDeliveryId(deliveryId)) {
-                return;
-            }
-            ticket.setUpdatedByUsername(actor);
-            ticketRepository.save(ticket);
-            ErmSupportTicketComment comment = githubCommentId == null ? null
-                    : commentRepository.findByGithubCommentId(githubCommentId).orElse(null);
+    public boolean applyExternalIssueComment(int githubIssueNumber, String deliveryId, Long githubCommentId, String actorLabel,
+                                             String action, String body) {
+        ErmSupportTicket ticket = ticketRepository.findByGithubIssueNumber(githubIssueNumber).orElse(null);
+        if (ticket == null) {
+            log.warn("Received GitHub issue comment for unlinked issue #{} (delivery {})", githubIssueNumber, deliveryId);
+            return false;
+        }
+        String actor = StringUtils.hasText(actorLabel) ? actorLabel : "github-webhook";
+        if (StringUtils.hasText(deliveryId) && commentRepository.existsByGithubDeliveryId(deliveryId)) {
+            return true;
+        }
+        ticket.setUpdatedByUsername(actor);
+        ticketRepository.save(ticket);
+        ErmSupportTicketComment comment = githubCommentId == null ? null
+                : commentRepository.findByGithubCommentId(githubCommentId).orElse(null);
 
-            if ("deleted".equalsIgnoreCase(action)) {
-                saveExternalActivity(ticket.getId(), actor, "GITHUB_COMMENT_DELETED",
-                        "GitHub comment deleted" + (StringUtils.hasText(body) ? ": " + body : ""), null, deliveryId);
-                recordAudit(ticket.getId(), actor, "GITHUB_COMMENT_DELETED", null, null, "GitHub comment deleted");
-                return;
-            }
+        if ("deleted".equalsIgnoreCase(action)) {
+            saveExternalActivity(ticket.getId(), actor, "GITHUB_COMMENT_DELETED",
+                    "GitHub comment deleted" + (StringUtils.hasText(body) ? ": " + body : ""), null, deliveryId);
+            recordAudit(ticket.getId(), actor, "GITHUB_COMMENT_DELETED", null, null, "GitHub comment deleted");
+            return true;
+        }
 
-            if (comment == null) {
-                comment = new ErmSupportTicketComment();
-                comment.setTicketId(ticket.getId());
-                comment.setGithubCommentId(githubCommentId);
-            }
-            comment.setActorUsername(actor);
-            comment.setActionType("GITHUB_COMMENT");
-            comment.setCommentText(body);
-            if ("edited".equalsIgnoreCase(action)) {
-                saveExternalActivity(ticket.getId(), actor, "GITHUB_COMMENT_EDITED", "GitHub comment edited",
-                        null, deliveryId);
-            } else {
-                comment.setGithubDeliveryId(deliveryId);
-            }
-            commentRepository.save(comment);
-            recordAudit(ticket.getId(), actor, "GITHUB_COMMENT", null, null,
-                    "GitHub issue comment " + action);
-        });
+        if (comment == null) {
+            comment = new ErmSupportTicketComment();
+            comment.setTicketId(ticket.getId());
+            comment.setGithubCommentId(githubCommentId);
+        }
+        comment.setActorUsername(actor);
+        comment.setActionType("GITHUB_COMMENT");
+        comment.setCommentText(body);
+        if ("edited".equalsIgnoreCase(action)) {
+            saveExternalActivity(ticket.getId(), actor, "GITHUB_COMMENT_EDITED", "GitHub comment edited",
+                    null, deliveryId);
+        } else {
+            comment.setGithubDeliveryId(deliveryId);
+        }
+        commentRepository.save(comment);
+        recordAudit(ticket.getId(), actor, "GITHUB_COMMENT", null, null,
+                "GitHub issue comment " + action);
+        return true;
     }
 
     private void saveExternalActivity(Long ticketId, String actor, String actionType, String details, Long githubCommentId,
