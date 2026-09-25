@@ -118,7 +118,8 @@ public class GithubWebhookController {
 
     private SupportPriority resolvePriority(JsonNode issue) {
         for (JsonNode label : issue.path("labels")) {
-            SupportPriority priority = parsePriority(label.path("name").asText(""));
+            String labelName = label.path("name").asText("");
+            SupportPriority priority = parsePriority(labelName);
             if (priority != null) {
                 return priority;
             }
@@ -147,6 +148,10 @@ public class GithubWebhookController {
 
     private String describeIssueAction(String action, JsonNode issue, JsonNode changes, JsonNode payload) {
         List<String> details = new ArrayList<>();
+        String actor = payload.path("sender").path("login").asText(null);
+        if (actor != null && !actor.isBlank()) {
+            details.add("GitHub user: " + actor);
+        }
         switch (action) {
             case "closed" -> details.add("Issue closed" + (issue.hasNonNull("state_reason")
                     ? " (" + issue.path("state_reason").asText() + ")" : ""));
@@ -156,6 +161,10 @@ public class GithubWebhookController {
                     + payload.path("label").path("name").asText(issue.path("labels").toString()));
             case "assigned", "unassigned" -> details.add("Assignee " + action + ": "
                     + payload.path("assignee").path("login").asText(issue.path("assignees").toString()));
+            case "milestoned", "demilestoned" -> details.add("Milestone " + action + ": "
+                    + payload.path("milestone").path("title").asText(issue.path("milestone").path("title").asText("-")));
+            case "locked", "unlocked", "pinned", "unpinned", "transferred" ->
+                    details.add("Issue " + action);
             default -> details.add("Issue action: " + action);
         }
         if (changes.isObject()) {
