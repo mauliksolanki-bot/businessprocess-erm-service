@@ -89,7 +89,7 @@ public class GithubIssueService {
         GithubIssueCreateResponse created;
         try {
             created = restClient.post()
-                    .uri("/repos/{repo}/issues", githubProperties.getRepository())
+                    .uri("/repos/{owner}/{repo}/issues", repositoryOwner(), repositoryName())
                     .header("Authorization", "Bearer " + githubProperties.getToken())
                     .body(new GithubIssueCreateRequest(title, body, labels))
                     .retrieve()
@@ -100,6 +100,7 @@ public class GithubIssueService {
         }
 
         if (created == null) {
+
             log.error("GitHub issue creation for ticket {} returned an empty response", ticket.getTicketNumber());
             return;
         }
@@ -134,6 +135,21 @@ public class GithubIssueService {
             }
             ticketRepository.save(ticket);
         });
+    }
+
+    /**
+     * Splits the configured "owner/repo" string so it can be substituted as two separate
+     * URI template variables. Passing the full "owner/repo" string as a single template
+     * variable causes Spring's URI encoding to percent-encode the slash (%2F), producing
+     * a malformed path that GitHub responds to with 404 Not Found.
+     */
+    private String repositoryOwner() {
+        return githubProperties.getRepository().split("/", 2)[0];
+    }
+
+    private String repositoryName() {
+        String[] parts = githubProperties.getRepository().split("/", 2);
+        return parts.length > 1 ? parts[1] : "";
     }
 
     private String addIssueToBacklog(String issueNodeId) {
