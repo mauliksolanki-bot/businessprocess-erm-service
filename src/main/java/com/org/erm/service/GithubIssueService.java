@@ -23,6 +23,8 @@ import com.org.erm.event.SupportTicketCreatedEvent;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Best-effort integration that creates a GitHub issue for every new support ticket and places it
@@ -48,6 +50,9 @@ public class GithubIssueService {
 
     // Cached Project v2 board coordinates - looked up once, reused afterwards.
     private volatile ProjectBoardInfo cachedProjectBoardInfo;
+
+    // Labels confirmed to exist in the target repo - avoids re-checking on every ticket.
+    private final Set<String> knownLabels = ConcurrentHashMap.newKeySet();
 
     public GithubIssueService(GithubProperties githubProperties,
                               ErmSupportTicketRepository ticketRepository,
@@ -86,6 +91,8 @@ public class GithubIssueService {
         String body = buildBody(ticket, requesterFullName, requesterEmployeeId);
         List<String> labels = List.of("support-ticket", ticket.getTicketType().name().toLowerCase(Locale.ROOT).replace('_', '-'));
 
+        ensureLabelsExist(labels);
+
         GithubIssueCreateResponse created;
         try {
             created = restClient.post()
@@ -95,8 +102,19 @@ public class GithubIssueService {
                     .retrieve()
                     .body(GithubIssueCreateResponse.class);
         } catch (Exception ex) {
-            log.error("Failed to create GitHub issue for ticket {}", ticket.getTicketNumber(), ex);
-            return;
+            log.warn("Issue creation with labels failed for ticket {} ({}); retrying without labels",
+                    ticket.getTicketNumber(), ex.getMessage());
+            try {
+                created = restClient.post()
+                        .uri("/repos/{owner}/{repo}/issues", repositoryOwner(), repositoryName())
+                        .header("Authorization", "Bearer " + githubProperties.getToken())
+                        .body(new GithubIssueCreateRequest(title, body, List.of()))
+                        .retrieve()
+                        .body(GithubIssueCreateResponse.class);
+            } catch (Exception retryEx) {
+                log.error("Failed to create GitHub issue for ticket {}", ticket.getTicketNumber(), retryEx);
+                return;
+            }
         }
 
         if (created == null) {
@@ -150,6 +168,33 @@ public class GithubIssueService {
     private String repositoryName() {
         String[] parts = githubProperties.getRepository().split("/", 2);
         return parts.length > 1 ? parts[1] : "";
+    }
+
+    /**
+     * GitHub rejects issue creation with 422 Unprocessable Content if a requested label does not
+     * already exist in the repository. Create any missing labels first (best-effort, ignoring
+     * failures) so ticket sync keeps working without requiring manual label setup per repo.
+     */
+    private void ensureLabelsExist(List<String> labels) {
+        for (String label : labels) {
+            if (knownLabels.contains(label)) {
+                continue;
+            }
+            try {
+                restClient.post()
+                        .uri("/repos/{owner}/{repo}/labels", repositoryOwner(), repositoryName())
+                        .header("Authorization", "Bearer " + githubProperties.getToken())
+                        .body(new GithubLabelCreateRequest(label, "ededed"))
+                        .retrieve()
+                        .toBodilessEntity();
+                log.info("Created missing GitHub label '{}' on {}", label, githubProperties.getRepository());
+            } catch (Exception ex) {
+                // 422/"already_exists" simply means the label is already there - either way, treat
+                // the label as usable from now on so we don't keep retrying on every ticket.
+                log.debug("Could not create GitHub label '{}' (likely already exists): {}", label, ex.getMessage());
+            }
+            knownLabels.add(label);
+        }
     }
 
     private String addIssueToBacklog(String issueNodeId) {
@@ -320,6 +365,9 @@ public class GithubIssueService {
     }
 
     private record GithubIssueCreateRequest(String title, String body, List<String> labels) {
+    }
+
+    private record GithubLabelCreateRequest(String name, String color) {
     }
 
     private record GithubIssueCreateResponse(
