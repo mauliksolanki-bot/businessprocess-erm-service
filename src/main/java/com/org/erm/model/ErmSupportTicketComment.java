@@ -28,8 +28,14 @@ public class ErmSupportTicketComment {
     @Column(name = "ACTION_TYPE", nullable = false, length = 50)
     private String actionType;
 
-    @Column(name = "COMMENT_TEXT", length = 1000)
+    @Column(name = "COMMENT_TEXT", columnDefinition = "MEDIUMTEXT")
     private String commentText;
+
+    @Column(name = "GITHUB_COMMENT_ID", unique = true)
+    private Long githubCommentId;
+
+    @Column(name = "GITHUB_DELIVERY_ID", unique = true, length = 100)
+    private String githubDeliveryId;
 
     @CreationTimestamp
     @Column(name = "CREATED_AT", nullable = false, updatable = false)
@@ -69,6 +75,22 @@ public class ErmSupportTicketComment {
 
     public void setCommentText(String commentText) {
         this.commentText = commentText;
+    }
+
+    public Long getGithubCommentId() {
+        return githubCommentId;
+    }
+
+    public void setGithubCommentId(Long githubCommentId) {
+        this.githubCommentId = githubCommentId;
+    }
+
+    public String getGithubDeliveryId() {
+        return githubDeliveryId;
+    }
+
+    public void setGithubDeliveryId(String githubDeliveryId) {
+        this.githubDeliveryId = githubDeliveryId;
     }
 
     public LocalDateTime getCreatedAt() {

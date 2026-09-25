@@ -3,6 +3,7 @@ package com.org.erm.controller;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.org.erm.config.GithubProperties;
+import com.org.erm.model.SupportPriority;
 import com.org.erm.model.SupportTicketStatus;
 import com.org.erm.service.SupportTicketService;
 import org.slf4j.Logger;
@@ -19,19 +20,22 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.util.ArrayList;
 import java.util.HexFormat;
+import java.util.List;
+import java.util.Locale;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
-/**
- * Receives GitHub's "issues" webhook events and syncs support ticket status accordingly.
- * This endpoint is permitAll in SecurityConfig; trust is instead established via HMAC-SHA256
- * signature verification against the shared webhook secret (github.webhook-secret).
- */
+/** Receives verified GitHub issue and issue-comment webhooks. */
 @RestController
 @RequestMapping("/api/webhooks/github")
 public class GithubWebhookController {
 
     private static final Logger log = LoggerFactory.getLogger(GithubWebhookController.class);
     private static final String HMAC_ALGORITHM = "HmacSHA256";
+    private static final Pattern PRIORITY_PATTERN = Pattern.compile("(?i)(?:^|[^a-z0-9])(p[1-4]|critical|urgent|high|medium|low)(?:$|[^a-z0-9])");
+    private static final Pattern BODY_PRIORITY_PATTERN = Pattern.compile("(?im)^\\s*priority\\s*:\\s*(p[1-4]|critical|urgent|high|medium|low)\\s*$");
 
     private final GithubProperties githubProperties;
     private final SupportTicketService supportTicketService;
@@ -49,54 +53,119 @@ public class GithubWebhookController {
     public ResponseEntity<String> handleWebhook(
             @RequestHeader(value = "X-Hub-Signature-256", required = false) String signatureHeader,
             @RequestHeader(value = "X-GitHub-Event", required = false) String eventType,
+            @RequestHeader(value = "X-GitHub-Delivery", required = false) String deliveryId,
             @RequestBody String rawBody) {
 
         if (!isSignatureValid(rawBody, signatureHeader)) {
             log.warn("Rejected GitHub webhook call with an invalid or missing signature");
             return ResponseEntity.status(401).body("Invalid signature");
         }
-
-        if (!"issues".equals(eventType)) {
-            // Ping events (webhook setup test) and any other event types are accepted but ignored.
+        if (!"issues".equals(eventType) && !"issue_comment".equals(eventType)) {
             return ResponseEntity.ok("Ignored event type: " + eventType);
         }
 
         try {
-            processIssuesEvent(rawBody);
+            JsonNode payload = objectMapper.readTree(rawBody);
+            if ("issues".equals(eventType)) {
+                processIssueEvent(payload, deliveryId);
+            } else {
+                processIssueCommentEvent(payload, deliveryId);
+            }
         } catch (Exception ex) {
-            log.error("Error processing GitHub issues webhook payload", ex);
-            // Always 200 back to GitHub so it doesn't keep retrying a payload we can't process.
+            log.error("Error processing GitHub {} webhook payload", eventType, ex);
         }
         return ResponseEntity.ok("Processed");
     }
 
-    private void processIssuesEvent(String rawBody) throws Exception {
-        JsonNode payload = objectMapper.readTree(rawBody);
-        String action = payload.path("action").asText("");
+    private void processIssueEvent(JsonNode payload, String deliveryId) {
         JsonNode issue = payload.path("issue");
-        if (issue.isMissingNode() || !issue.has("number")) {
+        if (!issue.has("number")) {
             return;
         }
+        String action = payload.path("action").asText("unknown");
         int issueNumber = issue.path("number").asInt();
-        String issueUrl = issue.path("html_url").asText(null);
+        String actor = payload.path("sender").path("login").asText("github-webhook");
+        SupportTicketStatus status = switch (action) {
+            case "closed" -> "not_planned".equals(issue.path("state_reason").asText())
+                    ? SupportTicketStatus.CANCELLED : SupportTicketStatus.RESOLVED;
+            case "reopened" -> SupportTicketStatus.REOPENED;
+            default -> null;
+        };
+        SupportPriority priority = resolvePriority(issue);
+        String details = describeIssueAction(action, issue, payload.path("changes"), payload);
+        supportTicketService.applyExternalIssueEvent(issueNumber, deliveryId, actor, action, details, status, priority);
+    }
 
-        switch (action) {
-            case "closed" -> {
-                String stateReason = issue.path("state_reason").asText("completed");
-                SupportTicketStatus nextStatus = "not_planned".equals(stateReason)
-                        ? SupportTicketStatus.CANCELLED
-                        : SupportTicketStatus.RESOLVED;
-                supportTicketService.applyExternalStatusUpdate(
-                        issueNumber, nextStatus, "github-webhook",
-                        "GitHub issue #" + issueNumber + " was closed (" + stateReason + "). Synced from " + issueUrl);
-            }
-            case "reopened" -> supportTicketService.applyExternalStatusUpdate(
-                    issueNumber, SupportTicketStatus.REOPENED, "github-webhook",
-                    "GitHub issue #" + issueNumber + " was reopened. Synced from " + issueUrl);
-            default -> {
-                // opened/edited/labeled/etc. - no ticket status implication, ignore.
+    private void processIssueCommentEvent(JsonNode payload, String deliveryId) {
+        JsonNode issue = payload.path("issue");
+        JsonNode comment = payload.path("comment");
+        if (!issue.has("number") || comment.isMissingNode()) {
+            return;
+        }
+        supportTicketService.applyExternalIssueComment(
+                issue.path("number").asInt(),
+                deliveryId,
+                comment.path("id").isNumber() ? comment.path("id").asLong() : null,
+                comment.path("user").path("login").asText("github-webhook"),
+                payload.path("action").asText("created"),
+                comment.path("body").asText("")
+        );
+    }
+
+    private SupportPriority resolvePriority(JsonNode issue) {
+        for (JsonNode label : issue.path("labels")) {
+            SupportPriority priority = parsePriority(label.path("name").asText(""));
+            if (priority != null) {
+                return priority;
             }
         }
+        SupportPriority fromTitle = parsePriority(issue.path("title").asText(""));
+        if (fromTitle != null) {
+            return fromTitle;
+        }
+        Matcher bodyPriority = BODY_PRIORITY_PATTERN.matcher(issue.path("body").asText(""));
+        return bodyPriority.find() ? parsePriority(bodyPriority.group(1)) : null;
+    }
+
+    private SupportPriority parsePriority(String value) {
+        Matcher matcher = PRIORITY_PATTERN.matcher(value.toLowerCase(Locale.ROOT).replace('_', ' '));
+        if (!matcher.find()) {
+            return null;
+        }
+        return switch (matcher.group(1).toLowerCase(Locale.ROOT)) {
+            case "p1", "critical", "urgent" -> SupportPriority.P1;
+            case "p2", "high" -> SupportPriority.P2;
+            case "p3", "medium" -> SupportPriority.P3;
+            case "p4", "low" -> SupportPriority.P4;
+            default -> null;
+        };
+    }
+
+    private String describeIssueAction(String action, JsonNode issue, JsonNode changes, JsonNode payload) {
+        List<String> details = new ArrayList<>();
+        switch (action) {
+            case "closed" -> details.add("Issue closed" + (issue.hasNonNull("state_reason")
+                    ? " (" + issue.path("state_reason").asText() + ")" : ""));
+            case "reopened" -> details.add("Issue reopened");
+            case "opened" -> details.add("Issue opened");
+            case "labeled", "unlabeled" -> details.add("Label " + action + ": "
+                    + payload.path("label").path("name").asText(issue.path("labels").toString()));
+            case "assigned", "unassigned" -> details.add("Assignee " + action + ": "
+                    + payload.path("assignee").path("login").asText(issue.path("assignees").toString()));
+            default -> details.add("Issue action: " + action);
+        }
+        if (changes.isObject()) {
+            changes.fields().forEachRemaining(entry -> {
+                JsonNode oldValue = entry.getValue().path("from");
+                JsonNode newValue = issue.path(entry.getKey());
+                details.add(entry.getKey() + " changed from " + oldValue.asText(oldValue.toString())
+                        + " to " + newValue.asText(newValue.toString()));
+            });
+        }
+        if (issue.hasNonNull("html_url")) {
+            details.add(issue.path("html_url").asText());
+        }
+        return String.join("; ", details);
     }
 
     private boolean isSignatureValid(String rawBody, String signatureHeader) {
@@ -109,10 +178,8 @@ public class GithubWebhookController {
             mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), HMAC_ALGORITHM));
             byte[] computed = mac.doFinal(rawBody.getBytes(StandardCharsets.UTF_8));
             String computedHex = "sha256=" + HexFormat.of().formatHex(computed);
-            return MessageDigest.isEqual(
-                    computedHex.getBytes(StandardCharsets.UTF_8),
-                    signatureHeader.getBytes(StandardCharsets.UTF_8)
-            );
+            return MessageDigest.isEqual(computedHex.getBytes(StandardCharsets.UTF_8),
+                    signatureHeader.getBytes(StandardCharsets.UTF_8));
         } catch (Exception ex) {
             log.error("Failed to verify GitHub webhook signature", ex);
             return false;
