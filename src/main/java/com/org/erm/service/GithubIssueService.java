@@ -89,7 +89,11 @@ public class GithubIssueService {
 
         String title = buildTitle(ticket);
         String body = buildBody(ticket, requesterFullName, requesterEmployeeId);
-        List<String> labels = List.of("support-ticket", ticket.getTicketType().name().toLowerCase(Locale.ROOT).replace('_', '-'));
+        List<String> labels = List.of(
+                "support-ticket",
+                ticket.getTicketType().name().toLowerCase(Locale.ROOT).replace('_', '-'),
+                priorityLabel(ticket.getPriorityCode()).toLowerCase(Locale.ROOT)
+        );
 
         ensureLabelsExist(labels);
 
