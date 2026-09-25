@@ -6,7 +6,10 @@
 -- 1. Employee ID on ERM_USERS (auto-generated at on-boarding approval time).
 -- ---------------------------------------------------------------------------
 ALTER TABLE ERM_USERS
-    ADD COLUMN EMPLOYEE_ID VARCHAR(50) NULL UNIQUE AFTER USERNAME;
+    ADD COLUMN EMPLOYEE_ID VARCHAR(50) NULL AFTER USERNAME;
+
+ALTER TABLE ERM_USERS
+    ADD CONSTRAINT UK_ERM_USERS_EMPLOYEE_ID UNIQUE (EMPLOYEE_ID);
 
 -- ---------------------------------------------------------------------------
 -- 2. Per-designation-code sequence counter used to build Employee IDs like
