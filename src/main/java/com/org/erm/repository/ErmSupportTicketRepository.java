@@ -12,6 +12,8 @@ public interface ErmSupportTicketRepository extends JpaRepository<ErmSupportTick
 
     Optional<ErmSupportTicket> findByTicketNumber(String ticketNumber);
 
+    Optional<ErmSupportTicket> findByGithubIssueNumber(Integer githubIssueNumber);
+
     List<ErmSupportTicket> findAllByRequesterUserIdOrderByCreatedAtDesc(Long requesterUserId);
 
     List<ErmSupportTicket> findAllByAssigneeUserIdOrderByCreatedAtDesc(Long assigneeUserId);

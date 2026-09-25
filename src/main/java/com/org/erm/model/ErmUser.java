@@ -29,6 +29,9 @@ public class ErmUser {
     @Column(name = "USERNAME", nullable = false, unique = true, length = 100)
     private String username;
 
+    @Column(name = "EMPLOYEE_ID", unique = true, length = 50)
+    private String employeeId;
+
     @Column(name = "EMAIL", nullable = false, unique = true, length = 150)
     private String email;
 
@@ -91,6 +94,14 @@ public class ErmUser {
 
     public void setUsername(String username) {
         this.username = username;
+    }
+
+    public String getEmployeeId() {
+        return employeeId;
+    }
+
+    public void setEmployeeId(String employeeId) {
+        this.employeeId = employeeId;
     }
 
     public String getEmail() {

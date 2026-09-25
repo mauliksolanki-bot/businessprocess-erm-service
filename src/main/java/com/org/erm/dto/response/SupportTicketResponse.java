@@ -36,6 +36,8 @@ public record SupportTicketResponse(
         LocalDateTime closedAt,
         String createdByUsername,
         String updatedByUsername,
+        String vendorTicketNumber,
+        String vendorTicketUrl,
         List<SupportTicketCommentResponse> comments,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
