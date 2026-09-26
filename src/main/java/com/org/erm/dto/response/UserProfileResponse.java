@@ -1,6 +1,7 @@
 package com.org.erm.dto.response;
 
 import java.util.List;
+import java.time.LocalDate;
 
 public record UserProfileResponse(
         Long id,
@@ -8,7 +9,9 @@ public record UserProfileResponse(
         String employeeId,
         String email,
         String fullName,
+        String department,
         String designation,
+        LocalDate joinedDate,
         String reportingManagerFullName,
         String reportingManagerRoleName,
         List<String> roles,
