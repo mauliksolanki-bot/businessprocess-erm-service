@@ -29,6 +29,9 @@ public class ErmSupportTicket {
     @Column(name = "REQUESTER_USER_ID", nullable = false)
     private Long requesterUserId;
 
+    @Column(name = "REQUESTER_EMPLOYEE_ID", nullable = false, length = 50)
+    private String requesterEmployeeId;
+
     @Column(name = "REQUESTER_USERNAME", nullable = false, length = 100)
     private String requesterUsername;
 
@@ -72,6 +75,9 @@ public class ErmSupportTicket {
 
     @Column(name = "ASSIGNEE_USER_ID")
     private Long assigneeUserId;
+
+    @Column(name = "ASSIGNEE_EMPLOYEE_ID", length = 50)
+    private String assigneeEmployeeId;
 
     @Column(name = "ASSIGNEE_USERNAME", length = 100)
     private String assigneeUsername;
@@ -158,6 +164,14 @@ public class ErmSupportTicket {
 
     public void setRequesterUserId(Long requesterUserId) {
         this.requesterUserId = requesterUserId;
+    }
+
+    public String getRequesterEmployeeId() {
+        return requesterEmployeeId;
+    }
+
+    public void setRequesterEmployeeId(String requesterEmployeeId) {
+        this.requesterEmployeeId = requesterEmployeeId;
     }
 
     public String getRequesterUsername() {
@@ -270,6 +284,14 @@ public class ErmSupportTicket {
 
     public void setAssigneeUserId(Long assigneeUserId) {
         this.assigneeUserId = assigneeUserId;
+    }
+
+    public String getAssigneeEmployeeId() {
+        return assigneeEmployeeId;
+    }
+
+    public void setAssigneeEmployeeId(String assigneeEmployeeId) {
+        this.assigneeEmployeeId = assigneeEmployeeId;
     }
 
     public String getAssigneeUsername() {

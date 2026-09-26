@@ -55,11 +55,17 @@ public class ErmProjectRequest {
     @Column(name = "DELIVERY_MANAGER_USER_ID", nullable = false)
     private Long deliveryManagerUserId;
 
+    @Column(name = "DELIVERY_MANAGER_EMPLOYEE_ID", nullable = false, length = 50)
+    private String deliveryManagerEmployeeId;
+
     @Column(name = "DELIVERY_MANAGER_NAME", nullable = false, length = 150)
     private String deliveryManagerName;
 
     @Column(name = "PROJECT_OWNER_USER_ID", nullable = false)
     private Long projectOwnerUserId;
+
+    @Column(name = "PROJECT_OWNER_EMPLOYEE_ID", nullable = false, length = 50)
+    private String projectOwnerEmployeeId;
 
     @Column(name = "PROJECT_OWNER_NAME", nullable = false, length = 150)
     private String projectOwnerName;
@@ -67,11 +73,17 @@ public class ErmProjectRequest {
     @Column(name = "PROJECT_DIRECTOR_USER_ID")
     private Long projectDirectorUserId;
 
+    @Column(name = "PROJECT_DIRECTOR_EMPLOYEE_ID", length = 50)
+    private String projectDirectorEmployeeId;
+
     @Column(name = "PROJECT_DIRECTOR_NAME", length = 150)
     private String projectDirectorName;
 
     @Column(name = "PROJECT_MANAGER_USER_ID")
     private Long projectManagerUserId;
+
+    @Column(name = "PROJECT_MANAGER_EMPLOYEE_ID", length = 50)
+    private String projectManagerEmployeeId;
 
     @Column(name = "PROJECT_MANAGER_NAME", length = 150)
     private String projectManagerName;
@@ -237,6 +249,9 @@ public class ErmProjectRequest {
         this.deliveryManagerUserId = deliveryManagerUserId;
     }
 
+    public String getDeliveryManagerEmployeeId() { return deliveryManagerEmployeeId; }
+    public void setDeliveryManagerEmployeeId(String deliveryManagerEmployeeId) { this.deliveryManagerEmployeeId = deliveryManagerEmployeeId; }
+
     public String getDeliveryManagerName() {
         return deliveryManagerName;
     }
@@ -252,6 +267,9 @@ public class ErmProjectRequest {
     public void setProjectOwnerUserId(Long projectOwnerUserId) {
         this.projectOwnerUserId = projectOwnerUserId;
     }
+
+    public String getProjectOwnerEmployeeId() { return projectOwnerEmployeeId; }
+    public void setProjectOwnerEmployeeId(String projectOwnerEmployeeId) { this.projectOwnerEmployeeId = projectOwnerEmployeeId; }
 
     public String getProjectOwnerName() {
         return projectOwnerName;
@@ -269,6 +287,9 @@ public class ErmProjectRequest {
         this.projectDirectorUserId = projectDirectorUserId;
     }
 
+    public String getProjectDirectorEmployeeId() { return projectDirectorEmployeeId; }
+    public void setProjectDirectorEmployeeId(String projectDirectorEmployeeId) { this.projectDirectorEmployeeId = projectDirectorEmployeeId; }
+
     public String getProjectDirectorName() {
         return projectDirectorName;
     }
@@ -284,6 +305,9 @@ public class ErmProjectRequest {
     public void setProjectManagerUserId(Long projectManagerUserId) {
         this.projectManagerUserId = projectManagerUserId;
     }
+
+    public String getProjectManagerEmployeeId() { return projectManagerEmployeeId; }
+    public void setProjectManagerEmployeeId(String projectManagerEmployeeId) { this.projectManagerEmployeeId = projectManagerEmployeeId; }
 
     public String getProjectManagerName() {
         return projectManagerName;

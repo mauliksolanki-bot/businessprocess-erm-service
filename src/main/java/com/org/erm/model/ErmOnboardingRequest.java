@@ -49,6 +49,9 @@ public class ErmOnboardingRequest {
     @Column(name = "REPORTING_MANAGER_USER_ID")
     private Long reportingManagerUserId;
 
+    @Column(name = "REPORTING_MANAGER_EMPLOYEE_ID", length = 50)
+    private String reportingManagerEmployeeId;
+
     @Column(name = "REPORTING_MANAGER_USERNAME", length = 100)
     private String reportingManagerUsername;
 
@@ -226,6 +229,14 @@ public class ErmOnboardingRequest {
 
     public void setReportingManagerUserId(Long reportingManagerUserId) {
         this.reportingManagerUserId = reportingManagerUserId;
+    }
+
+    public String getReportingManagerEmployeeId() {
+        return reportingManagerEmployeeId;
+    }
+
+    public void setReportingManagerEmployeeId(String reportingManagerEmployeeId) {
+        this.reportingManagerEmployeeId = reportingManagerEmployeeId;
     }
 
     public String getReportingManagerUsername() {

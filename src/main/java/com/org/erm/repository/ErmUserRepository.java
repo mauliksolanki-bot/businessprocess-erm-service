@@ -41,7 +41,8 @@ public interface ErmUserRepository extends JpaRepository<ErmUser, Long> {
             SELECT DISTINCT u
             FROM ErmUser u
             LEFT JOIN FETCH u.roles role
-            WHERE (:employeeName IS NULL OR LOWER(u.fullName) LIKE LOWER(CONCAT('%', :employeeName, '%')))
+            WHERE (:employeeName IS NULL OR LOWER(u.fullName) LIKE LOWER(CONCAT('%', :employeeName, '%'))
+                   OR LOWER(u.employeeId) LIKE LOWER(CONCAT('%', :employeeName, '%')))
               AND (:department IS NULL OR LOWER(u.department) LIKE LOWER(CONCAT('%', :department, '%')))
               AND (:status IS NULL OR LOWER(u.employmentStatus) = LOWER(:status))
               AND (
@@ -64,7 +65,8 @@ public interface ErmUserRepository extends JpaRepository<ErmUser, Long> {
     @Query(value = """
             SELECT DISTINCT u
             FROM ErmUser u
-            WHERE (:employeeName IS NULL OR LOWER(u.fullName) LIKE LOWER(CONCAT('%', :employeeName, '%')))
+            WHERE (:employeeName IS NULL OR LOWER(u.fullName) LIKE LOWER(CONCAT('%', :employeeName, '%'))
+                   OR LOWER(u.employeeId) LIKE LOWER(CONCAT('%', :employeeName, '%')))
               AND (:department IS NULL OR LOWER(u.department) LIKE LOWER(CONCAT('%', :department, '%')))
               AND (:status IS NULL OR LOWER(u.employmentStatus) = LOWER(:status))
               AND (
@@ -81,7 +83,8 @@ public interface ErmUserRepository extends JpaRepository<ErmUser, Long> {
             SELECT COUNT(DISTINCT u)
             FROM ErmUser u
             LEFT JOIN u.roles role
-            WHERE (:employeeName IS NULL OR LOWER(u.fullName) LIKE LOWER(CONCAT('%', :employeeName, '%')))
+            WHERE (:employeeName IS NULL OR LOWER(u.fullName) LIKE LOWER(CONCAT('%', :employeeName, '%'))
+                   OR LOWER(u.employeeId) LIKE LOWER(CONCAT('%', :employeeName, '%')))
               AND (:department IS NULL OR LOWER(u.department) LIKE LOWER(CONCAT('%', :department, '%')))
               AND (:status IS NULL OR LOWER(u.employmentStatus) = LOWER(:status))
               AND (

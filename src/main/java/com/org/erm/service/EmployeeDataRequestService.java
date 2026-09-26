@@ -36,17 +36,23 @@ public class EmployeeDataRequestService {
     private final ErmRoleRepository roleRepository;
     private final ErmDesignationHierarchyRepository designationHierarchyRepository;
     private final MentionNotificationService mentionNotificationService;
+    private final EmployeeIdService employeeIdService;
+    private final EmployeeRoleReferenceService employeeRoleReferenceService;
 
     public EmployeeDataRequestService(ErmEmployeeDesignationRequestRepository requestRepository,
                                       ErmUserRepository userRepository,
                                       ErmRoleRepository roleRepository,
                                       ErmDesignationHierarchyRepository designationHierarchyRepository,
-                                      MentionNotificationService mentionNotificationService) {
+                                      MentionNotificationService mentionNotificationService,
+                                      EmployeeIdService employeeIdService,
+                                      EmployeeRoleReferenceService employeeRoleReferenceService) {
         this.requestRepository = requestRepository;
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.designationHierarchyRepository = designationHierarchyRepository;
         this.mentionNotificationService = mentionNotificationService;
+        this.employeeIdService = employeeIdService;
+        this.employeeRoleReferenceService = employeeRoleReferenceService;
     }
 
     @Transactional
@@ -68,11 +74,13 @@ public class EmployeeDataRequestService {
 
         ErmEmployeeDesignationRequest entity = new ErmEmployeeDesignationRequest();
         entity.setEmployeeUserId(employee.getId());
+        entity.setEmployeeId(employee.getEmployeeId());
         entity.setEmployeeUsername(employee.getUsername());
         entity.setEmployeeFullName(employee.getFullName());
         entity.setCurrentDesignationRoleName(currentDesignation);
         entity.setRequestedDesignationRoleName(managerAssignment.designationRoleName());
         entity.setRequestedReportingManagerUserId(managerAssignment.manager().getId());
+        entity.setRequestedReportingManagerEmployeeId(managerAssignment.manager().getEmployeeId());
         entity.setRequestedReportingManagerUsername(managerAssignment.manager().getUsername());
         entity.setRequestedReportingManagerFullName(managerAssignment.manager().getFullName());
         entity.setRequestedReportingManagerRoleName(managerAssignment.managerRoleName());
@@ -179,10 +187,14 @@ public class EmployeeDataRequestService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Designation role not found"));
 
         employee.setRoles(new HashSet<>(java.util.Set.of(role)));
+        employee.setPrimaryRoleId(role.getId());
+        employeeIdService.refreshForPrimaryRole(employee);
         employee.setReportingManagerUserId(managerAssignment.manager().getId());
+        employee.setReportingManagerEmployeeId(managerAssignment.manager().getEmployeeId());
         employee.setReportingManagerRoleName(managerAssignment.managerRoleName());
         employee.setDepartment(resolveDepartmentFromManager(managerAssignment.manager()));
         userRepository.save(employee);
+        employeeRoleReferenceService.syncEmployeeIds(employee.getId());
     }
 
     private String resolveDepartmentFromManager(ErmUser manager) {

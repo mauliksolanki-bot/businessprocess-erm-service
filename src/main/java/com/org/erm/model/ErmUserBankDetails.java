@@ -23,6 +23,9 @@ public class ErmUserBankDetails {
     @Column(name = "USER_ID", nullable = false, unique = true)
     private Long userId;
 
+    @Column(name = "EMPLOYEE_ID", nullable = false, length = 50)
+    private String employeeId;
+
     @Column(name = "ACCOUNT_HOLDER_NAME", nullable = false, length = 150)
     private String accountHolderName;
 
@@ -59,6 +62,14 @@ public class ErmUserBankDetails {
 
     public void setUserId(Long userId) {
         this.userId = userId;
+    }
+
+    public String getEmployeeId() {
+        return employeeId;
+    }
+
+    public void setEmployeeId(String employeeId) {
+        this.employeeId = employeeId;
     }
 
     public String getAccountHolderName() {

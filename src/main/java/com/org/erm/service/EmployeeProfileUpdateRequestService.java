@@ -44,19 +44,25 @@ public class EmployeeProfileUpdateRequestService {
     private final ErmDesignationHierarchyRepository designationHierarchyRepository;
     private final ErmRoleRepository roleRepository;
     private final MentionNotificationService mentionNotificationService;
+    private final EmployeeIdService employeeIdService;
+    private final EmployeeRoleReferenceService employeeRoleReferenceService;
 
     public EmployeeProfileUpdateRequestService(ErmEmployeeProfileUpdateRequestRepository requestRepository,
                                                ErmEmployeeProfileUpdateRequestCommentRepository requestCommentRepository,
                                                ErmUserRepository userRepository,
                                                ErmDesignationHierarchyRepository designationHierarchyRepository,
                                                ErmRoleRepository roleRepository,
-                                               MentionNotificationService mentionNotificationService) {
+                                               MentionNotificationService mentionNotificationService,
+                                               EmployeeIdService employeeIdService,
+                                               EmployeeRoleReferenceService employeeRoleReferenceService) {
         this.requestRepository = requestRepository;
         this.requestCommentRepository = requestCommentRepository;
         this.userRepository = userRepository;
         this.designationHierarchyRepository = designationHierarchyRepository;
         this.roleRepository = roleRepository;
         this.mentionNotificationService = mentionNotificationService;
+        this.employeeIdService = employeeIdService;
+        this.employeeRoleReferenceService = employeeRoleReferenceService;
     }
 
     private static final Set<OnboardingWorkflowStage> TERMINAL_STAGES =
@@ -99,6 +105,7 @@ public class EmployeeProfileUpdateRequestService {
 
         ErmEmployeeProfileUpdateRequest entity = new ErmEmployeeProfileUpdateRequest();
         entity.setEmployeeUserId(user.getId());
+        entity.setEmployeeId(user.getEmployeeId());
         entity.setEmployeeUsername(user.getUsername());
         entity.setCurrentFullName(user.getFullName());
         entity.setCurrentEmail(user.getEmail());
@@ -106,6 +113,7 @@ public class EmployeeProfileUpdateRequestService {
         entity.setCurrentEmploymentStatus(user.getEmploymentStatus());
         entity.setCurrentDesignationRoleName(currentDesignation);
         entity.setCurrentReportingManagerUserId(user.getReportingManagerUserId());
+        entity.setCurrentReportingManagerEmployeeId(resolveEmployeeId(user.getReportingManagerUserId()));
         entity.setCurrentReportingManagerName(resolveCurrentManagerName(user.getReportingManagerUserId()));
         entity.setRequestedFullName(user.getFullName());
         entity.setRequestedEmail(user.getEmail());
@@ -113,8 +121,10 @@ public class EmployeeProfileUpdateRequestService {
         entity.setRequestedEmploymentStatus(requestedStatus);
         entity.setRequestedDesignationRoleName(managerAssignment.designationRoleName());
         entity.setRequestedReportingManagerUserId(managerAssignment.manager().getId());
+        entity.setRequestedReportingManagerEmployeeId(managerAssignment.manager().getEmployeeId());
         entity.setRequestedReportingManagerName(resolveUserDisplayName(managerAssignment.manager()));
         entity.setReplacementTeamLeadUserId(reassignment.replacementTeamLeadUserId());
+        entity.setReplacementTeamLeadEmployeeId(resolveEmployeeId(reassignment.replacementTeamLeadUserId()));
         entity.setReplacementTeamLeadName(reassignment.replacementTeamLeadName());
         entity.setDirectReportsAffectedCount(reassignment.directReportsAffectedCount());
         entity.setWorkflowStage(OnboardingWorkflowStage.HR_SUBMITTED);
@@ -275,10 +285,13 @@ public class EmployeeProfileUpdateRequestService {
         user.setEmploymentStatus(request.getRequestedEmploymentStatus());
         user.setRoles(new java.util.HashSet<>(java.util.Set.of(role)));
         user.setPrimaryRoleId(role.getId());
+        employeeIdService.refreshForPrimaryRole(user);
         user.setReportingManagerUserId(request.getRequestedReportingManagerUserId());
+        user.setReportingManagerEmployeeId(request.getRequestedReportingManagerEmployeeId());
         user.setReportingManagerRoleName(resolveManagerRoleName(request.getRequestedDesignationRoleName()));
         user.setActive(!"inactive".equalsIgnoreCase(request.getRequestedEmploymentStatus()));
         userRepository.save(user);
+        employeeRoleReferenceService.syncEmployeeIds(user.getId());
 
         if (request.getReplacementTeamLeadUserId() != null) {
             reassignDirectReports(user.getId(), request.getCurrentDesignationRoleName(), request.getReplacementTeamLeadUserId());
@@ -408,9 +421,14 @@ public class EmployeeProfileUpdateRequestService {
         }
         for (ErmUser directReport : directReports) {
             directReport.setReportingManagerUserId(replacementTeamLeadUserId);
+            directReport.setReportingManagerEmployeeId(resolveEmployeeId(replacementTeamLeadUserId));
             directReport.setReportingManagerRoleName(reportingRoleName);
         }
         userRepository.saveAll(directReports);
+    }
+
+    private String resolveEmployeeId(Long userId) {
+        return userId == null ? null : userRepository.findById(userId).map(ErmUser::getEmployeeId).orElse(null);
     }
 
     private ManagerAssignment resolveManagerAssignment(String designationRoleName, Long reportingManagerUserId) {

@@ -234,11 +234,13 @@ public class AttendanceService {
         boolean existingApproved = timesheet.getId() != null && timesheet.getTimesheetStatus() == AttendanceTimesheetStatus.APPROVED;
 
         timesheet.setEmployeeUserId(user.getId());
+        timesheet.setEmployeeId(user.getEmployeeId());
         timesheet.setEmployeeUsername(user.getUsername());
         timesheet.setEmployeeFullName(user.getFullName());
         timesheet.setWeekStartDate(weekStart);
         timesheet.setWeekEndDate(weekEnd);
         timesheet.setApproverManagerUserId(manager == null ? null : manager.getId());
+        timesheet.setApproverManagerEmployeeId(manager == null ? null : manager.getEmployeeId());
         timesheet.setApproverManagerUsername(manager == null ? null : manager.getUsername());
         timesheet.setApproverManagerFullName(manager == null ? null : manager.getFullName());
 

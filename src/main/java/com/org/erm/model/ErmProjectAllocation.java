@@ -40,6 +40,9 @@ public class ErmProjectAllocation {
     @Column(name = "EMPLOYEE_USER_ID", nullable = false)
     private Long employeeUserId;
 
+    @Column(name = "EMPLOYEE_ID", nullable = false, length = 50)
+    private String employeeId;
+
     @Column(name = "EMPLOYEE_NAME", nullable = false, length = 150)
     private String employeeName;
 
@@ -138,6 +141,14 @@ public class ErmProjectAllocation {
 
     public void setEmployeeUserId(Long employeeUserId) {
         this.employeeUserId = employeeUserId;
+    }
+
+    public String getEmployeeId() {
+        return employeeId;
+    }
+
+    public void setEmployeeId(String employeeId) {
+        this.employeeId = employeeId;
     }
 
     public String getEmployeeName() {

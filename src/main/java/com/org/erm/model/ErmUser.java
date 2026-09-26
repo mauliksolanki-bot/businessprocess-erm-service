@@ -47,6 +47,9 @@ public class ErmUser {
     @Column(name = "REPORTING_MANAGER_USER_ID")
     private Long reportingManagerUserId;
 
+    @Column(name = "REPORTING_MANAGER_EMPLOYEE_ID", length = 50)
+    private String reportingManagerEmployeeId;
+
     @Column(name = "REPORTING_MANAGER_ROLE_NAME", length = 100)
     private String reportingManagerRoleName;
 
@@ -142,6 +145,14 @@ public class ErmUser {
 
     public void setReportingManagerUserId(Long reportingManagerUserId) {
         this.reportingManagerUserId = reportingManagerUserId;
+    }
+
+    public String getReportingManagerEmployeeId() {
+        return reportingManagerEmployeeId;
+    }
+
+    public void setReportingManagerEmployeeId(String reportingManagerEmployeeId) {
+        this.reportingManagerEmployeeId = reportingManagerEmployeeId;
     }
 
     public String getReportingManagerRoleName() {

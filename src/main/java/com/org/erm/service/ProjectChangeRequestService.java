@@ -309,10 +309,13 @@ public class ProjectChangeRequestService {
         entity.setBudgetAmount(budget.setScale(2, java.math.RoundingMode.HALF_UP));
         entity.setCurrency(currency);
         entity.setDeliveryManagerUserId(deliveryManager.getId());
+        entity.setDeliveryManagerEmployeeId(deliveryManager.getEmployeeId());
         entity.setDeliveryManagerName(resolveDisplayName(deliveryManager));
         entity.setProjectOwnerUserId(projectOwner.getId());
+        entity.setProjectOwnerEmployeeId(projectOwner.getEmployeeId());
         entity.setProjectOwnerName(resolveDisplayName(projectOwner));
         entity.setProjectDirectorUserId(projectDirector.getId());
+        entity.setProjectDirectorEmployeeId(projectDirector.getEmployeeId());
         entity.setProjectDirectorName(resolveDisplayName(projectDirector));
         entity.setProjectStatus(projectStatus);
         entity.setDescription(description);
@@ -331,10 +334,13 @@ public class ProjectChangeRequestService {
         project.setBudgetAmount(changeRequest.getBudgetAmount());
         project.setCurrency(changeRequest.getCurrency());
         project.setDeliveryManagerUserId(changeRequest.getDeliveryManagerUserId());
+        project.setDeliveryManagerEmployeeId(changeRequest.getDeliveryManagerEmployeeId());
         project.setDeliveryManagerName(changeRequest.getDeliveryManagerName());
         project.setProjectOwnerUserId(changeRequest.getProjectOwnerUserId());
+        project.setProjectOwnerEmployeeId(changeRequest.getProjectOwnerEmployeeId());
         project.setProjectOwnerName(changeRequest.getProjectOwnerName());
         project.setProjectDirectorUserId(changeRequest.getProjectDirectorUserId());
+        project.setProjectDirectorEmployeeId(changeRequest.getProjectDirectorEmployeeId());
         project.setProjectDirectorName(changeRequest.getProjectDirectorName());
         project.setProjectStatus(changeRequest.getProjectStatus());
         project.setDescription(changeRequest.getDescription());

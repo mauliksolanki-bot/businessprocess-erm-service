@@ -351,12 +351,16 @@ public class ProjectRequestService {
         entity.setBudgetAmount(budget.setScale(2, java.math.RoundingMode.HALF_UP));
         entity.setCurrency(currency);
         entity.setDeliveryManagerUserId(deliveryManager.getId());
+        entity.setDeliveryManagerEmployeeId(deliveryManager.getEmployeeId());
         entity.setDeliveryManagerName(resolveDisplayName(deliveryManager));
         entity.setProjectOwnerUserId(projectOwner.getId());
+        entity.setProjectOwnerEmployeeId(projectOwner.getEmployeeId());
         entity.setProjectOwnerName(resolveDisplayName(projectOwner));
         entity.setProjectDirectorUserId(projectDirector.getId());
+        entity.setProjectDirectorEmployeeId(projectDirector.getEmployeeId());
         entity.setProjectDirectorName(resolveDisplayName(projectDirector));
         entity.setProjectManagerUserId(projectManager.getId());
+        entity.setProjectManagerEmployeeId(projectManager.getEmployeeId());
         entity.setProjectManagerName(resolveDisplayName(projectManager));
         entity.setProjectStatus(projectStatus);
         entity.setDescription(description);

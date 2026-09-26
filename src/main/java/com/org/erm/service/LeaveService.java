@@ -100,9 +100,11 @@ public class LeaveService {
 
         ErmLeaveRequest leaveRequest = new ErmLeaveRequest();
         leaveRequest.setEmployeeUserId(user.getId());
+        leaveRequest.setEmployeeId(user.getEmployeeId());
         leaveRequest.setEmployeeUsername(user.getUsername());
         leaveRequest.setEmployeeFullName(user.getFullName());
         leaveRequest.setApproverManagerUserId(manager.getId());
+        leaveRequest.setApproverManagerEmployeeId(manager.getEmployeeId());
         leaveRequest.setApproverManagerUsername(manager.getUsername());
         leaveRequest.setApproverManagerFullName(manager.getFullName());
         leaveRequest.setLeaveCategory(request.leaveCategory());

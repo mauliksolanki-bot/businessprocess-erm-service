@@ -345,6 +345,7 @@ public class ProjectAllocationService {
         entity.setProjectName(projectRequest.getProjectName());
         entity.setProjectCode(projectRequest.getProjectCode());
         entity.setEmployeeUserId(employee.getId());
+        entity.setEmployeeId(employee.getEmployeeId());
         entity.setEmployeeName(resolveDisplayName(employee));
         entity.setEmployeeRoleName(employee.getRoles().stream().findFirst().map(com.org.erm.model.ErmRole::getName).orElse(null));
         entity.setAllocationType(request.allocationType());
@@ -366,6 +367,7 @@ public class ProjectAllocationService {
         entity.setProjectName(projectRequest.getProjectName());
         entity.setProjectCode(projectRequest.getProjectCode());
         entity.setEmployeeUserId(employee.getId());
+        entity.setEmployeeId(employee.getEmployeeId());
         entity.setEmployeeName(resolveDisplayName(employee));
         entity.setEmployeeRoleName(employee.getRoles().stream().findFirst().map(com.org.erm.model.ErmRole::getName).orElse(null));
         entity.setAllocationType(allocationType);

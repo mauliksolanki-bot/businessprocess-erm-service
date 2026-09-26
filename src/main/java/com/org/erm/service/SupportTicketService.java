@@ -128,6 +128,7 @@ public class SupportTicketService {
             ErmSupportTicket ticket = new ErmSupportTicket();
             ticket.setTicketNumber(generateTicketNumber(ticketType));
             ticket.setRequesterUserId(requester.getId());
+            ticket.setRequesterEmployeeId(requester.getEmployeeId());
             ticket.setRequesterUsername(requester.getUsername());
             ticket.setRequesterFullName(requester.getFullName());
             ticket.setTicketType(ticketType);
@@ -157,6 +158,7 @@ public class SupportTicketService {
                 ErmUser assignee = userRepository.findById(request.assigneeUserId())
                         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Assignee not found"));
                 ticket.setAssigneeUserId(assignee.getId());
+                ticket.setAssigneeEmployeeId(assignee.getEmployeeId());
                 ticket.setAssigneeUsername(assignee.getUsername());
                 ticket.setAssigneeFullName(assignee.getFullName());
                 ticket.setStatus(SupportTicketStatus.ASSIGNED);
@@ -457,6 +459,7 @@ public class SupportTicketService {
             changeLogs.add(formatChangeLine("Assigned To", fromAssignee, toAssignee));
 
             ticket.setAssigneeUserId(assignee.getId());
+            ticket.setAssigneeEmployeeId(assignee.getEmployeeId());
             ticket.setAssigneeUsername(assignee.getUsername());
             ticket.setAssigneeFullName(assignee.getFullName());
             queueMemberRepository.findByQueueIdAndUserIdAndActiveTrue(activeQueue.getId(), assignee.getId()).ifPresent(member -> {
@@ -557,6 +560,7 @@ public class SupportTicketService {
             ErmUser assignee = userRepository.findById(request.assigneeUserId())
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Assignee not found"));
             ticket.setAssigneeUserId(assignee.getId());
+            ticket.setAssigneeEmployeeId(assignee.getEmployeeId());
             ticket.setAssigneeUsername(assignee.getUsername());
             ticket.setAssigneeFullName(assignee.getFullName());
             queueMemberRepository.findByQueueIdAndUserIdAndActiveTrue(queue.getId(), assignee.getId()).ifPresent(member -> {
@@ -732,6 +736,7 @@ public class SupportTicketService {
         List<ErmSupportQueueMember> members = queueMemberRepository.findAllByQueueIdAndActiveTrueOrderByLastAssignedAtAscIdAsc(queue.getId());
         if (members.isEmpty()) {
             ticket.setAssigneeUserId(null);
+            ticket.setAssigneeEmployeeId(null);
             ticket.setAssigneeUsername(null);
             ticket.setAssigneeFullName(null);
             return null;
@@ -759,6 +764,7 @@ public class SupportTicketService {
         ErmUser assignee = userRepository.findById(selected.getUserId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Assignee user not found"));
         ticket.setAssigneeUserId(assignee.getId());
+        ticket.setAssigneeEmployeeId(assignee.getEmployeeId());
         ticket.setAssigneeUsername(assignee.getUsername());
         ticket.setAssigneeFullName(assignee.getFullName());
         ticket.setStatus(SupportTicketStatus.ASSIGNED);

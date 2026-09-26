@@ -36,6 +36,9 @@ public class ErmAttendanceLeaveReconciliation {
     @Column(name = "EMPLOYEE_USER_ID", nullable = false)
     private Long employeeUserId;
 
+    @Column(name = "EMPLOYEE_ID", nullable = false, length = 50)
+    private String employeeId;
+
     @Column(name = "WEEK_START_DATE", nullable = false)
     private LocalDate weekStartDate;
 
@@ -98,6 +101,14 @@ public class ErmAttendanceLeaveReconciliation {
 
     public void setEmployeeUserId(Long employeeUserId) {
         this.employeeUserId = employeeUserId;
+    }
+
+    public String getEmployeeId() {
+        return employeeId;
+    }
+
+    public void setEmployeeId(String employeeId) {
+        this.employeeId = employeeId;
     }
 
     public LocalDate getWeekStartDate() {

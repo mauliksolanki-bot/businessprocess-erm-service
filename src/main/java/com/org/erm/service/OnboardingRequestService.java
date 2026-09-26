@@ -50,6 +50,8 @@ public class OnboardingRequestService {
     private final ErmUserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final MentionNotificationService mentionNotificationService;
+    private final EmployeeIdService employeeIdService;
+    private final EmployeeRoleReferenceService employeeRoleReferenceService;
 
     public OnboardingRequestService(ErmOnboardingRequestRepository onboardingRequestRepository,
                                     ErmOnboardingRequestCommentRepository onboardingRequestCommentRepository,
@@ -57,7 +59,9 @@ public class OnboardingRequestService {
                                     ErmRoleRepository roleRepository,
                                     ErmUserRepository userRepository,
                                     PasswordEncoder passwordEncoder,
-                                    MentionNotificationService mentionNotificationService) {
+                                    MentionNotificationService mentionNotificationService,
+                                    EmployeeIdService employeeIdService,
+                                    EmployeeRoleReferenceService employeeRoleReferenceService) {
         this.onboardingRequestRepository = onboardingRequestRepository;
         this.onboardingRequestCommentRepository = onboardingRequestCommentRepository;
         this.designationHierarchyRepository = designationHierarchyRepository;
@@ -65,6 +69,8 @@ public class OnboardingRequestService {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.mentionNotificationService = mentionNotificationService;
+        this.employeeIdService = employeeIdService;
+        this.employeeRoleReferenceService = employeeRoleReferenceService;
     }
 
     @Transactional
@@ -398,6 +404,7 @@ public class OnboardingRequestService {
         onboardingRequest.setPhoneNumber(request.phoneNumber().trim());
         onboardingRequest.setDesignationRoleName(managerAssignment.designationRoleName());
         onboardingRequest.setReportingManagerUserId(managerAssignment.manager().getId());
+        onboardingRequest.setReportingManagerEmployeeId(managerAssignment.manager().getEmployeeId());
         onboardingRequest.setReportingManagerUsername(managerAssignment.manager().getUsername());
         onboardingRequest.setReportingManagerFullName(managerAssignment.manager().getFullName());
         onboardingRequest.setReportingManagerRoleName(managerAssignment.managerRoleName());
@@ -444,7 +451,7 @@ public class OnboardingRequestService {
     }
 
     private void assignGeneratedIdentity(ErmOnboardingRequest onboardingRequest) {
-        String employeeId = generateEmployeeId(onboardingRequest.getId());
+        String employeeId = employeeIdService.generateForRole(onboardingRequest.getDesignationRoleName());
         onboardingRequest.setGeneratedEmployeeId(employeeId);
         onboardingRequest.setGeneratedEmailAddress(generateEmailAddress(employeeId));
     }
@@ -460,12 +467,14 @@ public class OnboardingRequestService {
                 .orElseGet(ErmUser::new);
 
         user.setUsername(username);
+        user.setEmployeeId(onboardingRequest.getGeneratedEmployeeId());
         user.setEmail(email);
         user.setFullName((onboardingRequest.getFirstName() + " " + onboardingRequest.getLastName()).trim());
         user.setDepartment(resolveDepartment(onboardingRequest));
         user.setEmploymentStatus("Active");
         user.setActive(true);
         user.setReportingManagerUserId(onboardingRequest.getReportingManagerUserId());
+        user.setReportingManagerEmployeeId(onboardingRequest.getReportingManagerEmployeeId());
         user.setReportingManagerRoleName(onboardingRequest.getReportingManagerRoleName());
         user.setPersonalEmailAddress(onboardingRequest.getPersonalEmailAddress());
         user.setPhoneNumber(onboardingRequest.getPhoneNumber());
@@ -479,6 +488,7 @@ public class OnboardingRequestService {
         user.setRoles(new java.util.HashSet<>(java.util.Set.of(role)));
         user.setPrimaryRoleId(role.getId());
         userRepository.save(user);
+        employeeRoleReferenceService.syncEmployeeIds(user.getId());
     }
 
     private String resolveDepartment(ErmOnboardingRequest onboardingRequest) {
@@ -489,13 +499,6 @@ public class OnboardingRequestService {
                 .map(ErmUser::getDepartment)
                 .filter(StringUtils::hasText)
                 .orElse("General");
-    }
-
-    private String generateEmployeeId(Long onboardingRequestId) {
-        if (onboardingRequestId == null) {
-            throw new IllegalStateException("Onboarding request id must be available before generating employee id");
-        }
-        return String.format(Locale.ROOT, "EMP-%06d", onboardingRequestId);
     }
 
     private String generateEmailAddress(String employeeId) {

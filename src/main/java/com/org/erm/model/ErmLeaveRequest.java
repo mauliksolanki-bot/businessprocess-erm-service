@@ -26,6 +26,9 @@ public class ErmLeaveRequest {
     @Column(name = "EMPLOYEE_USER_ID", nullable = false)
     private Long employeeUserId;
 
+    @Column(name = "EMPLOYEE_ID", nullable = false, length = 50)
+    private String employeeId;
+
     @Column(name = "EMPLOYEE_USERNAME", nullable = false, length = 100)
     private String employeeUsername;
 
@@ -34,6 +37,9 @@ public class ErmLeaveRequest {
 
     @Column(name = "APPROVER_MANAGER_USER_ID")
     private Long approverManagerUserId;
+
+    @Column(name = "APPROVER_MANAGER_EMPLOYEE_ID", length = 50)
+    private String approverManagerEmployeeId;
 
     @Column(name = "APPROVER_MANAGER_USERNAME", length = 100)
     private String approverManagerUsername;
@@ -87,6 +93,14 @@ public class ErmLeaveRequest {
         this.employeeUserId = employeeUserId;
     }
 
+    public String getEmployeeId() {
+        return employeeId;
+    }
+
+    public void setEmployeeId(String employeeId) {
+        this.employeeId = employeeId;
+    }
+
     public String getEmployeeUsername() {
         return employeeUsername;
     }
@@ -109,6 +123,14 @@ public class ErmLeaveRequest {
 
     public void setApproverManagerUserId(Long approverManagerUserId) {
         this.approverManagerUserId = approverManagerUserId;
+    }
+
+    public String getApproverManagerEmployeeId() {
+        return approverManagerEmployeeId;
+    }
+
+    public void setApproverManagerEmployeeId(String approverManagerEmployeeId) {
+        this.approverManagerEmployeeId = approverManagerEmployeeId;
     }
 
     public String getApproverManagerUsername() {

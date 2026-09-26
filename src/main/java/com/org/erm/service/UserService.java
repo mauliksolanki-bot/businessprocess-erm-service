@@ -137,8 +137,10 @@ public class UserService {
                 .orElseGet(() -> {
                     ErmUserBankDetails created = new ErmUserBankDetails();
                     created.setUserId(ermUser.getId());
+                    created.setEmployeeId(ermUser.getEmployeeId());
                     return created;
                 });
+        bankDetails.setEmployeeId(ermUser.getEmployeeId());
 
         bankDetails.setAccountHolderName(request.accountHolderName().trim());
         bankDetails.setBankName(request.bankName().trim());
