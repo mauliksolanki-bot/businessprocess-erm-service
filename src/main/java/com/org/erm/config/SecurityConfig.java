@@ -53,6 +53,8 @@ public class SecurityConfig {
 
                         .requestMatchers("/api/auth/login").permitAll()
 
+                        .requestMatchers(HttpMethod.GET, "/api/notification-banners/active").permitAll()
+
                         .requestMatchers("/api/webhooks/github").permitAll()
 
                         .requestMatchers("/error", "/error/**").permitAll()
