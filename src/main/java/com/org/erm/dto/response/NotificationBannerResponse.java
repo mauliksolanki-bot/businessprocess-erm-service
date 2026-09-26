@@ -11,6 +11,7 @@ public record NotificationBannerResponse(
         LocalDate endDate,
         String notificationType,
         String createdByUsername,
+        boolean active,
         LocalDateTime createdAt
 ) {
 }
