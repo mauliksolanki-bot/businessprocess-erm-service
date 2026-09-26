@@ -1,6 +1,7 @@
 package com.org.erm.dto.response;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public record TeamMemberResponse(
@@ -13,6 +14,7 @@ public record TeamMemberResponse(
         String designation,
         String employmentStatus,
         LocalDate joinedDate,
+        LocalDateTime updatedAt,
         String reportingManagerFullName,
         String reportingManagerRoleName,
         List<String> roles,
