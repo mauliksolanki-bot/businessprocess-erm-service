@@ -82,6 +82,18 @@ public class SupportTicketController {
         return ResponseEntity.ok(supportTicketService.getById(id, authentication));
     }
 
+    @GetMapping("/tickets/github-master-data")
+    @Operation(summary = "List GitHub-linked tickets for IT Support Managers")
+    public ResponseEntity<List<SupportTicketResponse>> githubMasterData(Authentication authentication) {
+        return ResponseEntity.ok(supportTicketService.githubMasterData(authentication));
+    }
+
+    @GetMapping("/tickets/github-master-data/{id}")
+    @Operation(summary = "Get GitHub-linked ticket details for IT Support Managers")
+    public ResponseEntity<SupportTicketResponse> githubMasterDataById(@PathVariable Long id, Authentication authentication) {
+        return ResponseEntity.ok(supportTicketService.githubMasterDataById(id, authentication));
+    }
+
     @GetMapping("/tickets/number/{ticketNumber}")
     @Operation(summary = "Get support ticket by ticket number")
     public ResponseEntity<SupportTicketResponse> getByTicketNumber(@PathVariable String ticketNumber, Authentication authentication) {
