@@ -6,6 +6,8 @@ import com.org.erm.dto.response.BankDetailsResponse;
 import com.org.erm.dto.response.SelfProjectAssignmentResponse;
 import com.org.erm.dto.response.UserProfileResponse;
 import com.org.erm.dto.response.UserMentionOptionResponse;
+import com.org.erm.dto.response.TeamMemberResponse;
+import com.org.erm.dto.response.TeamMemberSummaryResponse;
 import com.org.erm.model.ErmRole;
 import com.org.erm.model.ErmUser;
 import com.org.erm.model.ErmUserBankDetails;
@@ -108,6 +110,71 @@ public class UserService {
         );
     }
 
+    @Transactional(readOnly = true)
+    public List<TeamMemberSummaryResponse> getCurrentUserTeamMembers(String username) {
+        ErmUser manager = findUserByUsername(username);
+        return ermUserRepository.findAllByReportingManagerUserIdOrderByFullNameAsc(manager.getId()).stream()
+                .map(user -> new TeamMemberSummaryResponse(
+                        user.getId(),
+                        displayName(user),
+                        user.getEmployeeId(),
+                        user.getEmail(),
+                        user.getDepartment(),
+                        resolveDesignation(user),
+                        user.getEmploymentStatus()
+                ))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public TeamMemberResponse getCurrentUserTeamMember(String username, Long teamMemberId) {
+        ErmUser manager = findUserByUsername(username);
+        ErmUser member = ermUserRepository.findById(teamMemberId)
+                .filter(user -> manager.getId().equals(user.getReportingManagerUserId()))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Team member not found"));
+
+        List<String> roleNames = member.getRoles().stream()
+                .map(ErmRole::getName)
+                .sorted(Comparator.naturalOrder())
+                .toList();
+        List<SelfProjectAssignmentResponse> currentProjects = ermProjectAllocationRepository
+                .findAllByEmployeeUserIdAndStatusOrderByUpdatedAtDesc(member.getId(), ProjectAllocationStatus.ACTIVE)
+                .stream()
+                .map(item -> new SelfProjectAssignmentResponse(
+                        item.getId(),
+                        item.getAllocationCode(),
+                        item.getProjectRequestId(),
+                        item.getProjectName(),
+                        item.getProjectCode(),
+                        item.getAllocationType().getLabel(),
+                        item.getAllocationPercent(),
+                        item.getStartDate(),
+                        item.getEndDate(),
+                        item.getStatus().getLabel(),
+                        item.getUpdatedAt()
+                ))
+                .toList();
+
+        return new TeamMemberResponse(
+                member.getId(),
+                displayName(member),
+                member.getUsername(),
+                member.getEmployeeId(),
+                member.getEmail(),
+                member.getDepartment(),
+                resolveDesignation(member),
+                member.getEmploymentStatus(),
+                member.getCreatedAt() == null ? null : member.getCreatedAt().toLocalDate(),
+                displayName(manager),
+                member.getReportingManagerRoleName(),
+                roleNames,
+                member.getPersonalEmailAddress(),
+                member.getPhoneNumber(),
+                member.getEducationQualification(),
+                currentProjects
+        );
+    }
+
     @Transactional
     public UserProfileResponse updateCurrentUserProfile(String username, UserProfileUpdateRequest request) {
         ErmUser ermUser = findUserByUsername(username);
@@ -187,6 +254,31 @@ public class UserService {
     private ErmUser findUserByUsername(String username) {
         return ermUserRepository.findByUsernameIgnoreCase(username)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+    }
+
+    private String displayName(ErmUser user) {
+        return user.getFullName() == null || user.getFullName().isBlank()
+                ? user.getUsername()
+                : user.getFullName().trim();
+    }
+
+    private String resolveDesignation(ErmUser user) {
+        if (user.getPrimaryRoleId() != null) {
+            return user.getRoles().stream()
+                    .filter(role -> role.getId().equals(user.getPrimaryRoleId()))
+                    .map(ErmRole::getName)
+                    .findFirst()
+                    .orElseGet(() -> fallbackDesignation(user));
+        }
+        return fallbackDesignation(user);
+    }
+
+    private String fallbackDesignation(ErmUser user) {
+        return user.getRoles().stream()
+                .map(ErmRole::getName)
+                .sorted(Comparator.naturalOrder())
+                .findFirst()
+                .orElse("Employee");
     }
 
     private String normalizeOptional(String value) {
