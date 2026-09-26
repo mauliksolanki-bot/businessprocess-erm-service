@@ -33,7 +33,7 @@ import java.util.stream.Collectors;
 public class UserService {
 
     private static final String BANK_DETAILS_EDIT_WINDOW_MESSAGE =
-            "You can't edit the account details right now. Please try between 1st - 5th of current month.";
+            "You can update your saved bank details only between the 1st and 5th of each month.";
 
     private final ErmUserRepository ermUserRepository;
     private final ErmRoleRepository ermRoleRepository;
@@ -197,21 +197,21 @@ public class UserService {
 
     @Transactional
     public BankDetailsResponse saveCurrentUserBankDetails(String username, BankDetailsUpsertRequest request) {
-        if (!isBankDetailsEditWindowOpen()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, BANK_DETAILS_EDIT_WINDOW_MESSAGE);
-        }
         if (!request.accountNumber().equals(request.confirmAccountNumber())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Account number and confirm account number must match");
         }
 
         ErmUser ermUser = findUserByUsername(username);
-        ErmUserBankDetails bankDetails = ermUserBankDetailsRepository.findByUserId(ermUser.getId())
-                .orElseGet(() -> {
-                    ErmUserBankDetails created = new ErmUserBankDetails();
-                    created.setUserId(ermUser.getId());
-                    created.setEmployeeId(ermUser.getEmployeeId());
-                    return created;
-                });
+        var existingDetails = ermUserBankDetailsRepository.findByUserId(ermUser.getId());
+        if (existingDetails.isPresent() && !isBankDetailsEditWindowOpen()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, BANK_DETAILS_EDIT_WINDOW_MESSAGE);
+        }
+        ErmUserBankDetails bankDetails = existingDetails.orElseGet(() -> {
+            ErmUserBankDetails created = new ErmUserBankDetails();
+            created.setUserId(ermUser.getId());
+            created.setEmployeeId(ermUser.getEmployeeId());
+            return created;
+        });
         bankDetails.setEmployeeId(ermUser.getEmployeeId());
 
         bankDetails.setAccountHolderName(request.accountHolderName().trim());
