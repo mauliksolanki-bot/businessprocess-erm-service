@@ -10,7 +10,7 @@ public interface ErmNotificationBannerRepository extends JpaRepository<ErmNotifi
 
     List<ErmNotificationBanner> findAllByOrderByCreatedAtDesc();
 
-    List<ErmNotificationBanner> findAllByStartDateLessThanEqualAndEndDateGreaterThanEqualOrderByStartDateAscIdAsc(
+    List<ErmNotificationBanner> findAllByActiveTrueAndStartDateLessThanEqualAndEndDateGreaterThanEqualOrderByStartDateAscIdAsc(
             LocalDate currentDate,
             LocalDate currentDateForEnd
     );

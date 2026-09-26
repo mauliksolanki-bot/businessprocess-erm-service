@@ -24,7 +24,7 @@ public class NotificationBannerService {
     @Transactional(readOnly = true)
     public List<NotificationBannerResponse> getActiveBanners() {
         LocalDate currentDate = LocalDate.now();
-        return bannerRepository.findAllByStartDateLessThanEqualAndEndDateGreaterThanEqualOrderByStartDateAscIdAsc(
+        return bannerRepository.findAllByActiveTrueAndStartDateLessThanEqualAndEndDateGreaterThanEqualOrderByStartDateAscIdAsc(
                         currentDate,
                         currentDate
                 ).stream()
@@ -55,6 +55,40 @@ public class NotificationBannerService {
         return toResponse(bannerRepository.save(banner));
     }
 
+    @Transactional
+    public NotificationBannerResponse updateBanner(Long bannerId, NotificationBannerCreateRequest request, String username) {
+        ErmNotificationBanner banner = findOwnedBanner(bannerId, username);
+        validateDateRange(request);
+        banner.setTitle(request.title().trim());
+        banner.setMessage(request.message().trim());
+        banner.setStartDate(request.startDate());
+        banner.setEndDate(request.endDate());
+        banner.setNotificationType(request.notificationType());
+        return toResponse(bannerRepository.save(banner));
+    }
+
+    @Transactional
+    public NotificationBannerResponse inactivateBanner(Long bannerId, String username) {
+        ErmNotificationBanner banner = findOwnedBanner(bannerId, username);
+        banner.setActive(false);
+        return toResponse(bannerRepository.save(banner));
+    }
+
+    private ErmNotificationBanner findOwnedBanner(Long bannerId, String username) {
+        ErmNotificationBanner banner = bannerRepository.findById(bannerId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Notification banner not found"));
+        if (!banner.getCreatedByUsername().equalsIgnoreCase(username)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You can only manage notification banners you created");
+        }
+        return banner;
+    }
+
+    private void validateDateRange(NotificationBannerCreateRequest request) {
+        if (request.startDate().isAfter(request.endDate())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "End date must be on or after the start date");
+        }
+    }
+
     private NotificationBannerResponse toResponse(ErmNotificationBanner banner) {
         return new NotificationBannerResponse(
                 banner.getId(),
@@ -64,6 +98,7 @@ public class NotificationBannerService {
                 banner.getEndDate(),
                 banner.getNotificationType(),
                 banner.getCreatedByUsername(),
+                banner.isActive(),
                 banner.getCreatedAt()
         );
     }

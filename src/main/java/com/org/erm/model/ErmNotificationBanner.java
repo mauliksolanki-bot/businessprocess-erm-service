@@ -38,6 +38,9 @@ public class ErmNotificationBanner {
     @Column(name = "CREATED_BY_USERNAME", nullable = false, length = 100)
     private String createdByUsername;
 
+    @Column(name = "IS_ACTIVE", nullable = false)
+    private boolean active = true;
+
     @CreationTimestamp
     @Column(name = "CREATED_AT", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -95,6 +98,14 @@ public class ErmNotificationBanner {
 
     public void setCreatedByUsername(String createdByUsername) {
         this.createdByUsername = createdByUsername;
+    }
+
+    public boolean isActive() {
+        return active;
+    }
+
+    public void setActive(boolean active) {
+        this.active = active;
     }
 
     public LocalDateTime getCreatedAt() {
