@@ -24,15 +24,21 @@ public class RoleAuditService {
     private final EmployeeService employeeService;
     private final ErmUserRepository ermUserRepository;
     private final ErmRoleRepository ermRoleRepository;
+    private final EmployeeIdService employeeIdService;
+    private final EmployeeRoleReferenceService employeeRoleReferenceService;
 
     public RoleAuditService(
             EmployeeService employeeService,
             ErmUserRepository ermUserRepository,
-            ErmRoleRepository ermRoleRepository
+            ErmRoleRepository ermRoleRepository,
+            EmployeeIdService employeeIdService,
+            EmployeeRoleReferenceService employeeRoleReferenceService
     ) {
         this.employeeService = employeeService;
         this.ermUserRepository = ermUserRepository;
         this.ermRoleRepository = ermRoleRepository;
+        this.employeeIdService = employeeIdService;
+        this.employeeRoleReferenceService = employeeRoleReferenceService;
     }
 
     @Transactional(readOnly = true)
@@ -104,7 +110,9 @@ public class RoleAuditService {
 
         // ensure primary role is not removed by this flow (we're only adding, so safe)
         user.setRoles(updatedRoles);
+        employeeIdService.refreshForPrimaryRole(user);
         ermUserRepository.save(user);
+        employeeRoleReferenceService.syncEmployeeIds(user.getId());
 
         EmployeeResponse employeeResponse = employeeService.getEmployeeById(employeeId);
         return new com.org.erm.dto.response.AssignRolesResponse(employeeResponse, createdRoleIds, existingRoleIds);

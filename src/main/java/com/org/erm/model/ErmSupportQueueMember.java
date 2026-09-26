@@ -25,6 +25,9 @@ public class ErmSupportQueueMember {
     @Column(name = "USER_ID", nullable = false)
     private Long userId;
 
+    @Column(name = "EMPLOYEE_ID", nullable = false)
+    private String employeeId;
+
     @Column(name = "IS_ACTIVE", nullable = false)
     private boolean active = true;
 
@@ -45,6 +48,14 @@ public class ErmSupportQueueMember {
 
     public Long getUserId() {
         return userId;
+    }
+
+    public String getEmployeeId() {
+        return employeeId;
+    }
+
+    public void setEmployeeId(String employeeId) {
+        this.employeeId = employeeId;
     }
 
     public boolean isActive() {

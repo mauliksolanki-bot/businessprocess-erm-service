@@ -25,6 +25,9 @@ public class ErmEmployeeProfileUpdateRequest {
     @Column(name = "EMPLOYEE_USER_ID", nullable = false)
     private Long employeeUserId;
 
+    @Column(name = "EMPLOYEE_ID", nullable = false, length = 50)
+    private String employeeId;
+
     @Column(name = "EMPLOYEE_USERNAME", nullable = false, length = 100)
     private String employeeUsername;
 
@@ -45,6 +48,9 @@ public class ErmEmployeeProfileUpdateRequest {
 
     @Column(name = "CURRENT_REPORTING_MANAGER_USER_ID")
     private Long currentReportingManagerUserId;
+
+    @Column(name = "CURRENT_REPORTING_MANAGER_EMPLOYEE_ID", length = 50)
+    private String currentReportingManagerEmployeeId;
 
     @Column(name = "CURRENT_REPORTING_MANAGER_NAME", length = 150)
     private String currentReportingManagerName;
@@ -67,11 +73,17 @@ public class ErmEmployeeProfileUpdateRequest {
     @Column(name = "REQUESTED_REPORTING_MANAGER_USER_ID", nullable = false)
     private Long requestedReportingManagerUserId;
 
+    @Column(name = "REQUESTED_REPORTING_MANAGER_EMPLOYEE_ID", nullable = false, length = 50)
+    private String requestedReportingManagerEmployeeId;
+
     @Column(name = "REQUESTED_REPORTING_MANAGER_NAME", nullable = false, length = 150)
     private String requestedReportingManagerName;
 
     @Column(name = "REPLACEMENT_TEAM_LEAD_USER_ID")
     private Long replacementTeamLeadUserId;
+
+    @Column(name = "REPLACEMENT_TEAM_LEAD_EMPLOYEE_ID", length = 50)
+    private String replacementTeamLeadEmployeeId;
 
     @Column(name = "REPLACEMENT_TEAM_LEAD_NAME", length = 150)
     private String replacementTeamLeadName;
@@ -142,6 +154,8 @@ public class ErmEmployeeProfileUpdateRequest {
     public Long getId() { return id; }
     public Long getEmployeeUserId() { return employeeUserId; }
     public void setEmployeeUserId(Long employeeUserId) { this.employeeUserId = employeeUserId; }
+    public String getEmployeeId() { return employeeId; }
+    public void setEmployeeId(String employeeId) { this.employeeId = employeeId; }
     public String getEmployeeUsername() { return employeeUsername; }
     public void setEmployeeUsername(String employeeUsername) { this.employeeUsername = employeeUsername; }
     public String getCurrentFullName() { return currentFullName; }
@@ -156,6 +170,8 @@ public class ErmEmployeeProfileUpdateRequest {
     public void setCurrentDesignationRoleName(String currentDesignationRoleName) { this.currentDesignationRoleName = currentDesignationRoleName; }
     public Long getCurrentReportingManagerUserId() { return currentReportingManagerUserId; }
     public void setCurrentReportingManagerUserId(Long currentReportingManagerUserId) { this.currentReportingManagerUserId = currentReportingManagerUserId; }
+    public String getCurrentReportingManagerEmployeeId() { return currentReportingManagerEmployeeId; }
+    public void setCurrentReportingManagerEmployeeId(String currentReportingManagerEmployeeId) { this.currentReportingManagerEmployeeId = currentReportingManagerEmployeeId; }
     public String getCurrentReportingManagerName() { return currentReportingManagerName; }
     public void setCurrentReportingManagerName(String currentReportingManagerName) { this.currentReportingManagerName = currentReportingManagerName; }
     public String getRequestedFullName() { return requestedFullName; }
@@ -170,10 +186,14 @@ public class ErmEmployeeProfileUpdateRequest {
     public void setRequestedDesignationRoleName(String requestedDesignationRoleName) { this.requestedDesignationRoleName = requestedDesignationRoleName; }
     public Long getRequestedReportingManagerUserId() { return requestedReportingManagerUserId; }
     public void setRequestedReportingManagerUserId(Long requestedReportingManagerUserId) { this.requestedReportingManagerUserId = requestedReportingManagerUserId; }
+    public String getRequestedReportingManagerEmployeeId() { return requestedReportingManagerEmployeeId; }
+    public void setRequestedReportingManagerEmployeeId(String requestedReportingManagerEmployeeId) { this.requestedReportingManagerEmployeeId = requestedReportingManagerEmployeeId; }
     public String getRequestedReportingManagerName() { return requestedReportingManagerName; }
     public void setRequestedReportingManagerName(String requestedReportingManagerName) { this.requestedReportingManagerName = requestedReportingManagerName; }
     public Long getReplacementTeamLeadUserId() { return replacementTeamLeadUserId; }
     public void setReplacementTeamLeadUserId(Long replacementTeamLeadUserId) { this.replacementTeamLeadUserId = replacementTeamLeadUserId; }
+    public String getReplacementTeamLeadEmployeeId() { return replacementTeamLeadEmployeeId; }
+    public void setReplacementTeamLeadEmployeeId(String replacementTeamLeadEmployeeId) { this.replacementTeamLeadEmployeeId = replacementTeamLeadEmployeeId; }
     public String getReplacementTeamLeadName() { return replacementTeamLeadName; }
     public void setReplacementTeamLeadName(String replacementTeamLeadName) { this.replacementTeamLeadName = replacementTeamLeadName; }
     public Integer getDirectReportsAffectedCount() { return directReportsAffectedCount; }

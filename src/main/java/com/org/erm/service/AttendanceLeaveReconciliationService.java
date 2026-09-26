@@ -130,6 +130,7 @@ public class AttendanceLeaveReconciliationService {
         reconciliation.setLeaveRequestId(leaveRequest.getId());
         reconciliation.setTimesheetId(timesheet.getId());
         reconciliation.setEmployeeUserId(timesheet.getEmployeeUserId());
+        reconciliation.setEmployeeId(timesheet.getEmployeeId());
         reconciliation.setWeekStartDate(timesheet.getWeekStartDate());
         reconciliation.setPreviousTimesheetStatus(timesheet.getTimesheetStatus());
         reconciliation.setPreviousApprovalRequired(timesheet.isApprovalRequired());

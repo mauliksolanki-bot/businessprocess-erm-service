@@ -132,6 +132,7 @@ public class EmployeeService {
                 user.getId(),
                 user.getFullName(),
                 user.getUsername(),
+                user.getEmployeeId(),
                 user.getEmail(),
                 roles,
                 user.getPrimaryRoleId(),

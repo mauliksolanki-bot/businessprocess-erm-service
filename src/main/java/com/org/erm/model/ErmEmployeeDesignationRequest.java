@@ -25,6 +25,9 @@ public class ErmEmployeeDesignationRequest {
     @Column(name = "EMPLOYEE_USER_ID", nullable = false)
     private Long employeeUserId;
 
+    @Column(name = "EMPLOYEE_ID", nullable = false, length = 50)
+    private String employeeId;
+
     @Column(name = "EMPLOYEE_USERNAME", nullable = false, length = 100)
     private String employeeUsername;
 
@@ -39,6 +42,9 @@ public class ErmEmployeeDesignationRequest {
 
     @Column(name = "REQUESTED_REPORTING_MANAGER_USER_ID", nullable = false)
     private Long requestedReportingManagerUserId;
+
+    @Column(name = "REQUESTED_REPORTING_MANAGER_EMPLOYEE_ID", nullable = false, length = 50)
+    private String requestedReportingManagerEmployeeId;
 
     @Column(name = "REQUESTED_REPORTING_MANAGER_USERNAME", nullable = false, length = 100)
     private String requestedReportingManagerUsername;
@@ -112,6 +118,14 @@ public class ErmEmployeeDesignationRequest {
         this.employeeUserId = employeeUserId;
     }
 
+    public String getEmployeeId() {
+        return employeeId;
+    }
+
+    public void setEmployeeId(String employeeId) {
+        this.employeeId = employeeId;
+    }
+
     public String getEmployeeUsername() {
         return employeeUsername;
     }
@@ -150,6 +164,14 @@ public class ErmEmployeeDesignationRequest {
 
     public void setRequestedReportingManagerUserId(Long requestedReportingManagerUserId) {
         this.requestedReportingManagerUserId = requestedReportingManagerUserId;
+    }
+
+    public String getRequestedReportingManagerEmployeeId() {
+        return requestedReportingManagerEmployeeId;
+    }
+
+    public void setRequestedReportingManagerEmployeeId(String requestedReportingManagerEmployeeId) {
+        this.requestedReportingManagerEmployeeId = requestedReportingManagerEmployeeId;
     }
 
     public String getRequestedReportingManagerUsername() {
