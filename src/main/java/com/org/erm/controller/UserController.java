@@ -4,6 +4,8 @@ import com.org.erm.dto.request.BankDetailsUpsertRequest;
 import com.org.erm.dto.request.UserProfileUpdateRequest;
 import com.org.erm.dto.response.BankDetailsResponse;
 import com.org.erm.dto.response.UserProfileResponse;
+import com.org.erm.dto.response.TeamMemberResponse;
+import com.org.erm.dto.response.TeamMemberSummaryResponse;
 import com.org.erm.dto.response.UserMentionOptionResponse;
 import com.org.erm.dto.response.UserMentionNotificationResponse;
 import com.org.erm.service.MentionNotificationService;
@@ -13,6 +15,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -43,6 +46,17 @@ public class UserController {
     public ResponseEntity<UserProfileResponse> updateCurrentUser(@Valid @RequestBody UserProfileUpdateRequest request,
                                                                  Authentication authentication) {
         return ResponseEntity.ok(userService.updateCurrentUserProfile(authentication.getName(), request));
+    }
+
+    @GetMapping("/me/team-members")
+    public ResponseEntity<List<TeamMemberSummaryResponse>> getCurrentUserTeamMembers(Authentication authentication) {
+        return ResponseEntity.ok(userService.getCurrentUserTeamMembers(authentication.getName()));
+    }
+
+    @GetMapping("/me/team-members/{teamMemberId}")
+    public ResponseEntity<TeamMemberResponse> getCurrentUserTeamMember(@PathVariable Long teamMemberId,
+                                                                       Authentication authentication) {
+        return ResponseEntity.ok(userService.getCurrentUserTeamMember(authentication.getName(), teamMemberId));
     }
 
     @GetMapping("/me/bank-details")
