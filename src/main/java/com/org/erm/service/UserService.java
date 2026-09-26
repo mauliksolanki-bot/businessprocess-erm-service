@@ -119,6 +119,7 @@ public class UserService {
                         displayName(user),
                         user.getEmployeeId(),
                         user.getEmail(),
+                        user.getRoles().stream().map(ErmRole::getName).sorted(Comparator.naturalOrder()).toList(),
                         user.getDepartment(),
                         resolveDesignation(user),
                         user.getEmploymentStatus()
@@ -165,6 +166,7 @@ public class UserService {
                 resolveDesignation(member),
                 member.getEmploymentStatus(),
                 member.getCreatedAt() == null ? null : member.getCreatedAt().toLocalDate(),
+                member.getUpdatedAt(),
                 displayName(manager),
                 member.getReportingManagerRoleName(),
                 roleNames,
