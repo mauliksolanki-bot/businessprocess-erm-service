@@ -219,6 +219,25 @@ public class SupportTicketService {
     }
 
     @Transactional(readOnly = true)
+    public List<SupportTicketResponse> githubMasterData(Authentication authentication) {
+        ErmUser currentUser = loadCurrentUser(authentication);
+        ensureItSupportManager(currentUser);
+        return ticketRepository.findAllByGithubIssueNumberIsNotNullOrderByCreatedAtDesc().stream()
+                .map(ticket -> toResponse(ticket, false))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public SupportTicketResponse githubMasterDataById(Long ticketId, Authentication authentication) {
+        ErmUser currentUser = loadCurrentUser(authentication);
+        ensureItSupportManager(currentUser);
+        ErmSupportTicket ticket = ticketRepository.findById(ticketId)
+                .filter(item -> item.getGithubIssueNumber() != null)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "GitHub-linked ticket not found"));
+        return toResponse(ticket, true);
+    }
+
+    @Transactional(readOnly = true)
     public SupportTicketResponse getById(Long ticketId, Authentication authentication) {
         ErmSupportTicket ticket = ticketRepository.findById(ticketId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Support ticket not found"));
@@ -887,6 +906,12 @@ public class SupportTicketService {
 
     private boolean hasRole(ErmUser user, String roleName) {
         return user.getRoles().stream().anyMatch(role -> roleName.equalsIgnoreCase(role.getName()));
+    }
+
+    private void ensureItSupportManager(ErmUser user) {
+        if (!hasRole(user, "IT Support Manager")) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only IT Support Managers can access GitHub ticket master data");
+        }
     }
 
     private boolean isClosureStatus(SupportTicketStatus status) {
