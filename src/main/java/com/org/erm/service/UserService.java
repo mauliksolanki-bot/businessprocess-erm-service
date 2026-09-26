@@ -90,6 +90,7 @@ public class UserService {
         return new UserProfileResponse(
                 ermUser.getId(),
                 ermUser.getUsername(),
+                ermUser.getEmployeeId(),
                 ermUser.getEmail(),
                 ermUser.getFullName(),
                 designation,

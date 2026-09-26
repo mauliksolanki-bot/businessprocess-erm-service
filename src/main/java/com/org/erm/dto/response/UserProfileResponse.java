@@ -5,6 +5,7 @@ import java.util.List;
 public record UserProfileResponse(
         Long id,
         String username,
+        String employeeId,
         String email,
         String fullName,
         String designation,
