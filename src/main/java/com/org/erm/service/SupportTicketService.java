@@ -359,7 +359,9 @@ public class SupportTicketService {
             log.warn("Received GitHub issue comment for unlinked issue #{} (delivery {})", githubIssueNumber, deliveryId);
             return false;
         }
-        String actor = StringUtils.hasText(actorLabel) ? actorLabel : "github-webhook";
+        String actor = StringUtils.hasText(ticket.getAssigneeUsername())
+                ? ticket.getAssigneeFullName()
+                : (StringUtils.hasText(actorLabel) ? actorLabel : "github-webhook");
         if (StringUtils.hasText(deliveryId) && commentRepository.existsByGithubDeliveryId(deliveryId)) {
             return true;
         }
