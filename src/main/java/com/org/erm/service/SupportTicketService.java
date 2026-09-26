@@ -360,7 +360,7 @@ public class SupportTicketService {
             return false;
         }
         String actor = StringUtils.hasText(ticket.getAssigneeUsername())
-                ? ticket.getAssigneeUsername()
+                ? ticket.getAssigneeFullName()
                 : (StringUtils.hasText(actorLabel) ? actorLabel : "github-webhook");
         if (StringUtils.hasText(deliveryId) && commentRepository.existsByGithubDeliveryId(deliveryId)) {
             return true;
