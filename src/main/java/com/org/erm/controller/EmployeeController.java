@@ -2,6 +2,7 @@ package com.org.erm.controller;
 
 import com.org.erm.dto.response.EmployeeDirectReportResponse;
 import com.org.erm.dto.response.EmployeeResponse;
+import com.org.erm.dto.response.EmployeePasswordResetResponse;
 import com.org.erm.dto.request.EmployeeUpdateRequest;
 import com.org.erm.dto.response.PagedResponse;
 import com.org.erm.dto.response.OnboardingManagerOptionResponse;
@@ -12,11 +13,13 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.CacheControl;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -64,6 +67,15 @@ public class EmployeeController {
     })
     public ResponseEntity<EmployeeResponse> getById(@PathVariable Long id) {
         return ResponseEntity.ok(employeeService.getEmployeeById(id));
+    }
+
+    @PostMapping("/{id}/password-reset")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @Operation(summary = "Reset an employee password")
+    public ResponseEntity<EmployeePasswordResetResponse> resetPassword(@PathVariable Long id) {
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .body(employeeService.resetEmployeePassword(id));
     }
 
     @GetMapping("/{id}/direct-reports")

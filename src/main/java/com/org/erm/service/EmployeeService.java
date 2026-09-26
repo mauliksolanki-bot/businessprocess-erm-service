@@ -2,6 +2,7 @@ package com.org.erm.service;
 
 import com.org.erm.dto.response.EmployeeDirectReportResponse;
 import com.org.erm.dto.response.EmployeeResponse;
+import com.org.erm.dto.response.EmployeePasswordResetResponse;
 import com.org.erm.dto.request.EmployeeUpdateRequest;
 import com.org.erm.dto.response.PagedResponse;
 import com.org.erm.dto.response.OnboardingManagerOptionResponse;
@@ -14,7 +15,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.security.SecureRandom;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
@@ -24,11 +27,16 @@ public class EmployeeService {
 
     private static final int MAX_PAGE_SIZE = 100;
     private static final int DEFAULT_PAGE_SIZE = 25;
+    private static final String TEMPORARY_PASSWORD_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%&*";
+    private static final int TEMPORARY_PASSWORD_LENGTH = 16;
 
     private final ErmUserRepository ermUserRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final SecureRandom secureRandom = new SecureRandom();
 
-    public EmployeeService(ErmUserRepository ermUserRepository) {
+    public EmployeeService(ErmUserRepository ermUserRepository, PasswordEncoder passwordEncoder) {
         this.ermUserRepository = ermUserRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @Transactional(readOnly = true)
@@ -50,6 +58,16 @@ public class EmployeeService {
         return ermUserRepository.findById(employeeId)
                 .map(this::toResponse)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Employee not found"));
+    }
+
+    @Transactional
+    public EmployeePasswordResetResponse resetEmployeePassword(Long employeeId) {
+        ErmUser employee = ermUserRepository.findById(employeeId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Employee not found"));
+        String temporaryPassword = generateTemporaryPassword();
+        employee.setPasswordHash(passwordEncoder.encode(temporaryPassword));
+        ermUserRepository.save(employee);
+        return new EmployeePasswordResetResponse(employee.getId(), employee.getEmployeeId(), temporaryPassword);
     }
 
     @Transactional(readOnly = true)
@@ -156,6 +174,14 @@ public class EmployeeService {
                 resolveDesignation(user),
                 user.getEmploymentStatus()
         );
+    }
+
+    private String generateTemporaryPassword() {
+        StringBuilder password = new StringBuilder(TEMPORARY_PASSWORD_LENGTH);
+        for (int index = 0; index < TEMPORARY_PASSWORD_LENGTH; index++) {
+            password.append(TEMPORARY_PASSWORD_ALPHABET.charAt(secureRandom.nextInt(TEMPORARY_PASSWORD_ALPHABET.length())));
+        }
+        return password.toString();
     }
 
     private String resolveDesignation(ErmUser user) {
