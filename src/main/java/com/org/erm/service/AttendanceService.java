@@ -35,6 +35,7 @@ import java.math.RoundingMode;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -51,6 +52,7 @@ import java.util.stream.Collectors;
 public class AttendanceService {
 
     private static final BigDecimal MAX_BILLABLE_HOURS_PER_DAY = new BigDecimal("8.00");
+    private static final ZoneId BUSINESS_TIME_ZONE = ZoneId.of("Asia/Kolkata");
     private static final Set<LeaveRequestStatus> ATTENDANCE_BLOCKING_LEAVE_STATUSES = EnumSet.of(
             LeaveRequestStatus.PENDING,
             LeaveRequestStatus.APPROVED
@@ -168,6 +170,9 @@ public class AttendanceService {
 
     @Transactional
     public AttendanceWeekResponse submit(String username, AttendanceTimesheetUpsertRequest request) {
+        if (LocalDate.now(BUSINESS_TIME_ZONE).getDayOfWeek() != DayOfWeek.FRIDAY) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Timesheets can only be submitted on Friday. Drafts can be saved any day.");
+        }
         return upsert(username, request, true);
     }
 
