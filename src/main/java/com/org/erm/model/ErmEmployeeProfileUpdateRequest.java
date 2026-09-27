@@ -55,6 +55,12 @@ public class ErmEmployeeProfileUpdateRequest {
     @Column(name = "CURRENT_REPORTING_MANAGER_NAME", length = 150)
     private String currentReportingManagerName;
 
+    @Column(name = "CURRENT_JUNIOR_HR_USER_ID")
+    private Long currentJuniorHrUserId;
+
+    @Column(name = "CURRENT_JUNIOR_HR_NAME", length = 150)
+    private String currentJuniorHrName;
+
     @Column(name = "REQUESTED_FULL_NAME", nullable = false, length = 150)
     private String requestedFullName;
 
@@ -78,6 +84,12 @@ public class ErmEmployeeProfileUpdateRequest {
 
     @Column(name = "REQUESTED_REPORTING_MANAGER_NAME", nullable = false, length = 150)
     private String requestedReportingManagerName;
+
+    @Column(name = "REQUESTED_JUNIOR_HR_USER_ID", nullable = false)
+    private Long requestedJuniorHrUserId;
+
+    @Column(name = "REQUESTED_JUNIOR_HR_NAME", nullable = false, length = 150)
+    private String requestedJuniorHrName;
 
     @Column(name = "REPLACEMENT_TEAM_LEAD_USER_ID")
     private Long replacementTeamLeadUserId;
@@ -174,6 +186,10 @@ public class ErmEmployeeProfileUpdateRequest {
     public void setCurrentReportingManagerEmployeeId(String currentReportingManagerEmployeeId) { this.currentReportingManagerEmployeeId = currentReportingManagerEmployeeId; }
     public String getCurrentReportingManagerName() { return currentReportingManagerName; }
     public void setCurrentReportingManagerName(String currentReportingManagerName) { this.currentReportingManagerName = currentReportingManagerName; }
+    public Long getCurrentJuniorHrUserId() { return currentJuniorHrUserId; }
+    public void setCurrentJuniorHrUserId(Long currentJuniorHrUserId) { this.currentJuniorHrUserId = currentJuniorHrUserId; }
+    public String getCurrentJuniorHrName() { return currentJuniorHrName; }
+    public void setCurrentJuniorHrName(String currentJuniorHrName) { this.currentJuniorHrName = currentJuniorHrName; }
     public String getRequestedFullName() { return requestedFullName; }
     public void setRequestedFullName(String requestedFullName) { this.requestedFullName = requestedFullName; }
     public String getRequestedEmail() { return requestedEmail; }
@@ -190,6 +206,10 @@ public class ErmEmployeeProfileUpdateRequest {
     public void setRequestedReportingManagerEmployeeId(String requestedReportingManagerEmployeeId) { this.requestedReportingManagerEmployeeId = requestedReportingManagerEmployeeId; }
     public String getRequestedReportingManagerName() { return requestedReportingManagerName; }
     public void setRequestedReportingManagerName(String requestedReportingManagerName) { this.requestedReportingManagerName = requestedReportingManagerName; }
+    public Long getRequestedJuniorHrUserId() { return requestedJuniorHrUserId; }
+    public void setRequestedJuniorHrUserId(Long requestedJuniorHrUserId) { this.requestedJuniorHrUserId = requestedJuniorHrUserId; }
+    public String getRequestedJuniorHrName() { return requestedJuniorHrName; }
+    public void setRequestedJuniorHrName(String requestedJuniorHrName) { this.requestedJuniorHrName = requestedJuniorHrName; }
     public Long getReplacementTeamLeadUserId() { return replacementTeamLeadUserId; }
     public void setReplacementTeamLeadUserId(Long replacementTeamLeadUserId) { this.replacementTeamLeadUserId = replacementTeamLeadUserId; }
     public String getReplacementTeamLeadEmployeeId() { return replacementTeamLeadEmployeeId; }

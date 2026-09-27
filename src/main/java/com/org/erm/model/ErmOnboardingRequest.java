@@ -61,6 +61,9 @@ public class ErmOnboardingRequest {
     @Column(name = "REPORTING_MANAGER_ROLE_NAME", length = 100)
     private String reportingManagerRoleName;
 
+    @Column(name = "JUNIOR_HR_USER_ID", nullable = false)
+    private Long juniorHrUserId;
+
     @Column(name = "EDUCATION_QUALIFICATION", length = 255)
     private String educationQualification;
 
@@ -261,6 +264,14 @@ public class ErmOnboardingRequest {
 
     public void setReportingManagerRoleName(String reportingManagerRoleName) {
         this.reportingManagerRoleName = reportingManagerRoleName;
+    }
+
+    public Long getJuniorHrUserId() {
+        return juniorHrUserId;
+    }
+
+    public void setJuniorHrUserId(Long juniorHrUserId) {
+        this.juniorHrUserId = juniorHrUserId;
     }
 
     public OnboardingInterviewStage getInterviewStage() {

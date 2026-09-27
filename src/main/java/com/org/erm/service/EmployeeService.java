@@ -112,6 +112,7 @@ public class EmployeeService {
         String employmentStatus = normalizeEmploymentStatus(request.employmentStatus());
         user.setEmploymentStatus(employmentStatus);
         user.setActive(!"inactive".equalsIgnoreCase(employmentStatus));
+        user.setJuniorHrUserId(resolveJuniorHr(request.juniorHrUserId()).getId());
 
         return toResponse(ermUserRepository.save(user));
     }
@@ -145,6 +146,7 @@ public class EmployeeService {
                 .toList();
 
         ErmUser manager = user.getReportingManagerUserId() == null ? null : ermUserRepository.findById(user.getReportingManagerUserId()).orElse(null);
+        ErmUser juniorHr = user.getJuniorHrUserId() == null ? null : ermUserRepository.findById(user.getJuniorHrUserId()).orElse(null);
 
         return new EmployeeResponse(
                 user.getId(),
@@ -161,9 +163,29 @@ public class EmployeeService {
                 manager == null ? null : manager.getUsername(),
                 manager == null ? null : manager.getFullName(),
                 user.getReportingManagerRoleName(),
+                juniorHr == null ? null : juniorHr.getId(),
+                juniorHr == null ? null : juniorHr.getUsername(),
+                juniorHr == null ? null : displayName(juniorHr),
                 user.getCreatedAt(),
                 user.getUpdatedAt()
         );
+    }
+
+    private ErmUser resolveJuniorHr(Long juniorHrUserId) {
+        if (juniorHrUserId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Junior HR assignment is required");
+        }
+        ErmUser juniorHr = ermUserRepository.findById(juniorHrUserId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Junior HR user not found"));
+        boolean hasJuniorHrRole = juniorHr.getRoles().stream().anyMatch(role -> "Junior HR".equalsIgnoreCase(role.getName()));
+        if (!juniorHr.isActive() || !"active".equalsIgnoreCase(juniorHr.getEmploymentStatus()) || !hasJuniorHrRole) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Selected Junior HR must be active and assigned the Junior HR role");
+        }
+        return juniorHr;
+    }
+
+    private String displayName(ErmUser user) {
+        return StringUtils.hasText(user.getFullName()) ? user.getFullName().trim() : user.getUsername();
     }
 
     private EmployeeDirectReportResponse toDirectReportResponse(ErmUser user) {

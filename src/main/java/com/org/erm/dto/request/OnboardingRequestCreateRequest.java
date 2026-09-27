@@ -43,6 +43,9 @@ public record OnboardingRequestCreateRequest(
         @NotNull(message = "Reporting manager is required")
         Long reportingManagerUserId,
 
+        @NotNull(message = "Junior HR assignment is required")
+        Long juniorHrUserId,
+
         @Size(max = 255, message = "Education qualification must be at most 255 characters")
         String educationQualification,
 
