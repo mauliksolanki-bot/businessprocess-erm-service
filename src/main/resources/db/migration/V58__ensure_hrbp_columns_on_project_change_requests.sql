@@ -1,6 +1,4 @@
--- V57 may already be recorded as applied on databases where its first attempt
--- partially changed the schema. Ensure every mapped column exists independently.
+-- Ensure the mapped HRBP key exists on databases where an earlier V57 attempt
+-- was recorded as applied before the column was added.
 ALTER TABLE ERM_PROJECT_CHANGE_REQUESTS
-    ADD COLUMN IF NOT EXISTS ASSOCIATED_HR_USER_ID BIGINT NULL,
-    ADD COLUMN IF NOT EXISTS ASSOCIATED_HR_NAME VARCHAR(150) NULL,
-    ADD COLUMN IF NOT EXISTS ASSOCIATED_HR_ROLE_NAME VARCHAR(100) NULL;
+    ADD COLUMN IF NOT EXISTS ASSOCIATED_HR_USER_ID BIGINT NULL;

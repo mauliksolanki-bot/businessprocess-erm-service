@@ -233,6 +233,9 @@ public class ProjectChangeRequestService {
     }
 
     private ProjectChangeRequestResponse toChangeResponse(ErmProjectChangeRequest entity) {
+        ErmUser associatedHr = entity.getAssociatedHrUserId() == null
+                ? null
+                : userRepository.findById(entity.getAssociatedHrUserId()).orElse(null);
         return new ProjectChangeRequestResponse(
                 entity.getId(),
                 entity.getProjectRequestId(),
@@ -252,8 +255,8 @@ public class ProjectChangeRequestService {
                 entity.getProjectDirectorUserId(),
                 entity.getProjectDirectorName(),
                 entity.getAssociatedHrUserId(),
-                entity.getAssociatedHrName(),
-                entity.getAssociatedHrRoleName(),
+                associatedHr == null ? null : resolveDisplayName(associatedHr),
+                associatedHr == null ? null : resolveAssociatedHrRoleNameOrNull(associatedHr),
                 entity.getProjectStatus().getLabel(),
                 entity.getDescription(),
                 entity.getRiskNotes(),
@@ -326,8 +329,6 @@ public class ProjectChangeRequestService {
         entity.setProjectDirectorEmployeeId(projectDirector.getEmployeeId());
         entity.setProjectDirectorName(resolveDisplayName(projectDirector));
         entity.setAssociatedHrUserId(associatedHr.getId());
-        entity.setAssociatedHrName(resolveDisplayName(associatedHr));
-        entity.setAssociatedHrRoleName(resolveAssociatedHrRoleName(associatedHr));
         entity.setProjectStatus(projectStatus);
         entity.setDescription(description);
         entity.setRiskNotes(riskNotes);
@@ -354,9 +355,10 @@ public class ProjectChangeRequestService {
         project.setProjectDirectorEmployeeId(changeRequest.getProjectDirectorEmployeeId());
         project.setProjectDirectorName(changeRequest.getProjectDirectorName());
         if (changeRequest.getAssociatedHrUserId() != null) {
-            project.setAssociatedHrUserId(changeRequest.getAssociatedHrUserId());
-            project.setAssociatedHrName(changeRequest.getAssociatedHrName());
-            project.setAssociatedHrRoleName(changeRequest.getAssociatedHrRoleName());
+            ErmUser associatedHr = resolveAssociatedHrUser(changeRequest.getAssociatedHrUserId());
+            project.setAssociatedHrUserId(associatedHr.getId());
+            project.setAssociatedHrName(resolveDisplayName(associatedHr));
+            project.setAssociatedHrRoleName(resolveAssociatedHrRoleName(associatedHr));
         }
         project.setProjectStatus(changeRequest.getProjectStatus());
         project.setDescription(changeRequest.getDescription());
