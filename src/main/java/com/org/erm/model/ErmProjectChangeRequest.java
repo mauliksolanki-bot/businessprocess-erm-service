@@ -82,6 +82,15 @@ public class ErmProjectChangeRequest {
     @Column(name = "PROJECT_DIRECTOR_NAME", length = 150)
     private String projectDirectorName;
 
+    @Column(name = "ASSOCIATED_HR_USER_ID")
+    private Long associatedHrUserId;
+
+    @Column(name = "ASSOCIATED_HR_NAME", length = 150)
+    private String associatedHrName;
+
+    @Column(name = "ASSOCIATED_HR_ROLE_NAME", length = 100)
+    private String associatedHrRoleName;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "PROJECT_STATUS", nullable = false, length = 30)
     private ProjectStatus projectStatus = ProjectStatus.PLANNED;
@@ -171,6 +180,12 @@ public class ErmProjectChangeRequest {
     public void setProjectDirectorEmployeeId(String projectDirectorEmployeeId) { this.projectDirectorEmployeeId = projectDirectorEmployeeId; }
     public String getProjectDirectorName() { return projectDirectorName; }
     public void setProjectDirectorName(String projectDirectorName) { this.projectDirectorName = projectDirectorName; }
+    public Long getAssociatedHrUserId() { return associatedHrUserId; }
+    public void setAssociatedHrUserId(Long associatedHrUserId) { this.associatedHrUserId = associatedHrUserId; }
+    public String getAssociatedHrName() { return associatedHrName; }
+    public void setAssociatedHrName(String associatedHrName) { this.associatedHrName = associatedHrName; }
+    public String getAssociatedHrRoleName() { return associatedHrRoleName; }
+    public void setAssociatedHrRoleName(String associatedHrRoleName) { this.associatedHrRoleName = associatedHrRoleName; }
     public ProjectStatus getProjectStatus() { return projectStatus; }
     public void setProjectStatus(ProjectStatus projectStatus) { this.projectStatus = projectStatus; }
     public String getDescription() { return description; }
