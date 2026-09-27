@@ -41,6 +41,7 @@ public class ProjectChangeRequestService {
 
     private static final List<String> PROJECT_TYPES = List.of("Internal", "Billable", "Fixed Bid", "T&M");
     private static final List<String> PRIORITIES = List.of("Low", "Medium", "High", "Critical");
+    private static final List<String> ASSOCIATED_HR_ROLES = List.of("Junior HR", "Senior HR", "HR Head");
     private static final Set<ProjectChangeWorkflowStage> OPEN_STAGES = EnumSet.of(
             ProjectChangeWorkflowStage.PENDING_DELIVERY_MANAGER_APPROVAL,
             ProjectChangeWorkflowStage.PENDING_PROJECT_OWNER_APPROVAL
@@ -250,6 +251,9 @@ public class ProjectChangeRequestService {
                 entity.getProjectOwnerName(),
                 entity.getProjectDirectorUserId(),
                 entity.getProjectDirectorName(),
+                entity.getAssociatedHrUserId(),
+                entity.getAssociatedHrName(),
+                entity.getAssociatedHrRoleName(),
                 entity.getProjectStatus().getLabel(),
                 entity.getDescription(),
                 entity.getRiskNotes(),
@@ -300,6 +304,7 @@ public class ProjectChangeRequestService {
         ErmUser deliveryManager = resolveRoleUser(request.deliveryManagerUserId(), "Delivery Manager", "Delivery manager");
         ErmUser projectOwner = resolveRoleUser(request.projectOwnerUserId(), "Project Owner", "Project owner");
         ErmUser projectDirector = resolveRoleUser(request.projectDirectorUserId(), "Director", "Project director");
+        ErmUser associatedHr = resolveAssociatedHrUser(request.associatedHrUserId());
         ProjectStatus projectStatus = parseProjectStatus(request.projectStatus());
 
         entity.setProjectName(projectName);
@@ -320,6 +325,9 @@ public class ProjectChangeRequestService {
         entity.setProjectDirectorUserId(projectDirector.getId());
         entity.setProjectDirectorEmployeeId(projectDirector.getEmployeeId());
         entity.setProjectDirectorName(resolveDisplayName(projectDirector));
+        entity.setAssociatedHrUserId(associatedHr.getId());
+        entity.setAssociatedHrName(resolveDisplayName(associatedHr));
+        entity.setAssociatedHrRoleName(resolveAssociatedHrRoleName(associatedHr));
         entity.setProjectStatus(projectStatus);
         entity.setDescription(description);
         entity.setRiskNotes(riskNotes);
@@ -345,6 +353,11 @@ public class ProjectChangeRequestService {
         project.setProjectDirectorUserId(changeRequest.getProjectDirectorUserId());
         project.setProjectDirectorEmployeeId(changeRequest.getProjectDirectorEmployeeId());
         project.setProjectDirectorName(changeRequest.getProjectDirectorName());
+        if (changeRequest.getAssociatedHrUserId() != null) {
+            project.setAssociatedHrUserId(changeRequest.getAssociatedHrUserId());
+            project.setAssociatedHrName(changeRequest.getAssociatedHrName());
+            project.setAssociatedHrRoleName(changeRequest.getAssociatedHrRoleName());
+        }
         project.setProjectStatus(changeRequest.getProjectStatus());
         project.setDescription(changeRequest.getDescription());
         project.setRiskNotes(changeRequest.getRiskNotes());
@@ -376,6 +389,45 @@ public class ProjectChangeRequestService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Selected user is not assigned as " + roleName);
         }
         return user;
+    }
+
+    private ErmUser resolveAssociatedHrUser(Long userId) {
+        if (userId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "HRBP is required");
+        }
+        ErmUser user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "HRBP user not found"));
+        if (!user.isActive() || !"active".equalsIgnoreCase(user.getEmploymentStatus())
+                || resolveAssociatedHrRoleNameOrNull(user) == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "HRBP must be an active Junior HR, Senior HR, or HR Head");
+        }
+        return user;
+    }
+
+    private String resolveAssociatedHrRoleName(ErmUser user) {
+        String roleName = resolveAssociatedHrRoleNameOrNull(user);
+        if (roleName == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "HRBP must have a Junior HR, Senior HR, or HR Head role");
+        }
+        return roleName;
+    }
+
+    private String resolveAssociatedHrRoleNameOrNull(ErmUser user) {
+        if (user.getPrimaryRoleId() != null) {
+            String primaryRole = user.getRoles().stream()
+                    .filter(role -> role.getId().equals(user.getPrimaryRoleId()))
+                    .map(role -> role.getName())
+                    .filter(roleName -> ASSOCIATED_HR_ROLES.stream().anyMatch(allowed -> allowed.equalsIgnoreCase(roleName)))
+                    .findFirst()
+                    .orElse(null);
+            if (primaryRole != null) return primaryRole;
+        }
+        return ASSOCIATED_HR_ROLES.stream()
+                .filter(allowed -> user.getRoles().stream().anyMatch(role -> allowed.equalsIgnoreCase(role.getName())))
+                .findFirst()
+                .orElse(null);
     }
 
     private ProjectStatus parseProjectStatus(String value) {

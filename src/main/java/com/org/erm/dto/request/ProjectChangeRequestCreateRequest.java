@@ -55,6 +55,9 @@ public record ProjectChangeRequestCreateRequest(
         @NotNull(message = "Project director is required")
         Long projectDirectorUserId,
 
+        @NotNull(message = "HRBP is required")
+        Long associatedHrUserId,
+
         @NotBlank(message = "Project status is required")
         @Size(max = 30, message = "Project status must be at most 30 characters")
         String projectStatus,
