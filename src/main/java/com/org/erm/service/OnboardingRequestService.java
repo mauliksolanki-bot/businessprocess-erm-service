@@ -87,8 +87,9 @@ public class OnboardingRequestService {
     }
 
     @Transactional(readOnly = true)
-    public List<OnboardingManagerOptionResponse> getJuniorHrOptions() {
-        return userRepository.findActiveUsersByRoleName("Junior HR").stream()
+    public List<OnboardingManagerOptionResponse> getJuniorHrOptions(String designationRoleName) {
+        String associatedRoleName = requiredHrAssociationRole(designationRoleName);
+        return userRepository.findActiveUsersByRoleName(associatedRoleName).stream()
                 .map(user -> new OnboardingManagerOptionResponse(
                         user.getId(), user.getUsername(),
                         StringUtils.hasText(user.getFullName()) ? user.getFullName().trim() : user.getUsername(),
@@ -418,7 +419,7 @@ public class OnboardingRequestService {
         onboardingRequest.setReportingManagerUsername(managerAssignment.manager().getUsername());
         onboardingRequest.setReportingManagerFullName(managerAssignment.manager().getFullName());
         onboardingRequest.setReportingManagerRoleName(managerAssignment.managerRoleName());
-        onboardingRequest.setJuniorHrUserId(resolveJuniorHr(request.juniorHrUserId()).getId());
+        onboardingRequest.setJuniorHrUserId(resolveHrAssociation(request.juniorHrUserId(), managerAssignment.designationRoleName()).getId());
         onboardingRequest.setEducationQualification(normalizeOptional(request.educationQualification()));
         onboardingRequest.setInterviewStage(OnboardingInterviewStage.PENDING);
         onboardingRequest.setWorkflowStage(OnboardingWorkflowStage.HR_SUBMITTED);
@@ -461,17 +462,30 @@ public class OnboardingRequestService {
         return new ManagerAssignment(hierarchy.getDesignationRoleName(), managerRoleName, manager);
     }
 
-    private ErmUser resolveJuniorHr(Long juniorHrUserId) {
-        if (juniorHrUserId == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Junior HR assignment is required");
+    private ErmUser resolveHrAssociation(Long associatedUserId, String designationRoleName) {
+        if (associatedUserId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "HR association is required");
         }
-        ErmUser juniorHr = userRepository.findById(juniorHrUserId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Junior HR user not found"));
-        boolean hasJuniorHrRole = juniorHr.getRoles().stream().anyMatch(role -> "Junior HR".equalsIgnoreCase(role.getName()));
-        if (!juniorHr.isActive() || !"active".equalsIgnoreCase(juniorHr.getEmploymentStatus()) || !hasJuniorHrRole) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Selected Junior HR must be active and assigned the Junior HR role");
+        String requiredRoleName = requiredHrAssociationRole(designationRoleName);
+        ErmUser associatedUser = userRepository.findById(associatedUserId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Assigned HR user not found"));
+        boolean hasRequiredRole = associatedUser.getRoles().stream().anyMatch(role -> requiredRoleName.equalsIgnoreCase(role.getName()));
+        if (!associatedUser.isActive() || !"active".equalsIgnoreCase(associatedUser.getEmploymentStatus()) || !hasRequiredRole) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Selected HR contact must be active and assigned the " + requiredRoleName + " role");
         }
-        return juniorHr;
+        return associatedUser;
+    }
+
+    private String requiredHrAssociationRole(String designationRoleName) {
+        if (!StringUtils.hasText(designationRoleName)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Designation is required");
+        }
+        return switch (designationRoleName.trim().toLowerCase(Locale.ROOT)) {
+            case "senior hr" -> "HR Head";
+            case "hr head" -> "CHRO";
+            case "chro" -> "HR Head";
+            default -> "Junior HR";
+        };
     }
 
     private void assignGeneratedIdentity(ErmOnboardingRequest onboardingRequest) {
@@ -733,6 +747,7 @@ public class OnboardingRequestService {
                 onboardingRequest.getJuniorHrUserId(),
                 juniorHr == null ? null : juniorHr.getUsername(),
                 juniorHr == null ? null : (StringUtils.hasText(juniorHr.getFullName()) ? juniorHr.getFullName().trim() : juniorHr.getUsername()),
+                juniorHr == null ? null : requiredHrAssociationRole(onboardingRequest.getDesignationRoleName()),
                 onboardingRequest.getEducationQualification(),
                 onboardingRequest.getInterviewStage(),
                 onboardingRequest.getWorkflowStage(),

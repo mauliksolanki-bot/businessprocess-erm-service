@@ -24,6 +24,7 @@ public record OnboardingRequestResponse(
         Long juniorHrUserId,
         String juniorHrUsername,
         String juniorHrFullName,
+        String juniorHrRoleName,
         String educationQualification,
         OnboardingInterviewStage interviewStage,
         OnboardingWorkflowStage workflowStage,

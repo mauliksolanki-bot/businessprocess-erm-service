@@ -58,6 +58,9 @@ public record ProjectRequestCreateRequest(
         @NotNull(message = "Project manager is required")
         Long projectManagerUserId,
 
+        @NotNull(message = "Associated HR is required")
+        Long associatedHrUserId,
+
         @NotBlank(message = "Project status is required")
         @Size(max = 30, message = "Project status must be at most 30 characters")
         String projectStatus,

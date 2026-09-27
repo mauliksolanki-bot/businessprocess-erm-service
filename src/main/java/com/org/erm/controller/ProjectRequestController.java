@@ -8,6 +8,7 @@ import com.org.erm.dto.response.ProjectChangeRequestResponse;
 import com.org.erm.dto.response.ProjectManagerOptionResponse;
 import com.org.erm.dto.request.ProjectRequestCreateRequest;
 import com.org.erm.dto.response.ProjectRequestResponse;
+import com.org.erm.dto.response.ProjectHrOptionResponse;
 import com.org.erm.dto.request.RequestCommentRequest;
 import com.org.erm.service.ProjectChangeRequestService;
 import com.org.erm.service.ProjectRequestService;
@@ -127,6 +128,12 @@ public class ProjectRequestController {
     @Operation(summary = "List active project managers")
     public ResponseEntity<List<ProjectManagerOptionResponse>> projectManagerOptions(Authentication authentication) {
         return ResponseEntity.ok(projectRequestService.projectManagerOptions(authentication));
+    }
+
+    @GetMapping("/associated-hr-options")
+    @Operation(summary = "List active Junior HR, Senior HR, and HR Head users for project association")
+    public ResponseEntity<List<ProjectHrOptionResponse>> associatedHrOptions(Authentication authentication) {
+        return ResponseEntity.ok(projectRequestService.associatedHrOptions(authentication));
     }
 
     @GetMapping("/managed-projects")

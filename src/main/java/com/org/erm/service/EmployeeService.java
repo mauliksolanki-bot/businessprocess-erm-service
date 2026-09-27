@@ -112,7 +112,7 @@ public class EmployeeService {
         String employmentStatus = normalizeEmploymentStatus(request.employmentStatus());
         user.setEmploymentStatus(employmentStatus);
         user.setActive(!"inactive".equalsIgnoreCase(employmentStatus));
-        user.setJuniorHrUserId(resolveJuniorHr(request.juniorHrUserId()).getId());
+        user.setJuniorHrUserId(resolveHrAssociation(request.juniorHrUserId(), resolveDesignation(user)).getId());
 
         return toResponse(ermUserRepository.save(user));
     }
@@ -166,22 +166,34 @@ public class EmployeeService {
                 juniorHr == null ? null : juniorHr.getId(),
                 juniorHr == null ? null : juniorHr.getUsername(),
                 juniorHr == null ? null : displayName(juniorHr),
+                juniorHr == null ? null : resolveDesignation(juniorHr),
                 user.getCreatedAt(),
                 user.getUpdatedAt()
         );
     }
 
-    private ErmUser resolveJuniorHr(Long juniorHrUserId) {
-        if (juniorHrUserId == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Junior HR assignment is required");
+    private ErmUser resolveHrAssociation(Long associatedUserId, String designationRoleName) {
+        if (associatedUserId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "HR association is required");
         }
-        ErmUser juniorHr = ermUserRepository.findById(juniorHrUserId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Junior HR user not found"));
-        boolean hasJuniorHrRole = juniorHr.getRoles().stream().anyMatch(role -> "Junior HR".equalsIgnoreCase(role.getName()));
-        if (!juniorHr.isActive() || !"active".equalsIgnoreCase(juniorHr.getEmploymentStatus()) || !hasJuniorHrRole) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Selected Junior HR must be active and assigned the Junior HR role");
+        String requiredRoleName = requiredHrAssociationRole(designationRoleName);
+        ErmUser associatedUser = ermUserRepository.findById(associatedUserId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Assigned HR user not found"));
+        boolean hasRequiredRole = associatedUser.getRoles().stream().anyMatch(role -> requiredRoleName.equalsIgnoreCase(role.getName()));
+        if (!associatedUser.isActive() || !"active".equalsIgnoreCase(associatedUser.getEmploymentStatus()) || !hasRequiredRole) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Selected HR contact must be active and assigned the " + requiredRoleName + " role");
         }
-        return juniorHr;
+        return associatedUser;
+    }
+
+    private String requiredHrAssociationRole(String designationRoleName) {
+        if (designationRoleName == null) return "Junior HR";
+        return switch (designationRoleName.trim().toLowerCase(Locale.ROOT)) {
+            case "senior hr" -> "HR Head";
+            case "hr head" -> "CHRO";
+            case "chro" -> "HR Head";
+            default -> "Junior HR";
+        };
     }
 
     private String displayName(ErmUser user) {

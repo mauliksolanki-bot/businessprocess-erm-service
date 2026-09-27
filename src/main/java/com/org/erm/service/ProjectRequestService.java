@@ -4,6 +4,7 @@ import com.org.erm.dto.request.OnboardingActionRequest;
 import com.org.erm.dto.response.OnboardingApprovalTrailItem;
 import com.org.erm.dto.response.PagedResponse;
 import com.org.erm.dto.response.ProjectManagerOptionResponse;
+import com.org.erm.dto.response.ProjectHrOptionResponse;
 import com.org.erm.dto.request.ProjectRequestCreateRequest;
 import com.org.erm.dto.response.ProjectRequestResponse;
 import com.org.erm.dto.request.RequestCommentRequest;
@@ -28,7 +29,9 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 @Service
@@ -36,6 +39,7 @@ public class ProjectRequestService {
 
     private static final List<String> PROJECT_TYPES = List.of("Internal", "Billable", "Fixed Bid", "T&M");
     private static final List<String> PRIORITIES = List.of("Low", "Medium", "High", "Critical");
+    private static final List<String> ASSOCIATED_HR_ROLES = List.of("Junior HR", "Senior HR", "HR Head");
     private static final List<String> GLOBAL_VIEW_ROLES = List.of("ROLE_CTO", "ROLE_SUPER_ADMIN", "ROLE_ADMIN");
 
     private final ErmProjectRequestRepository projectRequestRepository;
@@ -290,6 +294,23 @@ public class ProjectRequestService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<ProjectHrOptionResponse> associatedHrOptions(Authentication authentication) {
+        if (!hasAnyAuthority(authentication, "ROLE_PROJECT_OWNER", "ROLE_DIRECTOR", "ROLE_CTO", "ROLE_SUPER_ADMIN", "ROLE_ADMIN")) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not authorized");
+        }
+        Map<Long, ErmUser> users = new LinkedHashMap<>();
+        ASSOCIATED_HR_ROLES.forEach(roleName -> userRepository.findActiveUsersByRoleName(roleName)
+                .forEach(user -> users.putIfAbsent(user.getId(), user)));
+        return users.values().stream()
+                .map(user -> new ProjectHrOptionResponse(
+                        user.getId(), user.getUsername(), resolveDisplayName(user), user.getEmail(),
+                        resolveProjectHrRoleName(user)))
+                .sorted(Comparator.comparing(ProjectHrOptionResponse::roleName)
+                        .thenComparing(ProjectHrOptionResponse::fullName, String.CASE_INSENSITIVE_ORDER))
+                .toList();
+    }
+
     private void applyEditableFields(ErmProjectRequest entity, ProjectRequestCreateRequest request, boolean isCreate) {
         String projectName = normalizeRequired(request.projectName(), "Project name is required");
         String projectCode = normalizeRequired(request.projectCode(), "Project code is required").toUpperCase();
@@ -340,6 +361,7 @@ public class ProjectRequestService {
         ErmUser projectOwner = resolveRoleUser(request.projectOwnerUserId(), "Project Owner", "Project owner");
         ErmUser projectDirector = resolveRoleUser(request.projectDirectorUserId(), "Director", "Project director");
         ErmUser projectManager = resolveRoleUser(request.projectManagerUserId(), "Project Manager", "Project manager");
+        ErmUser associatedHr = resolveProjectHrUser(request.associatedHrUserId());
 
         entity.setProjectName(projectName);
         entity.setProjectCode(projectCode);
@@ -362,9 +384,51 @@ public class ProjectRequestService {
         entity.setProjectManagerUserId(projectManager.getId());
         entity.setProjectManagerEmployeeId(projectManager.getEmployeeId());
         entity.setProjectManagerName(resolveDisplayName(projectManager));
+        entity.setAssociatedHrUserId(associatedHr.getId());
+        entity.setAssociatedHrName(resolveDisplayName(associatedHr));
+        entity.setAssociatedHrRoleName(resolveProjectHrRoleName(associatedHr));
         entity.setProjectStatus(projectStatus);
         entity.setDescription(description);
         entity.setRiskNotes(riskNotes);
+    }
+
+    private ErmUser resolveProjectHrUser(Long userId) {
+        if (userId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Associated HR is required");
+        }
+        ErmUser user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Associated HR user not found"));
+        if (!user.isActive() || !"active".equalsIgnoreCase(user.getEmploymentStatus())
+                || resolveProjectHrRoleNameOrNull(user) == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Associated HR must be an active Junior HR, Senior HR, or HR Head");
+        }
+        return user;
+    }
+
+    private String resolveProjectHrRoleName(ErmUser user) {
+        String roleName = resolveProjectHrRoleNameOrNull(user);
+        if (roleName == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Associated HR must be assigned a Junior HR, Senior HR, or HR Head role");
+        }
+        return roleName;
+    }
+
+    private String resolveProjectHrRoleNameOrNull(ErmUser user) {
+        if (user.getPrimaryRoleId() != null) {
+            String primaryRole = user.getRoles().stream()
+                    .filter(role -> role.getId().equals(user.getPrimaryRoleId()))
+                    .map(role -> role.getName())
+                    .filter(roleName -> ASSOCIATED_HR_ROLES.stream().anyMatch(allowed -> allowed.equalsIgnoreCase(roleName)))
+                    .findFirst()
+                    .orElse(null);
+            if (primaryRole != null) return primaryRole;
+        }
+        return ASSOCIATED_HR_ROLES.stream()
+                .filter(allowed -> user.getRoles().stream().anyMatch(role -> allowed.equalsIgnoreCase(role.getName())))
+                .findFirst()
+                .orElse(null);
     }
 
     private ErmUser resolveRoleUser(Long userId, String roleName, String label) {
@@ -579,6 +643,9 @@ public class ProjectRequestService {
                 entity.getProjectDirectorName(),
                 entity.getProjectManagerUserId(),
                 entity.getProjectManagerName(),
+                entity.getAssociatedHrUserId(),
+                entity.getAssociatedHrName(),
+                entity.getAssociatedHrRoleName(),
                 entity.getProjectStatus().getLabel(),
                 entity.getDescription(),
                 entity.getRiskNotes(),
