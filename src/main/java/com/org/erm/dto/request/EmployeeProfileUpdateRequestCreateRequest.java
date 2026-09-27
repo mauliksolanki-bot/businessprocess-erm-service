@@ -23,6 +23,9 @@ public record EmployeeProfileUpdateRequestCreateRequest(
         @NotNull(message = "Reporting manager is required")
         Long reportingManagerUserId,
 
+        @NotNull(message = "Junior HR assignment is required")
+        Long juniorHrUserId,
+
         Long replacementTeamLeadUserId,
 
         @Size(max = 500, message = "Comment must be at most 500 characters")

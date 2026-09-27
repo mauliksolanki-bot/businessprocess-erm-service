@@ -86,6 +86,17 @@ public class OnboardingRequestService {
         return toResponse(onboardingRequest);
     }
 
+    @Transactional(readOnly = true)
+    public List<OnboardingManagerOptionResponse> getJuniorHrOptions() {
+        return userRepository.findActiveUsersByRoleName("Junior HR").stream()
+                .map(user -> new OnboardingManagerOptionResponse(
+                        user.getId(), user.getUsername(),
+                        StringUtils.hasText(user.getFullName()) ? user.getFullName().trim() : user.getUsername(),
+                        user.getEmail()
+                ))
+                .toList();
+    }
+
     @Transactional
     public OnboardingRequestResponse addComment(Long onboardingRequestId, RequestCommentRequest request, Authentication authentication) {
         ErmOnboardingRequest onboardingRequest = onboardingRequestRepository.findById(onboardingRequestId)
@@ -257,7 +268,6 @@ public class OnboardingRequestService {
         onboardingRequest.setReportingManagerUsername(managerAssignment.manager().getUsername());
         onboardingRequest.setReportingManagerFullName(managerAssignment.manager().getFullName());
         onboardingRequest.setReportingManagerRoleName(managerAssignment.managerRoleName());
-
         onboardingRequest.setHeadHrActionBy(null);
         onboardingRequest.setHeadHrActionAt(null);
         onboardingRequest.setHeadHrComment(null);
@@ -408,6 +418,7 @@ public class OnboardingRequestService {
         onboardingRequest.setReportingManagerUsername(managerAssignment.manager().getUsername());
         onboardingRequest.setReportingManagerFullName(managerAssignment.manager().getFullName());
         onboardingRequest.setReportingManagerRoleName(managerAssignment.managerRoleName());
+        onboardingRequest.setJuniorHrUserId(resolveJuniorHr(request.juniorHrUserId()).getId());
         onboardingRequest.setEducationQualification(normalizeOptional(request.educationQualification()));
         onboardingRequest.setInterviewStage(OnboardingInterviewStage.PENDING);
         onboardingRequest.setWorkflowStage(OnboardingWorkflowStage.HR_SUBMITTED);
@@ -450,6 +461,19 @@ public class OnboardingRequestService {
         return new ManagerAssignment(hierarchy.getDesignationRoleName(), managerRoleName, manager);
     }
 
+    private ErmUser resolveJuniorHr(Long juniorHrUserId) {
+        if (juniorHrUserId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Junior HR assignment is required");
+        }
+        ErmUser juniorHr = userRepository.findById(juniorHrUserId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Junior HR user not found"));
+        boolean hasJuniorHrRole = juniorHr.getRoles().stream().anyMatch(role -> "Junior HR".equalsIgnoreCase(role.getName()));
+        if (!juniorHr.isActive() || !"active".equalsIgnoreCase(juniorHr.getEmploymentStatus()) || !hasJuniorHrRole) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Selected Junior HR must be active and assigned the Junior HR role");
+        }
+        return juniorHr;
+    }
+
     private void assignGeneratedIdentity(ErmOnboardingRequest onboardingRequest) {
         String employeeId = employeeIdService.generateForRole(onboardingRequest.getDesignationRoleName());
         onboardingRequest.setGeneratedEmployeeId(employeeId);
@@ -476,6 +500,7 @@ public class OnboardingRequestService {
         user.setReportingManagerUserId(onboardingRequest.getReportingManagerUserId());
         user.setReportingManagerEmployeeId(onboardingRequest.getReportingManagerEmployeeId());
         user.setReportingManagerRoleName(onboardingRequest.getReportingManagerRoleName());
+        user.setJuniorHrUserId(onboardingRequest.getJuniorHrUserId());
         user.setPersonalEmailAddress(onboardingRequest.getPersonalEmailAddress());
         user.setPhoneNumber(onboardingRequest.getPhoneNumber());
         user.setEducationQualification(onboardingRequest.getEducationQualification());
@@ -688,6 +713,9 @@ public class OnboardingRequestService {
     }
 
     private OnboardingRequestResponse toResponse(ErmOnboardingRequest onboardingRequest) {
+        ErmUser juniorHr = onboardingRequest.getJuniorHrUserId() == null
+                ? null
+                : userRepository.findById(onboardingRequest.getJuniorHrUserId()).orElse(null);
         return new OnboardingRequestResponse(
                 onboardingRequest.getId(),
                 onboardingRequest.getFirstName(),
@@ -702,6 +730,9 @@ public class OnboardingRequestService {
                 onboardingRequest.getReportingManagerUsername(),
                 onboardingRequest.getReportingManagerFullName(),
                 onboardingRequest.getReportingManagerRoleName(),
+                onboardingRequest.getJuniorHrUserId(),
+                juniorHr == null ? null : juniorHr.getUsername(),
+                juniorHr == null ? null : (StringUtils.hasText(juniorHr.getFullName()) ? juniorHr.getFullName().trim() : juniorHr.getUsername()),
                 onboardingRequest.getEducationQualification(),
                 onboardingRequest.getInterviewStage(),
                 onboardingRequest.getWorkflowStage(),

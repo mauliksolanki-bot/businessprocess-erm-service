@@ -69,6 +69,9 @@ public class UserService {
                     .map(manager -> manager.getFullName() == null || manager.getFullName().isBlank() ? manager.getUsername() : manager.getFullName().trim())
                     .orElse(null);
         }
+        String juniorHrFullName = ermUser.getJuniorHrUserId() == null ? null : ermUserRepository.findById(ermUser.getJuniorHrUserId())
+                .map(juniorHr -> juniorHr.getFullName() == null || juniorHr.getFullName().isBlank() ? juniorHr.getUsername() : juniorHr.getFullName().trim())
+                .orElse(null);
         List<SelfProjectAssignmentResponse> currentProjects = ermProjectAllocationRepository
                 .findAllByEmployeeUserIdAndStatusOrderByUpdatedAtDesc(ermUser.getId(), ProjectAllocationStatus.ACTIVE)
                 .stream()
@@ -100,6 +103,7 @@ public class UserService {
                 ermUser.getCreatedAt() == null ? null : ermUser.getCreatedAt().toLocalDate(),
                 reportingManagerFullName,
                 ermUser.getReportingManagerRoleName(),
+                juniorHrFullName,
                 roleNames,
                 currentProjects,
                 ermUser.getPersonalEmailAddress(),

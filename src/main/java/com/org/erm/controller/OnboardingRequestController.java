@@ -73,6 +73,12 @@ public class OnboardingRequestController {
         return ResponseEntity.ok(onboardingRequestService.listDesignationOptions());
     }
 
+    @GetMapping("/junior-hr-options")
+    @Operation(summary = "List active Junior HR assignment options")
+    public ResponseEntity<List<com.org.erm.dto.response.OnboardingManagerOptionResponse>> juniorHrOptions() {
+        return ResponseEntity.ok(onboardingRequestService.getJuniorHrOptions());
+    }
+
     @GetMapping("/manager-options")
     @Operation(summary = "List reporting manager options for the selected designation")
     public ResponseEntity<OnboardingManagerOptionsResponse> managerOptions(

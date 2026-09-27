@@ -2,6 +2,7 @@ package com.org.erm.dto.request;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 public record EmployeeUpdateRequest(
@@ -20,6 +21,9 @@ public record EmployeeUpdateRequest(
 
         @NotBlank(message = "Employment status is required")
         @Size(max = 30, message = "Employment status must not exceed 30 characters")
-        String employmentStatus
+        String employmentStatus,
+
+        @NotNull(message = "Junior HR assignment is required")
+        Long juniorHrUserId
 ) {
 }

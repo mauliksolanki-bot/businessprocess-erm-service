@@ -92,6 +92,7 @@ public class EmployeeProfileUpdateRequestService {
                 request.designationRoleName(),
                 request.reportingManagerUserId()
         );
+        ErmUser juniorHr = resolveJuniorHr(request.juniorHrUserId());
         TeamLeadReassignment reassignment = resolveTeamLeadReassignment(
                 user,
                 currentDesignation,
@@ -101,7 +102,7 @@ public class EmployeeProfileUpdateRequestService {
         if (user.getId().equals(managerAssignment.manager().getId())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Employee and reporting manager cannot be the same");
         }
-        ensureChanged(user, requestedDepartment, requestedStatus, managerAssignment);
+        ensureChanged(user, requestedDepartment, requestedStatus, managerAssignment, juniorHr);
 
         ErmEmployeeProfileUpdateRequest entity = new ErmEmployeeProfileUpdateRequest();
         entity.setEmployeeUserId(user.getId());
@@ -115,6 +116,8 @@ public class EmployeeProfileUpdateRequestService {
         entity.setCurrentReportingManagerUserId(user.getReportingManagerUserId());
         entity.setCurrentReportingManagerEmployeeId(resolveEmployeeId(user.getReportingManagerUserId()));
         entity.setCurrentReportingManagerName(resolveCurrentManagerName(user.getReportingManagerUserId()));
+        entity.setCurrentJuniorHrUserId(user.getJuniorHrUserId());
+        entity.setCurrentJuniorHrName(resolveUserDisplayName(user.getJuniorHrUserId()));
         entity.setRequestedFullName(user.getFullName());
         entity.setRequestedEmail(user.getEmail());
         entity.setRequestedDepartment(requestedDepartment);
@@ -123,6 +126,8 @@ public class EmployeeProfileUpdateRequestService {
         entity.setRequestedReportingManagerUserId(managerAssignment.manager().getId());
         entity.setRequestedReportingManagerEmployeeId(managerAssignment.manager().getEmployeeId());
         entity.setRequestedReportingManagerName(resolveUserDisplayName(managerAssignment.manager()));
+        entity.setRequestedJuniorHrUserId(juniorHr.getId());
+        entity.setRequestedJuniorHrName(resolveUserDisplayName(juniorHr));
         entity.setReplacementTeamLeadUserId(reassignment.replacementTeamLeadUserId());
         entity.setReplacementTeamLeadEmployeeId(resolveEmployeeId(reassignment.replacementTeamLeadUserId()));
         entity.setReplacementTeamLeadName(reassignment.replacementTeamLeadName());
@@ -289,6 +294,7 @@ public class EmployeeProfileUpdateRequestService {
         user.setReportingManagerUserId(request.getRequestedReportingManagerUserId());
         user.setReportingManagerEmployeeId(request.getRequestedReportingManagerEmployeeId());
         user.setReportingManagerRoleName(resolveManagerRoleName(request.getRequestedDesignationRoleName()));
+        user.setJuniorHrUserId(request.getRequestedJuniorHrUserId());
         user.setActive(!"inactive".equalsIgnoreCase(request.getRequestedEmploymentStatus()));
         userRepository.save(user);
         employeeRoleReferenceService.syncEmployeeIds(user.getId());
@@ -298,12 +304,14 @@ public class EmployeeProfileUpdateRequestService {
         }
     }
 
-    private void ensureChanged(ErmUser user, String department, String status, ManagerAssignment managerAssignment) {
+    private void ensureChanged(ErmUser user, String department, String status, ManagerAssignment managerAssignment, ErmUser juniorHr) {
         boolean changed = !safeEqualsIgnoreCase(user.getDepartment(), department)
                 || !safeEqualsIgnoreCase(user.getEmploymentStatus(), status)
                 || !safeEqualsIgnoreCase(resolveCurrentDesignation(user), managerAssignment.designationRoleName())
                 || user.getReportingManagerUserId() == null
-                || !user.getReportingManagerUserId().equals(managerAssignment.manager().getId());
+                || !user.getReportingManagerUserId().equals(managerAssignment.manager().getId())
+                || user.getJuniorHrUserId() == null
+                || !user.getJuniorHrUserId().equals(juniorHr.getId());
         if (!changed) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No changes found in the request");
         }
@@ -353,6 +361,25 @@ public class EmployeeProfileUpdateRequestService {
             return null;
         }
         return userRepository.findById(managerUserId)
+                .map(this::resolveUserDisplayName)
+                .orElse(null);
+    }
+
+    private ErmUser resolveJuniorHr(Long juniorHrUserId) {
+        if (juniorHrUserId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Junior HR assignment is required");
+        }
+        ErmUser juniorHr = userRepository.findById(juniorHrUserId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Junior HR user not found"));
+        boolean hasJuniorHrRole = juniorHr.getRoles().stream().anyMatch(role -> "Junior HR".equalsIgnoreCase(role.getName()));
+        if (!juniorHr.isActive() || !"active".equalsIgnoreCase(juniorHr.getEmploymentStatus()) || !hasJuniorHrRole) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Selected Junior HR must be active and assigned the Junior HR role");
+        }
+        return juniorHr;
+    }
+
+    private String resolveUserDisplayName(Long userId) {
+        return userId == null ? null : userRepository.findById(userId)
                 .map(this::resolveUserDisplayName)
                 .orElse(null);
     }
@@ -560,6 +587,8 @@ public class EmployeeProfileUpdateRequestService {
                 request.getCurrentDesignationRoleName(),
                 request.getCurrentReportingManagerUserId(),
                 request.getCurrentReportingManagerName(),
+                request.getCurrentJuniorHrUserId(),
+                request.getCurrentJuniorHrName(),
                 request.getRequestedFullName(),
                 request.getRequestedEmail(),
                 request.getRequestedDepartment(),
@@ -567,6 +596,8 @@ public class EmployeeProfileUpdateRequestService {
                 request.getRequestedDesignationRoleName(),
                 request.getRequestedReportingManagerUserId(),
                 request.getRequestedReportingManagerName(),
+                request.getRequestedJuniorHrUserId(),
+                request.getRequestedJuniorHrName(),
                 request.getReplacementTeamLeadUserId(),
                 request.getReplacementTeamLeadName(),
                 request.getDirectReportsAffectedCount(),

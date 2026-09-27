@@ -18,6 +18,9 @@ public record EmployeeResponse(
         String reportingManagerUsername,
         String reportingManagerFullName,
         String reportingManagerRoleName,
+        Long juniorHrUserId,
+        String juniorHrUsername,
+        String juniorHrFullName,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {
