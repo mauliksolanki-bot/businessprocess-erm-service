@@ -17,6 +17,7 @@ import com.org.erm.model.ProjectStatus;
 import com.org.erm.model.ProjectWorkflowStage;
 import com.org.erm.repository.ErmProjectChangeRequestCommentRepository;
 import com.org.erm.repository.ErmProjectChangeRequestRepository;
+import com.org.erm.repository.ErmProjectChangeHrAssociationRepository;
 import com.org.erm.repository.ErmProjectRequestCommentRepository;
 import com.org.erm.repository.ErmProjectRequestRepository;
 import com.org.erm.repository.ErmUserRepository;
@@ -50,6 +51,7 @@ public class ProjectChangeRequestService {
     private final ErmProjectRequestRepository projectRequestRepository;
     private final ErmProjectRequestCommentRepository projectRequestCommentRepository;
     private final ErmProjectChangeRequestRepository projectChangeRequestRepository;
+    private final ErmProjectChangeHrAssociationRepository projectChangeHrAssociationRepository;
     private final ErmProjectChangeRequestCommentRepository projectChangeRequestCommentRepository;
     private final ErmUserRepository userRepository;
     private final MentionNotificationService mentionNotificationService;
@@ -57,12 +59,14 @@ public class ProjectChangeRequestService {
     public ProjectChangeRequestService(ErmProjectRequestRepository projectRequestRepository,
                                        ErmProjectRequestCommentRepository projectRequestCommentRepository,
                                        ErmProjectChangeRequestRepository projectChangeRequestRepository,
+                                       ErmProjectChangeHrAssociationRepository projectChangeHrAssociationRepository,
                                        ErmProjectChangeRequestCommentRepository projectChangeRequestCommentRepository,
                                        ErmUserRepository userRepository,
                                        MentionNotificationService mentionNotificationService) {
         this.projectRequestRepository = projectRequestRepository;
         this.projectRequestCommentRepository = projectRequestCommentRepository;
         this.projectChangeRequestRepository = projectChangeRequestRepository;
+        this.projectChangeHrAssociationRepository = projectChangeHrAssociationRepository;
         this.projectChangeRequestCommentRepository = projectChangeRequestCommentRepository;
         this.userRepository = userRepository;
         this.mentionNotificationService = mentionNotificationService;
@@ -95,6 +99,7 @@ public class ProjectChangeRequestService {
         applyEditableFields(entity, request, project.getId());
         entity.setWorkflowStage(ProjectChangeWorkflowStage.PENDING_DELIVERY_MANAGER_APPROVAL);
         entity = projectChangeRequestRepository.save(entity);
+        projectChangeHrAssociationRepository.save(entity.getId(), entity.getAssociatedHrUserId());
 
         appendTrail(entity, "Project Change Request", authentication.getName(), "Submitted", normalizeRequired(request.reason(), "Reason is required"), LocalDateTime.now());
         return toChangeResponse(entity);
@@ -233,9 +238,10 @@ public class ProjectChangeRequestService {
     }
 
     private ProjectChangeRequestResponse toChangeResponse(ErmProjectChangeRequest entity) {
-        ErmUser associatedHr = entity.getAssociatedHrUserId() == null
+        Long associatedHrUserId = projectChangeHrAssociationRepository.findAssociatedHrUserId(entity.getId()).orElse(null);
+        ErmUser associatedHr = associatedHrUserId == null
                 ? null
-                : userRepository.findById(entity.getAssociatedHrUserId()).orElse(null);
+                : userRepository.findById(associatedHrUserId).orElse(null);
         return new ProjectChangeRequestResponse(
                 entity.getId(),
                 entity.getProjectRequestId(),
@@ -254,7 +260,7 @@ public class ProjectChangeRequestService {
                 entity.getProjectOwnerName(),
                 entity.getProjectDirectorUserId(),
                 entity.getProjectDirectorName(),
-                entity.getAssociatedHrUserId(),
+                associatedHrUserId,
                 associatedHr == null ? null : resolveDisplayName(associatedHr),
                 associatedHr == null ? null : resolveAssociatedHrRoleNameOrNull(associatedHr),
                 entity.getProjectStatus().getLabel(),
@@ -354,8 +360,10 @@ public class ProjectChangeRequestService {
         project.setProjectDirectorUserId(changeRequest.getProjectDirectorUserId());
         project.setProjectDirectorEmployeeId(changeRequest.getProjectDirectorEmployeeId());
         project.setProjectDirectorName(changeRequest.getProjectDirectorName());
-        if (changeRequest.getAssociatedHrUserId() != null) {
-            ErmUser associatedHr = resolveAssociatedHrUser(changeRequest.getAssociatedHrUserId());
+        Long associatedHrUserId = projectChangeHrAssociationRepository
+                .findAssociatedHrUserId(changeRequest.getId()).orElse(null);
+        if (associatedHrUserId != null) {
+            ErmUser associatedHr = resolveAssociatedHrUser(associatedHrUserId);
             project.setAssociatedHrUserId(associatedHr.getId());
             project.setAssociatedHrName(resolveDisplayName(associatedHr));
             project.setAssociatedHrRoleName(resolveAssociatedHrRoleName(associatedHr));

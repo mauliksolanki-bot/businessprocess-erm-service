@@ -8,6 +8,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import jakarta.persistence.Version;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
@@ -82,7 +83,7 @@ public class ErmProjectChangeRequest {
     @Column(name = "PROJECT_DIRECTOR_NAME", length = 150)
     private String projectDirectorName;
 
-    @Column(name = "ASSOCIATED_HR_USER_ID")
+    @Transient
     private Long associatedHrUserId;
 
     @Enumerated(EnumType.STRING)
