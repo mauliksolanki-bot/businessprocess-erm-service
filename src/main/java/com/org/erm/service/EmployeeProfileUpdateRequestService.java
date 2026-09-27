@@ -32,7 +32,6 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 
@@ -370,7 +369,7 @@ public class EmployeeProfileUpdateRequestService {
         if (associatedUserId == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "HR association is required");
         }
-        String requiredRoleName = requiredHrAssociationRole(designationRoleName);
+        String requiredRoleName = HrBpRoleMapping.associatedRoleFor(designationRoleName);
         ErmUser associatedUser = userRepository.findById(associatedUserId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Assigned HR user not found"));
         boolean hasRequiredRole = associatedUser.getRoles().stream().anyMatch(role -> requiredRoleName.equalsIgnoreCase(role.getName()));
@@ -378,16 +377,6 @@ public class EmployeeProfileUpdateRequestService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Selected HR contact must be active and assigned the " + requiredRoleName + " role");
         }
         return associatedUser;
-    }
-
-    private String requiredHrAssociationRole(String designationRoleName) {
-        if (!StringUtils.hasText(designationRoleName)) return "Junior HR";
-        return switch (designationRoleName.trim().toLowerCase(Locale.ROOT)) {
-            case "senior hr" -> "HR Head";
-            case "hr head" -> "CHRO";
-            case "chro" -> "HR Head";
-            default -> "Junior HR";
-        };
     }
 
     private String resolveUserDisplayName(Long userId) {

@@ -480,12 +480,7 @@ public class OnboardingRequestService {
         if (!StringUtils.hasText(designationRoleName)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Designation is required");
         }
-        return switch (designationRoleName.trim().toLowerCase(Locale.ROOT)) {
-            case "senior hr" -> "HR Head";
-            case "hr head" -> "CHRO";
-            case "chro" -> "HR Head";
-            default -> "Junior HR";
-        };
+        return HrBpRoleMapping.associatedRoleFor(designationRoleName);
     }
 
     private void assignGeneratedIdentity(ErmOnboardingRequest onboardingRequest) {
