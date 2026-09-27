@@ -21,6 +21,7 @@ public record EmployeeResponse(
         Long juniorHrUserId,
         String juniorHrUsername,
         String juniorHrFullName,
+        String juniorHrRoleName,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {

@@ -15,6 +15,7 @@ public record UserProfileResponse(
         String reportingManagerFullName,
         String reportingManagerRoleName,
         String juniorHrFullName,
+        String juniorHrRoleName,
         List<String> roles,
         List<SelfProjectAssignmentResponse> currentProjects,
         String personalEmailAddress,
