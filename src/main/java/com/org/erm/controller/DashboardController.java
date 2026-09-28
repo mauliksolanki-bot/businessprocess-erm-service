@@ -1,6 +1,7 @@
 package com.org.erm.controller;
 
 import com.org.erm.dto.response.DashboardSummaryResponse;
+import com.org.erm.dto.response.HrOverviewDashboardResponse;
 import com.org.erm.dto.response.SelfDashboardResponse;
 import com.org.erm.dto.response.TeamLeadDashboardResponse;
 import com.org.erm.service.DashboardService;
@@ -36,6 +37,18 @@ public class DashboardController {
     @PreAuthorize("hasAnyAuthority('ROLE_SUPER_ADMIN','ROLE_ADMIN','ROLE_CHRO','ROLE_HR_HEAD','ROLE_SENIOR_HR','ROLE_TEAM_LEAD','ROLE_IT_SUPPORT_LEAD')")
     public ResponseEntity<DashboardSummaryResponse> summary() {
         return ResponseEntity.ok(dashboardService.getSummary());
+    }
+
+    @GetMapping("/hr-overview")
+    @Operation(summary = "Get workforce counts by designation and HRBP")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "HR overview dashboard fetched"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized"),
+            @ApiResponse(responseCode = "403", description = "Forbidden")
+    })
+    @PreAuthorize("hasAnyAuthority('ROLE_SUPER_ADMIN','ROLE_ADMIN','ROLE_CEO','ROLE_HR_HEAD')")
+    public ResponseEntity<HrOverviewDashboardResponse> hrOverview() {
+        return ResponseEntity.ok(dashboardService.getHrOverviewDashboard());
     }
 
     @GetMapping("/team-lead")
