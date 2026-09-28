@@ -1,6 +1,7 @@
 package com.org.erm.service;
 
 import com.org.erm.dto.request.OnboardingActionRequest;
+import com.org.erm.dto.request.OnboardingBulkActionRequest;
 import com.org.erm.dto.request.OnboardingBulkRowRequest;
 import com.org.erm.dto.response.OnboardingApprovalTrailItem;
 import com.org.erm.dto.response.OnboardingBulkSubmitResponse;
@@ -211,6 +212,25 @@ public class OnboardingRequestService {
         onboardingRequest = onboardingRequestRepository.save(onboardingRequest);
         appendTrail(onboardingRequest, stageLabel(stage), actor, decisionLabel(request.decision()), comment, now);
         return toResponse(onboardingRequest);
+    }
+
+    @Transactional
+    public List<OnboardingRequestResponse> takeBulkAction(OnboardingBulkActionRequest request, Authentication authentication) {
+        List<Long> requestIds = request.requestIds();
+        if (requestIds.stream().distinct().count() != requestIds.size()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Duplicate onboarding request IDs are not allowed");
+        }
+
+        OnboardingActionRequest action = new OnboardingActionRequest(
+                request.decision(),
+                request.comment(),
+                request.additionalApproverDesignation()
+        );
+        List<OnboardingRequestResponse> responses = new ArrayList<>(requestIds.size());
+        for (Long requestId : requestIds) {
+            responses.add(takeAction(requestId, action, authentication));
+        }
+        return responses;
     }
 
     private void setReferBack(ErmOnboardingRequest onboardingRequest, String referBackStageLabel, String actor, String comment, LocalDateTime now) {

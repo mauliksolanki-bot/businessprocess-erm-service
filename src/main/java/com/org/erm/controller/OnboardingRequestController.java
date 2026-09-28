@@ -1,6 +1,7 @@
 package com.org.erm.controller;
 
 import com.org.erm.dto.request.OnboardingActionRequest;
+import com.org.erm.dto.request.OnboardingBulkActionRequest;
 import com.org.erm.dto.request.OnboardingBulkRowsRequest;
 import com.org.erm.dto.response.OnboardingDesignationOptionResponse;
 import com.org.erm.dto.response.OnboardingBulkSubmitResponse;
@@ -141,6 +142,13 @@ public class OnboardingRequestController {
                                                                 @Valid @RequestBody OnboardingActionRequest request,
                                                                 Authentication authentication) {
         return ResponseEntity.ok(onboardingRequestService.takeAction(id, request, authentication));
+    }
+
+    @PatchMapping("/bulk-actions")
+    @Operation(summary = "Approve, reject, or refer back multiple onboarding requests")
+    public ResponseEntity<List<OnboardingRequestResponse>> takeBulkAction(@Valid @RequestBody OnboardingBulkActionRequest request,
+                                                                          Authentication authentication) {
+        return ResponseEntity.ok(onboardingRequestService.takeBulkAction(request, authentication));
     }
 
     @PostMapping("/{id}/comments")
