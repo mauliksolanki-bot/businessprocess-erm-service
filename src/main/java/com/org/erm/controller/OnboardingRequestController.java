@@ -1,7 +1,11 @@
 package com.org.erm.controller;
 
 import com.org.erm.dto.request.OnboardingActionRequest;
+import com.org.erm.dto.request.OnboardingBulkRowsRequest;
 import com.org.erm.dto.response.OnboardingDesignationOptionResponse;
+import com.org.erm.dto.response.OnboardingBulkSubmitResponse;
+import com.org.erm.dto.response.OnboardingBulkTemplateOptionsResponse;
+import com.org.erm.dto.response.OnboardingBulkValidationResponse;
 import com.org.erm.dto.response.OnboardingManagerOptionsResponse;
 import com.org.erm.dto.request.OnboardingRequestCreateRequest;
 import com.org.erm.dto.response.OnboardingRequestResponse;
@@ -51,6 +55,31 @@ public class OnboardingRequestController {
     public ResponseEntity<OnboardingRequestResponse> create(@Valid @RequestBody OnboardingRequestCreateRequest request,
                                                             Authentication authentication) {
         return ResponseEntity.status(HttpStatus.CREATED).body(onboardingRequestService.create(request, authentication));
+    }
+
+    @GetMapping("/bulk-template-options")
+    @PreAuthorize("hasAuthority('ROLE_SENIOR_HR')")
+    @Operation(summary = "Get current database options for the bulk onboarding spreadsheet")
+    public ResponseEntity<OnboardingBulkTemplateOptionsResponse> bulkTemplateOptions(Authentication authentication) {
+        return ResponseEntity.ok(onboardingRequestService.getBulkTemplateOptions(authentication));
+    }
+
+    @PostMapping("/bulk/validate")
+    @PreAuthorize("hasAuthority('ROLE_SENIOR_HR')")
+    @Operation(summary = "Validate onboarding spreadsheet rows without creating requests")
+    public ResponseEntity<OnboardingBulkValidationResponse> validateBulk(@RequestBody OnboardingBulkRowsRequest request,
+                                                                         Authentication authentication) {
+        return ResponseEntity.ok(onboardingRequestService.validateBulkRows(
+                request == null ? null : request.rows(), authentication));
+    }
+
+    @PostMapping("/bulk")
+    @PreAuthorize("hasAuthority('ROLE_SENIOR_HR')")
+    @Operation(summary = "Create one onboarding request for each validated spreadsheet row")
+    public ResponseEntity<OnboardingBulkSubmitResponse> submitBulk(@RequestBody OnboardingBulkRowsRequest request,
+                                                                   Authentication authentication) {
+        return ResponseEntity.ok(onboardingRequestService.submitBulkRows(
+                request == null ? null : request.rows(), authentication));
     }
 
     @GetMapping

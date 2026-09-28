@@ -1,7 +1,13 @@
 package com.org.erm.service;
 
 import com.org.erm.dto.request.OnboardingActionRequest;
+import com.org.erm.dto.request.OnboardingBulkRowRequest;
 import com.org.erm.dto.response.OnboardingApprovalTrailItem;
+import com.org.erm.dto.response.OnboardingBulkSubmitResponse;
+import com.org.erm.dto.response.OnboardingBulkTemplateDesignationResponse;
+import com.org.erm.dto.response.OnboardingBulkTemplateOptionsResponse;
+import com.org.erm.dto.response.OnboardingBulkValidationError;
+import com.org.erm.dto.response.OnboardingBulkValidationResponse;
 import com.org.erm.dto.response.OnboardingDesignationOptionResponse;
 import com.org.erm.dto.response.OnboardingManagerOptionResponse;
 import com.org.erm.dto.response.OnboardingManagerOptionsResponse;
@@ -30,13 +36,18 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.Validator;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 @Service
 public class OnboardingRequestService {
@@ -52,6 +63,7 @@ public class OnboardingRequestService {
     private final MentionNotificationService mentionNotificationService;
     private final EmployeeIdService employeeIdService;
     private final EmployeeRoleReferenceService employeeRoleReferenceService;
+    private final Validator validator;
 
     public OnboardingRequestService(ErmOnboardingRequestRepository onboardingRequestRepository,
                                     ErmOnboardingRequestCommentRepository onboardingRequestCommentRepository,
@@ -61,7 +73,8 @@ public class OnboardingRequestService {
                                     PasswordEncoder passwordEncoder,
                                     MentionNotificationService mentionNotificationService,
                                     EmployeeIdService employeeIdService,
-                                    EmployeeRoleReferenceService employeeRoleReferenceService) {
+                                    EmployeeRoleReferenceService employeeRoleReferenceService,
+                                    Validator validator) {
         this.onboardingRequestRepository = onboardingRequestRepository;
         this.onboardingRequestCommentRepository = onboardingRequestCommentRepository;
         this.designationHierarchyRepository = designationHierarchyRepository;
@@ -71,6 +84,7 @@ public class OnboardingRequestService {
         this.mentionNotificationService = mentionNotificationService;
         this.employeeIdService = employeeIdService;
         this.employeeRoleReferenceService = employeeRoleReferenceService;
+        this.validator = validator;
     }
 
     @Transactional
@@ -356,6 +370,173 @@ public class OnboardingRequestService {
     }
 
     @Transactional(readOnly = true)
+    public OnboardingBulkTemplateOptionsResponse getBulkTemplateOptions(Authentication authentication) {
+        ensureSeniorHr(authentication);
+        List<OnboardingBulkTemplateDesignationResponse> options = designationHierarchyRepository
+                .findAllByActiveTrueOrderBySortOrderAscDesignationRoleNameAsc()
+                .stream()
+                .map(hierarchy -> {
+                    String designation = hierarchy.getDesignationRoleName();
+                    String hrbpRole = requiredHrAssociationRole(designation);
+                    List<String> managers = getManagerOptions(designation).managers().stream()
+                            .map(OnboardingManagerOptionResponse::username)
+                            .toList();
+                    List<String> hrbps = getJuniorHrOptions(designation).stream()
+                            .map(OnboardingManagerOptionResponse::username)
+                            .toList();
+                    return new OnboardingBulkTemplateDesignationResponse(
+                            designation,
+                            hierarchy.getReportsToRoleName(),
+                            hrbpRole,
+                            managers,
+                            hrbps
+                    );
+                })
+                .toList();
+        return new OnboardingBulkTemplateOptionsResponse(options);
+    }
+
+    @Transactional(readOnly = true)
+    public OnboardingBulkValidationResponse validateBulkRows(List<OnboardingBulkRowRequest> rows, Authentication authentication) {
+        ensureSeniorHr(authentication);
+        return validateBulkRows(rows);
+    }
+
+    @Transactional
+    public OnboardingBulkSubmitResponse submitBulkRows(List<OnboardingBulkRowRequest> rows, Authentication authentication) {
+        ensureSeniorHr(authentication);
+        OnboardingBulkValidationResponse validation = validateBulkRows(rows);
+        if (!validation.valid()) {
+            return new OnboardingBulkSubmitResponse(false, validation.errors(), List.of());
+        }
+
+        String actor = authentication.getName();
+        List<Long> createdRequestIds = new java.util.ArrayList<>();
+        for (OnboardingBulkRowRequest row : rows) {
+            OnboardingRequestCreateRequest request = toCreateRequest(row);
+            ErmOnboardingRequest onboardingRequest = new ErmOnboardingRequest();
+            applyCreateRequest(onboardingRequest, request, actor);
+            onboardingRequest = onboardingRequestRepository.save(onboardingRequest);
+            appendTrail(onboardingRequest, "HR Submission", actor, "Submitted", onboardingRequest.getHrComment(), onboardingRequest.getHrActionAt());
+            createdRequestIds.add(onboardingRequest.getId());
+        }
+        return new OnboardingBulkSubmitResponse(true, List.of(), createdRequestIds);
+    }
+
+    private OnboardingBulkValidationResponse validateBulkRows(List<OnboardingBulkRowRequest> rows) {
+        List<OnboardingBulkValidationError> errors = new java.util.ArrayList<>();
+        if (rows == null || rows.isEmpty()) {
+            errors.add(new OnboardingBulkValidationError(null, "Rows", "Add at least one onboarding row."));
+            return new OnboardingBulkValidationResponse(false, errors);
+        }
+        if (rows.size() > 500) {
+            errors.add(new OnboardingBulkValidationError(null, "Rows", "A maximum of 500 onboarding rows can be validated at once."));
+            return new OnboardingBulkValidationResponse(false, errors);
+        }
+
+        Map<String, Integer> firstRowByAadhaar = new HashMap<>();
+        Map<String, Integer> firstRowByPan = new HashMap<>();
+        Map<String, Integer> firstRowByEmail = new HashMap<>();
+        for (int index = 0; index < rows.size(); index++) {
+            OnboardingBulkRowRequest row = rows.get(index);
+            int rowNumber = row == null || row.rowNumber() == null ? index + 2 : row.rowNumber();
+            if (row == null) {
+                errors.add(new OnboardingBulkValidationError(rowNumber, "Row", "This row is empty."));
+                continue;
+            }
+
+            Long managerId = findUserId(row.reportingManagerUsername());
+            Long hrbpId = findUserId(row.hrbpUsername());
+            OnboardingRequestCreateRequest createRequest = toCreateRequest(row, managerId, hrbpId);
+            Set<ConstraintViolation<OnboardingRequestCreateRequest>> violations = validator.validate(createRequest);
+            for (ConstraintViolation<OnboardingRequestCreateRequest> violation : violations) {
+                if ("phoneNumber".equals(violation.getPropertyPath().toString())) continue;
+                errors.add(new OnboardingBulkValidationError(
+                        rowNumber,
+                        excelFieldName(violation.getPropertyPath().toString()),
+                        violation.getMessage()
+                ));
+            }
+            if (StringUtils.hasText(row.phoneNumber()) && !row.phoneNumber().trim().matches("^\\d{10}$")) {
+                errors.add(new OnboardingBulkValidationError(rowNumber, "Phone Number", "Phone number must be exactly 10 digits."));
+            }
+
+            if (StringUtils.hasText(row.designationRoleName())) {
+                boolean designationExists = designationHierarchyRepository
+                        .findByDesignationRoleNameIgnoreCaseAndActiveTrue(row.designationRoleName().trim()).isPresent();
+                if (!designationExists) {
+                    errors.add(new OnboardingBulkValidationError(rowNumber, "Designation", "Select a current designation from the template dropdown."));
+                } else {
+                    if (managerId != null) {
+                        try {
+                            resolveManagerAssignment(row.designationRoleName(), managerId);
+                        } catch (ResponseStatusException exception) {
+                            errors.add(new OnboardingBulkValidationError(rowNumber, "Reporting Manager Username", exception.getReason()));
+                        }
+                    }
+                    if (hrbpId != null) {
+                        try {
+                            resolveHrAssociation(hrbpId, row.designationRoleName());
+                        } catch (ResponseStatusException exception) {
+                            errors.add(new OnboardingBulkValidationError(rowNumber, "HRBP Username", exception.getReason()));
+                        }
+                    }
+                }
+            }
+
+            addDuplicateError(errors, firstRowByAadhaar, rowNumber, "Aadhaar Card Number", row.aadhaarCardNumber());
+            addDuplicateError(errors, firstRowByPan, rowNumber, "PAN", row.panCardNumber());
+            addDuplicateError(errors, firstRowByEmail, rowNumber, "Personal Email Address", row.personalEmailAddress());
+        }
+        return new OnboardingBulkValidationResponse(errors.isEmpty(), errors);
+    }
+
+    private void addDuplicateError(List<OnboardingBulkValidationError> errors, Map<String, Integer> seen,
+                                   int rowNumber, String field, String value) {
+        if (!StringUtils.hasText(value)) return;
+        String normalized = value.trim().toLowerCase(Locale.ROOT);
+        Integer firstRow = seen.putIfAbsent(normalized, rowNumber);
+        if (firstRow != null) {
+            errors.add(new OnboardingBulkValidationError(rowNumber, field, "Duplicates the value in row " + firstRow + " of this file."));
+        }
+    }
+
+    private Long findUserId(String username) {
+        if (!StringUtils.hasText(username)) return null;
+        return userRepository.findByUsernameIgnoreCase(username.trim()).map(ErmUser::getId).orElse(null);
+    }
+
+    private OnboardingRequestCreateRequest toCreateRequest(OnboardingBulkRowRequest row) {
+        return toCreateRequest(row, findUserId(row.reportingManagerUsername()), findUserId(row.hrbpUsername()));
+    }
+
+    private OnboardingRequestCreateRequest toCreateRequest(OnboardingBulkRowRequest row, Long managerId, Long hrbpId) {
+        return new OnboardingRequestCreateRequest(
+                row.firstName(), row.lastName(), row.aadhaarCardNumber(), row.panCardNumber(),
+                row.personalEmailAddress(), row.permanentAddress(), row.phoneNumber(), row.designationRoleName(),
+                managerId, hrbpId, row.educationQualification(), row.comment()
+        );
+    }
+
+    private String excelFieldName(String field) {
+        return switch (field) {
+            case "firstName" -> "First Name";
+            case "lastName" -> "Last Name";
+            case "aadhaarCardNumber" -> "Aadhaar Card Number";
+            case "panCardNumber" -> "PAN";
+            case "personalEmailAddress" -> "Personal Email Address";
+            case "permanentAddress" -> "Permanent Address";
+            case "phoneNumber" -> "Phone Number";
+            case "designationRoleName" -> "Designation";
+            case "reportingManagerUserId" -> "Reporting Manager Username";
+            case "juniorHrUserId" -> "HRBP Username";
+            case "educationQualification" -> "Education Qualification";
+            case "comment" -> "HR Comment";
+            default -> field;
+        };
+    }
+
+    @Transactional(readOnly = true)
     public OnboardingManagerOptionsResponse getManagerOptions(String designationRoleName) {
         if (!StringUtils.hasText(designationRoleName)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Designation is required");
@@ -545,6 +726,13 @@ public class OnboardingRequestService {
 
     private String normalizeOptional(String value) {
         return StringUtils.hasText(value) ? value.trim() : null;
+    }
+
+    private void ensureSeniorHr(Authentication authentication) {
+        if (hasAnyAuthority(authentication, "ROLE_SENIOR_HR")) {
+            return;
+        }
+        throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only Senior HR can create bulk onboarding requests");
     }
 
     private void ensureAnyHr(Authentication authentication) {
