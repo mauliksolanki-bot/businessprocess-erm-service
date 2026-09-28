@@ -6,6 +6,10 @@ import com.org.erm.dto.response.PagedResponse;
 import com.org.erm.dto.response.ProjectManagerOptionResponse;
 import com.org.erm.dto.response.ProjectHrOptionResponse;
 import com.org.erm.dto.request.ProjectRequestCreateRequest;
+import com.org.erm.dto.request.ProjectBulkRowRequest;
+import com.org.erm.dto.response.ProjectBulkSubmitResponse;
+import com.org.erm.dto.response.ProjectBulkValidationError;
+import com.org.erm.dto.response.ProjectBulkValidationResponse;
 import com.org.erm.dto.response.ProjectRequestResponse;
 import com.org.erm.dto.request.RequestCommentRequest;
 import com.org.erm.model.ErmProjectRequest;
@@ -24,6 +28,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.Validator;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -46,15 +52,115 @@ public class ProjectRequestService {
     private final ErmProjectRequestCommentRepository projectRequestCommentRepository;
     private final ErmUserRepository userRepository;
     private final MentionNotificationService mentionNotificationService;
+    private final Validator validator;
 
     public ProjectRequestService(ErmProjectRequestRepository projectRequestRepository,
                                  ErmProjectRequestCommentRepository projectRequestCommentRepository,
                                  ErmUserRepository userRepository,
-                                 MentionNotificationService mentionNotificationService) {
+                                 MentionNotificationService mentionNotificationService,
+                                 Validator validator) {
         this.projectRequestRepository = projectRequestRepository;
         this.projectRequestCommentRepository = projectRequestCommentRepository;
         this.userRepository = userRepository;
         this.mentionNotificationService = mentionNotificationService;
+        this.validator = validator;
+    }
+
+    @Transactional(readOnly = true)
+    public ProjectBulkValidationResponse validateBulk(List<ProjectBulkRowRequest> rows, Authentication authentication) {
+        ensureProjectOwnerCreator(authentication);
+        return validateBulkRows(rows, authentication);
+    }
+
+    @Transactional
+    public ProjectBulkSubmitResponse submitBulk(List<ProjectBulkRowRequest> rows, Authentication authentication) {
+        ensureProjectOwnerCreator(authentication);
+        ProjectBulkValidationResponse validation = validateBulkRows(rows, authentication);
+        if (!validation.valid()) return new ProjectBulkSubmitResponse(false, validation.errors(), List.of());
+
+        List<Long> createdIds = new java.util.ArrayList<>();
+        for (ProjectBulkRowRequest row : rows) {
+            createdIds.add(create(row.project(), authentication).id());
+        }
+        return new ProjectBulkSubmitResponse(true, List.of(), createdIds);
+    }
+
+    private ProjectBulkValidationResponse validateBulkRows(List<ProjectBulkRowRequest> rows, Authentication authentication) {
+        List<ProjectBulkValidationError> errors = new java.util.ArrayList<>();
+        if (rows == null || rows.isEmpty()) {
+            errors.add(new ProjectBulkValidationError(null, "Rows", "Add at least one project row."));
+            return new ProjectBulkValidationResponse(false, errors);
+        }
+        if (rows.size() > 20) {
+            errors.add(new ProjectBulkValidationError(null, "Rows", "A maximum of 20 projects can be validated or submitted per batch."));
+            return new ProjectBulkValidationResponse(false, errors);
+        }
+
+        Long actorId = loadCurrentUser(authentication).getId();
+        Map<String, Integer> firstRowByCode = new LinkedHashMap<>();
+        Map<String, Integer> firstRowByName = new LinkedHashMap<>();
+        for (int index = 0; index < rows.size(); index++) {
+            ProjectBulkRowRequest bulkRow = rows.get(index);
+            int rowNumber = bulkRow == null || bulkRow.rowNumber() == null ? index + 2 : bulkRow.rowNumber();
+            if (bulkRow == null || bulkRow.project() == null) {
+                errors.add(new ProjectBulkValidationError(rowNumber, "Row", "This row is empty."));
+                continue;
+            }
+            ProjectRequestCreateRequest project = bulkRow.project();
+            for (ConstraintViolation<ProjectRequestCreateRequest> violation : validator.validate(project)) {
+                errors.add(new ProjectBulkValidationError(rowNumber, excelFieldName(violation.getPropertyPath().toString()), violation.getMessage()));
+            }
+            if (project.projectOwnerUserId() != null && !actorId.equals(project.projectOwnerUserId())) {
+                errors.add(new ProjectBulkValidationError(rowNumber, "Project Owner", "Each request must use your own Project Owner account."));
+            }
+
+            String code = project.projectCode() == null ? "" : project.projectCode().trim().toUpperCase(java.util.Locale.ROOT);
+            String name = project.projectName() == null ? "" : project.projectName().trim().toLowerCase(java.util.Locale.ROOT);
+            addBulkDuplicateError(errors, firstRowByCode, rowNumber, "Project Code", code);
+            addBulkDuplicateError(errors, firstRowByName, rowNumber, "Project Name", name);
+
+            try {
+                applyEditableFields(new ErmProjectRequest(), project, true);
+            } catch (ResponseStatusException exception) {
+                errors.add(new ProjectBulkValidationError(rowNumber, "Project", exception.getReason() == null ? "Invalid project details." : exception.getReason()));
+            } catch (RuntimeException exception) {
+                errors.add(new ProjectBulkValidationError(rowNumber, "Project", "Project details could not be validated."));
+            }
+        }
+        return new ProjectBulkValidationResponse(errors.isEmpty(), errors);
+    }
+
+    private void addBulkDuplicateError(List<ProjectBulkValidationError> errors, Map<String, Integer> seen,
+                                       int rowNumber, String field, String value) {
+        if (value.isBlank()) return;
+        Integer firstRow = seen.putIfAbsent(value, rowNumber);
+        if (firstRow != null) {
+            errors.add(new ProjectBulkValidationError(rowNumber, field, "Duplicates the value in row " + firstRow + " of this file."));
+        }
+    }
+
+    private String excelFieldName(String property) {
+        return switch (property) {
+            case "projectName" -> "Project Name";
+            case "projectCode" -> "Project Code";
+            case "clientName" -> "Client Name";
+            case "projectType" -> "Project Type";
+            case "priority" -> "Priority";
+            case "plannedStartDate" -> "Planned Start Date";
+            case "plannedEndDate" -> "Planned End Date";
+            case "budgetAmount" -> "Budget Amount";
+            case "currency" -> "Currency";
+            case "deliveryManagerUserId" -> "Delivery Manager Username";
+            case "projectOwnerUserId" -> "Project Owner Username";
+            case "projectDirectorUserId" -> "Project Director Username";
+            case "projectManagerUserId" -> "Project Manager Username";
+            case "associatedHrUserId" -> "HRBP Username";
+            case "projectStatus" -> "Project Status";
+            case "description" -> "Description";
+            case "riskNotes" -> "Risk Notes";
+            case "comment" -> "Comment";
+            default -> property;
+        };
     }
 
     @Transactional

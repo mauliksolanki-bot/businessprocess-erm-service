@@ -7,6 +7,9 @@ import com.org.erm.dto.request.ProjectChangeRequestCreateRequest;
 import com.org.erm.dto.response.ProjectChangeRequestResponse;
 import com.org.erm.dto.response.ProjectManagerOptionResponse;
 import com.org.erm.dto.request.ProjectRequestCreateRequest;
+import com.org.erm.dto.request.ProjectBulkRowsRequest;
+import com.org.erm.dto.response.ProjectBulkSubmitResponse;
+import com.org.erm.dto.response.ProjectBulkValidationResponse;
 import com.org.erm.dto.response.ProjectRequestResponse;
 import com.org.erm.dto.response.ProjectHrOptionResponse;
 import com.org.erm.dto.request.RequestCommentRequest;
@@ -57,6 +60,23 @@ public class ProjectRequestController {
     public ResponseEntity<ProjectRequestResponse> create(@Valid @RequestBody ProjectRequestCreateRequest request,
                                                          Authentication authentication) {
         return ResponseEntity.status(HttpStatus.CREATED).body(projectRequestService.create(request, authentication));
+    }
+
+    @PostMapping("/bulk/validate")
+    @PreAuthorize("hasAuthority('ROLE_PROJECT_OWNER')")
+    @Operation(summary = "Validate a batch of project requests before submission")
+    public ResponseEntity<ProjectBulkValidationResponse> validateBulk(@RequestBody ProjectBulkRowsRequest request,
+                                                                      Authentication authentication) {
+        return ResponseEntity.ok(projectRequestService.validateBulk(request == null ? null : request.rows(), authentication));
+    }
+
+    @PostMapping("/bulk")
+    @PreAuthorize("hasAuthority('ROLE_PROJECT_OWNER')")
+    @Operation(summary = "Create a batch of project requests")
+    public ResponseEntity<ProjectBulkSubmitResponse> submitBulk(@RequestBody ProjectBulkRowsRequest request,
+                                                                Authentication authentication) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(projectRequestService.submitBulk(request == null ? null : request.rows(), authentication));
     }
 
     @GetMapping
