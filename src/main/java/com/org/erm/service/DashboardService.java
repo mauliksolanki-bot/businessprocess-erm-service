@@ -1,6 +1,7 @@
 package com.org.erm.service;
 
 import com.org.erm.dto.response.DashboardSummaryResponse;
+import com.org.erm.dto.response.HrOverviewDashboardResponse;
 import com.org.erm.dto.response.SelfDashboardResponse;
 import com.org.erm.dto.response.SelfProjectAssignmentResponse;
 import com.org.erm.dto.response.TeamLeadDashboardResponse;
@@ -36,10 +37,20 @@ import java.util.Set;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Locale;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
 
 @Service
 public class DashboardService {
+
+    private static final Set<String> HRBP_ROLE_NAMES = Set.of(
+            "junior hr",
+            "senior hr",
+            "hr head",
+            "head hr",
+            "chro"
+    );
 
     private static final Set<OnboardingWorkflowStage> OPEN_ONBOARDING_STAGES = EnumSet.of(
             OnboardingWorkflowStage.HR_SUBMITTED,
@@ -78,6 +89,85 @@ public class DashboardService {
                 OnboardingWorkflowStage.REJECTED
         ));
         return new DashboardSummaryResponse(totalEmployees, openOnboardingRequests, openEmployeeDataRequests);
+    }
+
+    @Transactional(readOnly = true)
+    public HrOverviewDashboardResponse getHrOverviewDashboard() {
+        List<ErmUser> activeUsers = userRepository.findAllByActiveTrueAndEmploymentStatusIgnoreCaseOrderByFullNameAsc("Active");
+        Map<Long, ErmUser> activeHrbpsById = new LinkedHashMap<>();
+        for (ErmUser user : activeUsers) {
+            if (user.getRoles().stream().anyMatch(role -> HRBP_ROLE_NAMES.contains(role.getName().trim().toLowerCase(Locale.ROOT)))) {
+                activeHrbpsById.put(user.getId(), user);
+            }
+        }
+
+        Map<String, Long> usersByDesignation = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+        Map<Long, Long> employeesByHrbp = new LinkedHashMap<>();
+        activeHrbpsById.keySet().forEach(userId -> employeesByHrbp.put(userId, 0L));
+        long employeesWithoutHrbp = 0;
+
+        for (ErmUser user : activeUsers) {
+            String designation = resolveDashboardDesignation(user);
+            usersByDesignation.merge(designation, 1L, Long::sum);
+            if (activeHrbpsById.containsKey(user.getJuniorHrUserId())) {
+                employeesByHrbp.merge(user.getJuniorHrUserId(), 1L, Long::sum);
+            } else {
+                employeesWithoutHrbp++;
+            }
+        }
+
+        List<HrOverviewDashboardResponse.DesignationUserCount> designationCounts = usersByDesignation.entrySet().stream()
+                .map(entry -> new HrOverviewDashboardResponse.DesignationUserCount(entry.getKey(), entry.getValue()))
+                .toList();
+        List<HrOverviewDashboardResponse.HrBpEmployeeCount> hrbpEmployeeCounts = activeHrbpsById.values().stream()
+                .map(hrbp -> new HrOverviewDashboardResponse.HrBpEmployeeCount(
+                        hrbp.getId(),
+                        displayUserName(hrbp),
+                        hrbp.getUsername(),
+                        resolveHrbpDesignation(hrbp),
+                        employeesByHrbp.getOrDefault(hrbp.getId(), 0L)
+                ))
+                .sorted(Comparator.comparingLong(HrOverviewDashboardResponse.HrBpEmployeeCount::employeeCount).reversed()
+                        .thenComparing(HrOverviewDashboardResponse.HrBpEmployeeCount::fullName, String.CASE_INSENSITIVE_ORDER))
+                .toList();
+        long employeesMappedToHrbp = activeUsers.size() - employeesWithoutHrbp;
+        return new HrOverviewDashboardResponse(
+                activeUsers.size(),
+                employeesMappedToHrbp,
+                employeesWithoutHrbp,
+                designationCounts,
+                hrbpEmployeeCounts
+        );
+    }
+
+    private String resolveDashboardDesignation(ErmUser user) {
+        return user.getRoles().stream()
+                .filter(role -> user.getPrimaryRoleId() != null && user.getPrimaryRoleId().equals(role.getId()))
+                .map(ErmRole::getName)
+                .findFirst()
+                .orElseGet(() -> user.getRoles().stream()
+                        .map(ErmRole::getName)
+                        .sorted(String.CASE_INSENSITIVE_ORDER)
+                        .findFirst()
+                        .orElse("Unassigned"));
+    }
+
+    private String resolveHrbpDesignation(ErmUser user) {
+        return user.getRoles().stream()
+                .filter(role -> user.getPrimaryRoleId() != null && user.getPrimaryRoleId().equals(role.getId()))
+                .map(ErmRole::getName)
+                .filter(roleName -> HRBP_ROLE_NAMES.contains(roleName.trim().toLowerCase(Locale.ROOT)))
+                .findFirst()
+                .orElseGet(() -> user.getRoles().stream()
+                        .map(ErmRole::getName)
+                        .filter(roleName -> HRBP_ROLE_NAMES.contains(roleName.trim().toLowerCase(Locale.ROOT)))
+                        .sorted(String.CASE_INSENSITIVE_ORDER)
+                        .findFirst()
+                        .orElse("HRBP"));
+    }
+
+    private String displayUserName(ErmUser user) {
+        return StringUtils.hasText(user.getFullName()) ? user.getFullName().trim() : user.getUsername();
     }
 
     @Transactional(readOnly = true)
